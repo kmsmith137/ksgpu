@@ -1,4 +1,4 @@
-#Include "../include/ksgpu/Barrier.hpp"
+#include "../include/ksgpu/Barrier.hpp"
 #include "../include/ksgpu/xassert.hpp"
 
 #include <stdexcept>
