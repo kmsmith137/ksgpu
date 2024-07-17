@@ -1,13 +1,13 @@
 #include <sstream>
 #include <iostream>
 
-#include "../include/gputils/Array.hpp"
-#include "../include/gputils/CudaStreamPool.hpp"
-#include "../include/gputils/cuda_utils.hpp"
-#include "../include/gputils/memcpy_kernels.hpp"
+#include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/memcpy_kernels.hpp"
 
 using namespace std;
-using namespace gputils;
+using namespace ksgpu;
 
 
 static void time_memcpy(long nbytes, int ninner, int nouter, int nstreams=1)

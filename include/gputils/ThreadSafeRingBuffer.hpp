@@ -1,5 +1,5 @@
-#ifndef _GPUTILS_THREAD_SAFE_RING_BUFFER_HPP
-#define _GPUTILS_THREAD_SAFE_RING_BUFFER_HPP
+#ifndef _KSGPU_THREAD_SAFE_RING_BUFFER_HPP
+#define _KSGPU_THREAD_SAFE_RING_BUFFER_HPP
 
 #include <mutex>
 #include <vector>
@@ -7,7 +7,7 @@
 
 #include "xassert.hpp"
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -128,6 +128,6 @@ struct ThreadSafeRingBuffer
 
 
 
-}  // namespace gputils
+}  // namespace ksgpu
 
-#endif // _GPUTILS_THREAD_SAFE_RING_BUFFER_HPP
+#endif // _KSGPU_THREAD_SAFE_RING_BUFFER_HPP

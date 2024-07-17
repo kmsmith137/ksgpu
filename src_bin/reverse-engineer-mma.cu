@@ -2,15 +2,15 @@
 #include <sstream>
 #include <iostream>
 
-#include "../include/gputils/Array.hpp"
-#include "../include/gputils/constexpr_functions.hpp"
-#include "../include/gputils/cuda_utils.hpp"
-#include "../include/gputils/device_mma.hpp"
-#include "../include/gputils/test_utils.hpp"
-#include "../include/gputils/xassert.hpp"
+#include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/constexpr_functions.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/device_mma.hpp"
+#include "../include/ksgpu/test_utils.hpp"
+#include "../include/ksgpu/xassert.hpp"
 
 using namespace std;
-using namespace gputils;
+using namespace ksgpu;
 
 
 // -------------------------------------------------------------------------------------------------

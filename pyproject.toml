@@ -3,7 +3,7 @@ build-backend = 'mesonpy'
 requires = [ 'meson-python', 'pybind11', 'numpy' ]
 
 [project]
-name = 'gputils'
+name = 'ksgpu'
 version = '1.0.0'
 dependencies = [ 'pybind11', 'numpy', 'cupy' ]
 description = 'A library of low-level utilities for cuda/cupy'

@@ -1,5 +1,5 @@
-#ifndef _GPUTILS_CUDASTREAMPOOL_HPP
-#define _GPUTILS_CUDASTREAMPOOL_HPP
+#ifndef _KSGPU_CUDASTREAMPOOL_HPP
+#define _KSGPU_CUDASTREAMPOOL_HPP
 
 #include <string>
 #include <vector>
@@ -11,7 +11,7 @@
 #include "cuda_utils.hpp"  // CudaStreamWrapper
 
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -114,6 +114,6 @@ protected:
 };
     
 
-} // namespace gputils
+} // namespace ksgpu
 
-#endif // _GPUTILS_CUDASTREAMPOOL_HPP
+#endif // _KSGPU_CUDASTREAMPOOL_HPP

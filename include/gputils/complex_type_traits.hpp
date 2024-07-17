@@ -1,10 +1,10 @@
-#ifndef _GPUTILS_COMPLEX_TYPE_TRAITS_HPP
-#define _GPUTILS_COMPLEX_TYPE_TRAITS_HPP
+#ifndef _KSGPU_COMPLEX_TYPE_TRAITS_HPP
+#define _KSGPU_COMPLEX_TYPE_TRAITS_HPP
 
 #include <complex>
 #include <type_traits>
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -43,6 +43,6 @@ struct decomplexify_type<std::complex<T>>
 };
 
 
-} // namespace gputils
+} // namespace ksgpu
 
-#endif  // _GPUTILS_COMPLEX_TYPE_TRAITS_HPP
+#endif  // _KSGPU_COMPLEX_TYPE_TRAITS_HPP

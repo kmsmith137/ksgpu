@@ -1,5 +1,5 @@
-#ifndef _GPUTILS_PYBIND11_UTILS_HPP
-#define _GPUTILS_PYBIND11_UTILS_HPP
+#ifndef _KSGPU_PYBIND11_UTILS_HPP
+#define _KSGPU_PYBIND11_UTILS_HPP
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #include <numpy/arrayobject.h>
@@ -8,7 +8,7 @@
 #include "dlpack.h"
 
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }  // editor
 #endif
@@ -18,7 +18,7 @@ namespace gputils {
 // On failure, throws a C++ exception.
 //
 // If the 'debug_prefix' argument is specified, then some debug info will be printed to stdout.
-// This feature is wrapped by gputils.convert_array_from_python(). It is intended as a mechanism
+// This feature is wrapped by ksgpu.convert_array_from_python(). It is intended as a mechanism
 // for tracing/debugging array conversion.
 
 extern void convert_array_from_python(
@@ -37,8 +37,8 @@ extern PyObject *convert_array_to_python(
 
 
 // PybindBasePtr: hack for array C++ -> python conversion.
-// See comments in gputils/src_pybind11/gputils_pybind11_utils.cu
-// Must be visible at compile time in gputils/src_pybind11/gputils_pybind11.cu
+// See comments in ksgpu/src_pybind11/ksgpu_pybind11_utils.cu
+// Must be visible at compile time in ksgpu/src_pybind11/ksgpu_pybind11.cu
 
 struct PybindBasePtr
 {
@@ -103,7 +103,7 @@ template<> struct dlpack_type_code<ushort>                 { static constexpr in
 template<> struct dlpack_type_code<unsigned char>          { static constexpr int value = kDLUInt; };
 
 
-}   // namespace gputils
+}   // namespace ksgpu
 
 
-#endif  // _GPUTILS_PYBIND11_UTILS_HPP
+#endif  // _KSGPU_PYBIND11_UTILS_HPP

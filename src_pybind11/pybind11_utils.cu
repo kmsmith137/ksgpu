@@ -1,18 +1,18 @@
-// For an explanation of NO_IMPORT_ARRAY + PY_ARRAY_UNIQUE_SYMBOL, see comments in gputils_pybind11.cu.
+// For an explanation of NO_IMPORT_ARRAY + PY_ARRAY_UNIQUE_SYMBOL, see comments in ksgpu_pybind11.cu.
 #define NO_IMPORT_ARRAY
-#define PY_ARRAY_UNIQUE_SYMBOL PyArray_API_gputils
+#define PY_ARRAY_UNIQUE_SYMBOL PyArray_API_ksgpu
 
 #include <complex>
 #include <iostream>
 
-#include "../include/gputils/Array.hpp"
-#include "../include/gputils/cuda_utils.hpp"    // CUDA_CALL()
-#include "../include/gputils/string_utils.hpp"  // tuple_str()
-#include "../include/gputils/pybind11_utils.hpp"
+#include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"    // CUDA_CALL()
+#include "../include/ksgpu/string_utils.hpp"  // tuple_str()
+#include "../include/ksgpu/pybind11_utils.hpp"
 
 using namespace std;
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }  // editor auto-indent
 #endif
@@ -165,7 +165,7 @@ static int device_type_to_aflags(DLDeviceType d)
 // then the conversion can be done more efficiently by calling functions in the numpy C-API.
 //
 // If the 'debug_prefix' argument is non-NULL, then some debug info will be printed to stdout.
-// This feature is wrapped by gputils.convert_array_from_python(). It is intended as a mechanism
+// This feature is wrapped by ksgpu.convert_array_from_python(). It is intended as a mechanism
 // for tracing/debugging array conversion.
 
 __attribute__ ((visibility ("default")))
@@ -216,9 +216,9 @@ void convert_array_from_python(
 	PyErr_Clear();
 
 	if (vflag) {
-	    ss << "gputils::convert_array_from_python() received 'dltensor_versioned' object."
+	    ss << "ksgpu::convert_array_from_python() received 'dltensor_versioned' object."
 	       << " This is a planned dlpack feature which isn't implemented yet (in June 2024) in numpy/cupy."
-	       << " Unfortunately some (minor) code changes will be needed in gputils to support it!";
+	       << " Unfortunately some (minor) code changes will be needed in ksgpu to support it!";
 	}
 	else {
 	    ss << "Couldn't convert python argument(s) to a C++ array."
@@ -247,13 +247,13 @@ void convert_array_from_python(
 	     << "   byte_offset: " << t.byte_offset << "\n";
 	
 	cout << debug_prefix << ": dereferencing shape" << endl;
-	cout << "   shape: " << gputils::tuple_str(t.ndim, t.shape, " ") << "\n";
+	cout << "   shape: " << ksgpu::tuple_str(t.ndim, t.shape, " ") << "\n";
 	
 	if (t.strides == nullptr)
 	    cout << debug_prefix << ": strides pointer is null" << endl;
 	else {
 	    cout << debug_prefix << ": dereferencing strides" << endl;
-	    cout << "   strides: " << gputils::tuple_str(t.ndim, t.strides, " ") << "\n";
+	    cout << "   strides: " << ksgpu::tuple_str(t.ndim, t.strides, " ") << "\n";
 	}
     }
     
@@ -287,11 +287,11 @@ void convert_array_from_python(
 	throw pybind11::type_error(ss.str());
     }
     
-    if (ndim > gputils::ArrayMaxDim) {
+    if (ndim > ksgpu::ArrayMaxDim) {
 	stringstream ss;
 	ss << "Couldn't convert python argument to a C++ array."
 	   << " The python argument is an array of dimension " << ndim
-	   << ", and gputils::ArrayMaxDim=" << gputils::ArrayMaxDim;
+	   << ", and ksgpu::ArrayMaxDim=" << ksgpu::ArrayMaxDim;
 
 	throw pybind11::type_error(ss.str());
     }
@@ -325,7 +325,7 @@ void convert_array_from_python(
     base = shared_ptr<void> (src, Py_DecRef);
     Py_INCREF(src);
 
-    gputils::check_array_invariants(data, ndim, shape, size, strides, aflags);
+    ksgpu::check_array_invariants(data, ndim, shape, size, strides, aflags);
 
     if (debug_prefix != nullptr)
 	cout << debug_prefix << ": array converted succesfully" << endl;
@@ -360,11 +360,11 @@ PyObject *convert_array_to_python(
 	return NULL;
     }
 	
-    npy_intp npy_shape[gputils::ArrayMaxDim];
+    npy_intp npy_shape[ksgpu::ArrayMaxDim];
     for (int i = 0; i < ndim; i++)
 	npy_shape[i] = shape[i];
 	
-    npy_intp npy_strides[gputils::ArrayMaxDim];
+    npy_intp npy_strides[ksgpu::ArrayMaxDim];
     for (int i = 0; i < ndim; i++)
 	npy_strides[i] = strides[i] * itemsize;
     
@@ -400,7 +400,7 @@ PyObject *convert_array_to_python(
     //
     // The PybindBasePtr class is a trivial wrapper around shared_ptr<void>, but the
     // wrapper class is exported to python (via a pybind11::class_<> in the top-level
-    // gputils extension module). This allows us to set the numpy 'base' member (which
+    // ksgpu extension module). This allows us to set the numpy 'base' member (which
     // must be a python object) to a PybindBasePtr instance.
     //
     // One nuisance issue: here in the C++ code, we need to convert a PybindBasePtr
@@ -427,4 +427,4 @@ PyObject *convert_array_to_python(
 }
 
 
-}  // namespace gputils
+}  // namespace ksgpu

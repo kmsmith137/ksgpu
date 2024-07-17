@@ -1,7 +1,7 @@
-#include "../include/gputils/test_utils.hpp"
-#include "../include/gputils/complex_type_traits.hpp"  // is_complex_v<T>, decomplexify_type<T>::type
-#include "../include/gputils/rand_utils.hpp"
-#include "../include/gputils/xassert.hpp"
+#include "../include/ksgpu/test_utils.hpp"
+#include "../include/ksgpu/complex_type_traits.hpp"  // is_complex_v<T>, decomplexify_type<T>::type
+#include "../include/ksgpu/rand_utils.hpp"
+#include "../include/ksgpu/xassert.hpp"
 
 #include <cmath>
 #include <complex>
@@ -9,7 +9,7 @@
 
 using namespace std;
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }  // editor auto-indent
 #endif
@@ -244,7 +244,7 @@ void print_array(const Array<T> &arr, const vector<string> &axis_names, std::ost
 
     
 template<typename T>
-typename gputils::decomplexify_type<T>::type
+typename ksgpu::decomplexify_type<T>::type
 assert_arrays_equal(const Array<T> &arr1,
 		    const Array<T> &arr2,
 		    const string &name1,
@@ -371,7 +371,7 @@ void launch_busy_wait_kernel(Array<uint> &arr, double a40_seconds, cudaStream_t 
 
 #define INSTANTIATE_ASSERT_ARRAYS_EQUAL(T)  \
     template				    \
-    gputils::decomplexify_type<T>::type	    \
+    ksgpu::decomplexify_type<T>::type	    \
     assert_arrays_equal(		    \
 	const Array<T> &arr1,	            \
 	const Array<T> &arr2,		    \
@@ -406,4 +406,4 @@ INSTANTIATE_TEMPLATES(complex<double>);
 INSTANTIATE_PRINT_ARRAY(__half);
 
 
-}  // namespace gputils
+}  // namespace ksgpu

@@ -1,7 +1,7 @@
-#ifndef _GPUTILS_MEMCPY_KERNELS_HPP
-#define _GPUTILS_MEMCPY_KERNELS_HPP
+#ifndef _KSGPU_MEMCPY_KERNELS_HPP
+#define _KSGPU_MEMCPY_KERNELS_HPP
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -40,6 +40,6 @@ extern void launch_memcpy_2d_kernel(
 // This could probably be improved further using 128-bit load/store instructions.
 
 
-}  // namespace gputils
+}  // namespace ksgpu
 
-#endif  // _GPUTILS_MEMCPY_KERNELS_HPP
+#endif  // _KSGPU_MEMCPY_KERNELS_HPP

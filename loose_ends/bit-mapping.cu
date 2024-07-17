@@ -13,16 +13,16 @@
 //   [int32+32 C_{ik}]  (r0 r1 r2 r3) <-> (i2 i3 i0 i1)   (t0 t1 t2 t3 t4) <-> (ReIm k0 k1 k2 k3)
 //
 // The current implementation works pretty well, but assumes bit depth 32. Before adding it to
-// gputils, I want to think about how to generalize to bit depth < 32, since this may involve API
+// ksgpu, I want to think about how to generalize to bit depth < 32, since this may involve API
 // changes which aren't backwards compatible.
 
 #include <sstream>
 #include <iostream>
-#include "../include/gputils/Array.hpp"
-#include "../include/gputils/cuda_utils.hpp"
+#include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"
 
 using namespace std;
-using namespace gputils;
+using namespace ksgpu;
 
 
 // -------------------------------------------------------------------------------------------------
@@ -124,7 +124,7 @@ static __device__ void shuffle_V_16_16(int V0[2][4], int V1[2][4], int lane_perm
 // -------------------------------------------------------------------------------------------------
 //
 // General framework for testing shuffle kernels
-// FIXME move to gputils, but first add placeholder for bit_depth, including 2-d source array
+// FIXME move to ksgpu, but first add placeholder for bit_depth, including 2-d source array
 
 
 struct BitMapping

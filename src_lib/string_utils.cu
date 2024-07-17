@@ -1,5 +1,5 @@
-#include "../include/gputils/string_utils.hpp"
-#include "../include/gputils/xassert.hpp"
+#include "../include/ksgpu/string_utils.hpp"
+#include "../include/ksgpu/xassert.hpp"
 
 #include <cstring>
 #include <iomanip>
@@ -8,7 +8,7 @@
 
 using namespace std;
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -110,4 +110,4 @@ long nbytes_from_str(const string &s)
 }
 
 
-}  // namespace gputils
+}  // namespace ksgpu

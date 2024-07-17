@@ -1,15 +1,15 @@
-#include "../include/gputils/memcpy_kernels.hpp"
+#include "../include/ksgpu/memcpy_kernels.hpp"
 
-#include "../include/gputils/Array.hpp"
-#include "../include/gputils/cuda_utils.hpp"
-#include "../include/gputils/test_utils.hpp"
-#include "../include/gputils/string_utils.hpp"
+#include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/test_utils.hpp"
+#include "../include/ksgpu/string_utils.hpp"
 
 #include <iostream>
 
 
 using namespace std;
-using namespace gputils;
+using namespace ksgpu;
 
 
 static void test_memcpy_kernel(long nbytes)

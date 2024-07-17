@@ -1,5 +1,5 @@
-#ifndef _GPUTILS_CPUTHREADPOOL_HPP
-#define _GPUTILS_CPUTHREADPOOL_HPP
+#ifndef _KSGPU_CPUTHREADPOOL_HPP
+#define _KSGPU_CPUTHREADPOOL_HPP
 
 #include <string>
 #include <vector>
@@ -8,7 +8,7 @@
 #include <sys/time.h>
 
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -91,6 +91,6 @@ protected:
 };
     
 
-} // namespace gputils
+} // namespace ksgpu
 
-#endif // _GPUTILS_CPUTHREADPOOL_HPP
+#endif // _KSGPU_CPUTHREADPOOL_HPP

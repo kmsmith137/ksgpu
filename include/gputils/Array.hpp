@@ -1,5 +1,5 @@
-#ifndef _GPUTILS_ARRAY_HPP
-#define _GPUTILS_ARRAY_HPP
+#ifndef _KSGPU_ARRAY_HPP
+#define _KSGPU_ARRAY_HPP
 
 #include <string>
 #include <vector>
@@ -9,7 +9,7 @@
 #include "mem_utils.hpp"  // af_alloc() and flags
 #include "xassert.hpp"    // af_alloc() and flags
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -513,12 +513,12 @@ bool Array<T>::shape_equals(const Array<T2> &a) const
 
 template<typename T> std::string Array<T>::shape_str() const
 {
-    return ::gputils::shape_str(ndim, shape);
+    return ::ksgpu::shape_str(ndim, shape);
 }
 
 template<typename T> std::string Array<T>::stride_str() const
 {
-    return ::gputils::shape_str(ndim, strides);
+    return ::ksgpu::shape_str(ndim, strides);
 }
 
 template<typename T> void Array<T>::check_invariants() const
@@ -619,6 +619,6 @@ inline Array<Tdst> Array<Tsrc>::convert_dtype() const
 }
 
     
-} // namespace gputils
+} // namespace ksgpu
 
-#endif // _GPUTILS_ARRAY_HPP
+#endif // _KSGPU_ARRAY_HPP

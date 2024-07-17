@@ -1,5 +1,5 @@
-#ifndef _GPUTILS_MEM_UTILS_HPP
-#define _GPUTILS_MEM_UTILS_HPP
+#ifndef _KSGPU_MEM_UTILS_HPP
+#define _KSGPU_MEM_UTILS_HPP
 
 #include <string>
 #include <memory>
@@ -8,7 +8,7 @@
 #include "rand_utils.hpp"     // randomize()
 #include "xassert.hpp"
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -144,6 +144,6 @@ inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, long nelts)
 }
 
 
-} // namespace gputils
+} // namespace ksgpu
 
-#endif  // _GPUTILS_MEM_UTILS_HPP
+#endif  // _KSGPU_MEM_UTILS_HPP

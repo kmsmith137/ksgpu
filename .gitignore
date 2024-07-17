@@ -1,5 +1,2 @@
 *~
 *.o
-bin/
-lib/libgputils.a
-lib/libgputils.so

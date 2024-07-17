@@ -1,5 +1,5 @@
-#ifndef _GPUTILS_TEST_UTILS_HPP
-#define _GPUTILS_TEST_UTILS_HPP
+#ifndef _KSGPU_TEST_UTILS_HPP
+#define _KSGPU_TEST_UTILS_HPP
 
 #include <iostream>
 #include "Array.hpp"
@@ -8,7 +8,7 @@
 #include "complex_type_traits.hpp"
 
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -41,7 +41,7 @@ print_array(const Array<T> &arr,
 //    (2) call assert_arrays_equal(..., epsabs=0.01, epsrel=0.005);
 
 template<typename T>
-extern typename gputils::decomplexify_type<T>::type
+extern typename ksgpu::decomplexify_type<T>::type
 assert_arrays_equal(const Array<T> &arr1,
 		    const Array<T> &arr2,
 		    const std::string &name1,
@@ -91,4 +91,4 @@ extern void launch_busy_wait_kernel(Array<uint> &arr, double a40_seconds, cudaSt
 
 }  // namespace test_utils
 
-#endif // _GPUTILS_TEST_UTILS_HPP
+#endif // _KSGPU_TEST_UTILS_HPP

@@ -1,14 +1,14 @@
 // For an explanation of PY_ARRAY_UNIQUE_SYMBOL, see comments later in this source filE.
-#define PY_ARRAY_UNIQUE_SYMBOL PyArray_API_gputils
+#define PY_ARRAY_UNIQUE_SYMBOL PyArray_API_ksgpu
 
-#include "../include/gputils/pybind11.hpp"
-#include "../include/gputils/cuda_utils.hpp"
-#include "../include/gputils/test_utils.hpp"
+#include "../include/ksgpu/pybind11.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/test_utils.hpp"
 #include <iostream>
 
 
 using namespace std;
-using namespace gputils;
+using namespace ksgpu;
 
 namespace py = pybind11;
 
@@ -72,13 +72,13 @@ static void _convert_array_from_python(py::object &obj)
     void *data = nullptr;
     Array<T> value;
 
-    gputils::convert_array_from_python(
+    ksgpu::convert_array_from_python(
         data,                                 // void *&data
 	value.ndim,                           // int &ndim
 	value.shape,                          // long *shape
 	value.strides,                        // long *strides
 	value.size,                           // long &size
-	gputils::dlpack_type_code<T>::value,  // int dlpack_type_code
+	ksgpu::dlpack_type_code<T>::value,  // int dlpack_type_code
 	sizeof(T),                            // int itemsize
 	value.base,                           // std::shared_ptr<void> &base
 	value.aflags,                         // int &aflags
@@ -100,7 +100,7 @@ int get_cuda_device()
 void _launch_busy_wait_kernel(Array<uint> &arr, double a40_sec, long stream_ptr)
 {
     cudaStream_t s = reinterpret_cast<cudaStream_t> (stream_ptr);
-    gputils::launch_busy_wait_kernel(arr, a40_sec, s);
+    ksgpu::launch_busy_wait_kernel(arr, a40_sec, s);
 }
 
 
@@ -116,9 +116,9 @@ struct Stash
 };
 
 
-PYBIND11_MODULE(gputils_pybind11, m)  // extension module gets compiled to gputils_pybind11.so
+PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_pybind11.so
 {
-    m.doc() = "gputils: a library of low-level utilities for cuda/cupy.";
+    m.doc() = "ksgpu: a library of low-level utilities for cuda/cupy.";
 
     // Here is a quick summary of what you should do for import_array():
     //
@@ -127,10 +127,10 @@ PYBIND11_MODULE(gputils_pybind11, m)  // extension module gets compiled to gputi
     //
     //       #define PY_ARRAY_UNIQUE_SYMBOL PyArray_API_{modname}
     //
-    //     where "modname" is e.g. 'gputils' (a per-extension-module string)
+    //     where "modname" is e.g. 'ksgpu' (a per-extension-module string)
     //
     //   - If there are any other source files in the python extension module
-    //     (e.g. gputils/src_pybind11/gputils_pybind11_utils.cu), then those
+    //     (e.g. ksgpu/src_pybind11/ksgpu_pybind11_utils.cu), then those
     //     files should contain (before including any source files):
     //
     //       #define NO_IMPORT_ARRAY
@@ -147,7 +147,7 @@ PYBIND11_MODULE(gputils_pybind11, m)  // extension module gets compiled to gputi
 
     if (_import_array() < 0) {
 	PyErr_Print();
-	PyErr_SetString(PyExc_ImportError, "gputils: numpy.core.multiarray failed to import");
+	PyErr_SetString(PyExc_ImportError, "ksgpu: numpy.core.multiarray failed to import");
 	return;
     }
 

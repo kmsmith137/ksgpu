@@ -2,11 +2,11 @@
 // (Note that the Makefile is set up to compile it.)
 
 //#include <iostream>
-// #include "../include/gputils.hpp"
-#include "../include/gputils/xassert.hpp"
+// #include "../include/ksgpu.hpp"
+#include "../include/ksgpu/xassert.hpp"
 
 using namespace std;
-// using namespace gputils;
+// using namespace ksgpu;
 
 
 int main(int argc, char **argv)

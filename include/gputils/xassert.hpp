@@ -1,10 +1,10 @@
-#ifndef _GPUTILS_XASSERT_HPP
-#define _GPUTILS_XASSERT_HPP
+#ifndef _KSGPU_XASSERT_HPP
+#define _KSGPU_XASSERT_HPP
 
 #include <string>  // std::to_string()
 #include <stdexcept>
 
-// Note: xassert_* macros are implemented with #define, and therefore are outside the gputils namespace.
+// Note: xassert_* macros are implemented with #define, and therefore are outside the ksgpu namespace.
 
 #ifndef _unlikely
 #define _unlikely(cond)  (__builtin_expect(cond,0))
@@ -81,4 +81,4 @@
     } while (0)
 
 
-#endif // _GPUTILS_XASSERT_HPP
+#endif // _KSGPU_XASSERT_HPP

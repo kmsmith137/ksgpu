@@ -1,7 +1,7 @@
-#include "../include/gputils/mem_utils.hpp"
-#include "../include/gputils/cuda_utils.hpp"
-#include "../include/gputils/string_utils.hpp"          // nbytes_to_str()
-#include "../include/gputils/constexpr_functions.hpp"   // constexpr_is_pow2()
+#include "../include/ksgpu/mem_utils.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/string_utils.hpp"          // nbytes_to_str()
+#include "../include/ksgpu/constexpr_functions.hpp"   // constexpr_is_pow2()
 
 #include <cassert>
 #include <sstream>
@@ -10,7 +10,7 @@
 
 using namespace std;
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -30,7 +30,7 @@ inline bool non_single_bit(int x)
 void check_aflags(int flags, const char *where)
 {
     if (!where)
-	where = "gputils::check_aflags()";
+	where = "ksgpu::check_aflags()";
 
     if (_unlikely(flags == 0))
 	throw runtime_error(string(where) + ": af_flags==0 (probably uninitialized)");
@@ -200,7 +200,7 @@ struct alloc_helper {
 	else if (flags & af_rhost)
 	    CUDA_CALL(cudaHostAlloc((void **) &this->base, this->nbytes_allocated, 0));
 	else if (posix_memalign((void **) &this->base, 128, this->nbytes_allocated))
-	    throw std::runtime_error("gputils::alloc(): couldn't allocate " + to_string(nbytes_allocated) + " bytes");
+	    throw std::runtime_error("ksgpu::alloc(): couldn't allocate " + to_string(nbytes_allocated) + " bytes");
 	
 	xassert(base != nullptr);
 	xassert(base != MAP_FAILED);
@@ -388,4 +388,4 @@ void _af_copy(void *dst, int dst_flags, const void *src, int src_flags, long nby
 }
 
 
-}  // namespace gputils
+}  // namespace ksgpu

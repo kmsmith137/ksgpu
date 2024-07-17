@@ -1,17 +1,12 @@
-#include "../include/gputils/Barrier.hpp"
-#include "../include/gputils/xassert.hpp"
+#Include "../include/ksgpu/Barrier.hpp"
+#include "../include/ksgpu/xassert.hpp"
 
 #include <stdexcept>
-
-// Branch predictor hint
-#ifndef _unlikely
-#define _unlikely(cond)  (__builtin_expect(cond,0))
-#endif
 
 using namespace std;
 
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -74,4 +69,4 @@ void Barrier::abort(const string &msg)
 };
 
 
-} // namespace gputils
+} // namespace ksgpu

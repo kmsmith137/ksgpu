@@ -1,17 +1,17 @@
 #include <sstream>
 #include <iostream>
 
-#include "../include/gputils/Array.hpp"
-#include "../include/gputils/CudaStreamPool.hpp"
-#include "../include/gputils/cuda_utils.hpp"
-#include "../include/gputils/device_mma.hpp"
+#include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/device_mma.hpp"
 
 // C++ WMMAs
 #include <mma.h>
 
 using namespace std;
 using namespace nvcuda;
-using namespace gputils;
+using namespace ksgpu;
 
 
 // -------------------------------------------------------------------------------------------------

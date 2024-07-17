@@ -1,8 +1,8 @@
-#include "../include/gputils/rand_utils.hpp"
+#include "../include/ksgpu/rand_utils.hpp"
 
 using namespace std;
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -70,4 +70,4 @@ vector<long> random_integers_with_bounded_product(int n, long bound)
 }
 
 
-} // namespace gputils
+} // namespace ksgpu

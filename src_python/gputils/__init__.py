@@ -1,10 +1,10 @@
 import numpy
 import cupy
 
-# FIXME this makes dir(gputils) look weird, since it consists entirely of ad hoc functions
-# for testing. I'll probably clean this up when there's more python functionality in gputils.
+# FIXME this makes dir(ksgpu) look weird, since it consists entirely of ad hoc functions
+# for testing. I'll probably clean this up when there's more python functionality in ksgpu.
 
-from .gputils_pybind11 import *
+from .ksgpu_pybind11 import *
 
 
 def launch_busy_wait_kernel(arr, a40_seconds):
@@ -17,4 +17,4 @@ def launch_busy_wait_kernel(arr, a40_seconds):
     normalized to "seconds on an NVIDIA A40".
     """
     
-    gputils_pybind11._launch_busy_wait_kernel(arr, a40_seconds, cupy.cuda.get_current_stream().ptr)
+    ksgpu_pybind11._launch_busy_wait_kernel(arr, a40_seconds, cupy.cuda.get_current_stream().ptr)

@@ -1,11 +1,5 @@
 ### GPU C++/CUDA core utils
 
-Install with::
-
-    make install
-
-to install in ``/usr/local``, or::
-
-    make install INSTALL_DIR=/some/other/place
+Some day there will be useful documentation here.
 
 Contact: Kendrick Smith <kmsmith@perimeterinstitute.ca>

@@ -1,5 +1,5 @@
-#include "../include/gputils/cuda_utils.hpp"
-#include "../include/gputils/string_utils.hpp"  // from_str()
+#include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/string_utils.hpp"  // from_str()
 
 #include <random>
 #include <cstring>
@@ -9,7 +9,7 @@
 using namespace std;
 
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -168,4 +168,4 @@ double get_sm_cycles_per_second(int device)
 }
 
 
-} // namespace gputils
+} // namespace ksgpu

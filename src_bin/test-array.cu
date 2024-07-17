@@ -1,10 +1,10 @@
 #include <iostream>
 #include <algorithm>
 
-#include "../include/gputils.hpp"
+#include "../include/ksgpu.hpp"
 
 using namespace std;
-using namespace gputils;
+using namespace ksgpu;
 
 
 // -------------------------------------------------------------------------------------------------

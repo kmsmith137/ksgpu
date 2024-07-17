@@ -1,5 +1,5 @@
-#ifndef _GPUTILS_STRING_UTILS_HPP
-#define _GPUTILS_STRING_UTILS_HPP
+#ifndef _KSGPU_STRING_UTILS_HPP
+#define _KSGPU_STRING_UTILS_HPP
 
 #include <string>
 #include <vector>
@@ -11,7 +11,7 @@
 #include <cxxabi.h>
 #endif
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -140,6 +140,6 @@ extern std::string nbytes_to_str(long nbytes);
 extern long nbytes_from_str(const std::string &s);
 
 
-} // namespace gputils
+} // namespace ksgpu
 
-#endif  // _GPUTILS_STRING_UTILS_HPP
+#endif  // _KSGPU_STRING_UTILS_HPP

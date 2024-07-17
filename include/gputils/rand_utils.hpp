@@ -1,5 +1,5 @@
-#ifndef _GPUTILS_RAND_UTILS_HPP
-#define _GPUTILS_RAND_UTILS_HPP
+#ifndef _KSGPU_RAND_UTILS_HPP
+#define _KSGPU_RAND_UTILS_HPP
 
 #include <vector>
 #include <random>
@@ -10,7 +10,7 @@
 #include "xassert.hpp"
 #include "complex_type_traits.hpp"  // is_complex_v<T>, decomplexify_type<T>::type
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -72,8 +72,8 @@ inline void randomize(T *buf, long nelts, std::mt19937 &rng = default_rng)
 {
     xassert(nelts >= 0);
 
-    if constexpr (gputils::is_complex_v<T>) {
-	using Tr = typename gputils::decomplexify_type<T>::type;
+    if constexpr (ksgpu::is_complex_v<T>) {
+	using Tr = typename ksgpu::decomplexify_type<T>::type;
 	randomize<Tr> (reinterpret_cast<Tr*> (buf), 2*nelts, rng);
     }
     else if constexpr (std::is_floating_point_v<T>)
@@ -162,6 +162,6 @@ extern std::vector<double> random_doubles_with_fixed_sum(int nelts, double sum);
 extern std::vector<long> random_integers_with_bounded_product(int nelts, long bound);
 
     
-} // namespace gputils
+} // namespace ksgpu
 
-#endif // _GPUTILS_RAND_UTILS_HPP
+#endif // _KSGPU_RAND_UTILS_HPP

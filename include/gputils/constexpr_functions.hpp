@@ -1,7 +1,7 @@
-#ifndef _GPUTILS_CONSTEXPR_FUNCTIONS_HPP
-#define _GPUTILS_CONSTEXPR_FUNCTIONS_HPP
+#ifndef _KSGPU_CONSTEXPR_FUNCTIONS_HPP
+#define _KSGPU_CONSTEXPR_FUNCTIONS_HPP
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -51,6 +51,6 @@ constexpr __host__ __device__ T constexpr_max(T m, T n)
 }
 
 
-} // namespace gputils
+} // namespace ksgpu
 
-#endif // _GPUTILS_CONSTEXPR_FUNCTIONS_HPP
+#endif // _KSGPU_CONSTEXPR_FUNCTIONS_HPP

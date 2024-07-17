@@ -1,14 +1,14 @@
-#include "../include/gputils/CudaStreamPool.hpp"
-#include "../include/gputils/cuda_utils.hpp"    // CUDA_CALL(), CudaStreamWrapper
-#include "../include/gputils/time_utils.hpp"    // get_time(), time_since()
-#include "../include/gputils/xassert.hpp"
+#include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"    // CUDA_CALL(), CudaStreamWrapper
+#include "../include/ksgpu/time_utils.hpp"    // get_time(), time_since()
+#include "../include/ksgpu/xassert.hpp"
 
 #include <thread>
 #include <iostream>
 
 using namespace std;
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -193,4 +193,4 @@ void CudaStreamPool::synchronize()
 }
 
 
-}  // namespace gputils
+}  // namespace ksgpu

@@ -1,36 +1,36 @@
 project(
-    'gputils',
+    'ksgpu',
     'cuda',
      default_options: ['python.install_env=auto','optimization=3','debug=false','b_ndebug=false','cpp_std=c++17']
 )
 
 header_files_toplevel = [
-    'include/gputils.hpp'
+    'include/ksgpu.hpp'
 ]
 
-header_files_gputils_subdir = [
-    'include/gputils/Array.hpp',
-    'include/gputils/Barrier.hpp',
-    'include/gputils/CpuThreadPool.hpp',
-    'include/gputils/CudaStreamPool.hpp',
-    'include/gputils/ThreadSafeRingBuffer.hpp',
-    'include/gputils/complex_type_traits.hpp',
-    'include/gputils/constexpr_functions.hpp',
-    'include/gputils/cuda_utils.hpp',
-    'include/gputils/device_mma.hpp',
-    'include/gputils/mem_utils.hpp',
-    'include/gputils/memcpy_kernels.hpp',
-    'include/gputils/rand_utils.hpp',
-    'include/gputils/string_utils.hpp',
-    'include/gputils/test_utils.hpp',
-    'include/gputils/time_utils.hpp',
-    'include/gputils/xassert.hpp',
-    'include/gputils/dlpack.h',
-    'include/gputils/pybind11.hpp',
-    'include/gputils/pybind11_utils.hpp'
+header_files_ksgpu_subdir = [
+    'include/ksgpu/Array.hpp',
+    'include/ksgpu/Barrier.hpp',
+    'include/ksgpu/CpuThreadPool.hpp',
+    'include/ksgpu/CudaStreamPool.hpp',
+    'include/ksgpu/ThreadSafeRingBuffer.hpp',
+    'include/ksgpu/complex_type_traits.hpp',
+    'include/ksgpu/constexpr_functions.hpp',
+    'include/ksgpu/cuda_utils.hpp',
+    'include/ksgpu/device_mma.hpp',
+    'include/ksgpu/mem_utils.hpp',
+    'include/ksgpu/memcpy_kernels.hpp',
+    'include/ksgpu/rand_utils.hpp',
+    'include/ksgpu/string_utils.hpp',
+    'include/ksgpu/test_utils.hpp',
+    'include/ksgpu/time_utils.hpp',
+    'include/ksgpu/xassert.hpp',
+    'include/ksgpu/dlpack.h',
+    'include/ksgpu/pybind11.hpp',
+    'include/ksgpu/pybind11_utils.hpp'
 ]
 
-libgputils_source_files = [
+libksgpu_source_files = [
     'src_lib/Array.cu',
     'src_lib/Barrier.cu',
     'src_lib/CpuThreadPool.cu',
@@ -44,12 +44,12 @@ libgputils_source_files = [
 ]
 
 pyext_source_files = [
-    'src_pybind11/gputils_pybind11.cu',
+    'src_pybind11/ksgpu_pybind11.cu',
     'src_pybind11/pybind11_utils.cu'
 ]
 
 python_files_toplevel = [
-    'src_python/gputils/__init__.py'
+    'src_python/ksgpu/__init__.py'
 ]    
 
 local_executables = [
@@ -118,41 +118,41 @@ numpy_dep = declare_dependency(include_directories: numpy_incdir)
 ################################################################################
 
 
-gputils_lib = library(
-    'gputils',
-    libgputils_source_files,
+ksgpu_lib = library(
+    'ksgpu',
+    libksgpu_source_files,
     cuda_args: cuda_args,
     link_args: link_args,
     install: true,
-    install_dir: py3.get_install_dir() / 'gputils'
+    install_dir: py3.get_install_dir() / 'ksgpu'
 )
 
 py3.extension_module(
-     'gputils_pybind11',   # compiled extension will be named gputils_pybind11.so
+     'ksgpu_pybind11',   # compiled extension will be named ksgpu_pybind11.so
      sources: pyext_source_files,
      dependencies : [pybind11_dep, numpy_dep],
      cuda_args: cuda_args,
      link_args: link_args,
      link_language : 'cuda',
-     link_with: gputils_lib,  # link libgputils.so to gputils_pybind11.so
+     link_with: ksgpu_lib,  # link libksgpu.so to ksgpu_pybind11.so
      override_options: ['cpp_rtti=true'],
-     subdir: 'gputils',
+     subdir: 'ksgpu',
      install: true
 )
 
 py3.install_sources(
     python_files_toplevel,
-    subdir: 'gputils'
+    subdir: 'ksgpu'
 )
 
 py3.install_sources(
     header_files_toplevel,
-    subdir: 'gputils/include'
+    subdir: 'ksgpu/include'
 )
 
 py3.install_sources(
-    header_files_gputils_subdir,
-    subdir: 'gputils/include/gputils'
+    header_files_ksgpu_subdir,
+    subdir: 'ksgpu/include/ksgpu'
 )
 
 foreach x: local_executables
@@ -161,6 +161,6 @@ foreach x: local_executables
         'src_bin/' + x + '.cu',
         cuda_args: cuda_args,
 	link_args: link_args,
-	link_with: gputils_lib
+	link_with: ksgpu_lib
     )
 endforeach

@@ -1,11 +1,11 @@
-#include "../include/gputils/memcpy_kernels.hpp"
-#include "../include/gputils/xassert.hpp"
+#include "../include/ksgpu/memcpy_kernels.hpp"
+#include "../include/ksgpu/xassert.hpp"
 
 #include <iostream>
 #include <stdexcept>
 
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -142,4 +142,4 @@ void launch_memcpy_2d_kernel(void *dst, long dpitch, const void *src, long spitc
 }
 
 
-} // namespace gputils
+} // namespace ksgpu

@@ -1,7 +1,7 @@
 #include <cmath>
 #include <iostream>
 
-#include "../include/gputils/cuda_utils.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"
 
 using namespace std;
 

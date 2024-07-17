@@ -1,6 +1,6 @@
-#include "../include/gputils/Array.hpp"
-#include "../include/gputils/cuda_utils.hpp"    // CUDA_CALL()
-#include "../include/gputils/string_utils.hpp"  // tuple_str()
+#include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"    // CUDA_CALL()
+#include "../include/ksgpu/string_utils.hpp"  // tuple_str()
 
 #include <sstream>
 #include <iostream>
@@ -10,7 +10,7 @@
 using namespace std;
 
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -327,7 +327,7 @@ void fill_helper(void *dst, int dst_ndim, const long *dst_shape, const long *dst
     
     if (!shape_eq(dst_ndim, dst_shape, src_ndim, src_shape)) {
 	stringstream ss;
-	ss << "gputils::Array::fill(): dst_shape=" << shape_str(dst_ndim,dst_shape)
+	ss << "ksgpu::Array::fill(): dst_shape=" << shape_str(dst_ndim,dst_shape)
 	   << " and src_shape=" << shape_str(src_ndim,src_shape) << " are unequal";
 	throw runtime_error(ss.str());
     }
@@ -405,4 +405,4 @@ void fill_helper(void *dst, int dst_ndim, const long *dst_shape, const long *dst
 }
 
 
-}  // namespace gputils
+}  // namespace ksgpu

@@ -1,11 +1,11 @@
-#ifndef _GPUTILS_BARRIER_HPP
-#define _GPUTILS_BARRIER_HPP
+#ifndef _KSGPU_BARRIER_HPP
+#define _KSGPU_BARRIER_HPP
 
 #include <mutex>
 #include <string>
 #include <condition_variable>
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -39,6 +39,6 @@ struct Barrier
 };
 
 
-}  // namespace gputils
+}  // namespace ksgpu
 
-#endif // _GPUTILS_BARRIER_HPP
+#endif // _KSGPU_BARRIER_HPP

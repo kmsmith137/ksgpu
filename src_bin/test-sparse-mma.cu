@@ -10,10 +10,10 @@
 //                                  const __half2 c[2], uint e);
 
 #include <iostream>
-#include "../include/gputils.hpp"
+#include "../include/ksgpu.hpp"
 
 using namespace std;
-using namespace gputils;
+using namespace ksgpu;
 
 
 // -------------------------------------------------------------------------------------------------

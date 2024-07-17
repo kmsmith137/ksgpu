@@ -2,13 +2,13 @@
 #include <curand.h>
 #include <curand_kernel.h>
 
-#include "../include/gputils/Array.hpp"
-#include "../include/gputils/CudaStreamPool.hpp"
-#include "../include/gputils/cuda_utils.hpp"
-#include "../include/gputils/mem_utils.hpp"
+#include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/mem_utils.hpp"
 
 using namespace std;
-using namespace gputils;
+using namespace ksgpu;
 
 using curand_state_t = curandStateXORWOW_t;
 // using curand_state_t = curandStateMRG32k3a_t;   // around 4x slower than XORWOW

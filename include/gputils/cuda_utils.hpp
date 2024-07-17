@@ -1,14 +1,14 @@
-#ifndef _GPUTILS_CUDA_UTILS_HPP
-#define _GPUTILS_CUDA_UTILS_HPP
+#ifndef _KSGPU_CUDA_UTILS_HPP
+#define _KSGPU_CUDA_UTILS_HPP
 
 #include <memory>
 #include <stdexcept>
 
 
 // Note: CUDA_CALL(), CUDA_PEEK(), and CUDA_CALL_ABORT() are implemented with #define,
-// and therefore are outside the gputils namespace.
+// and therefore are outside the ksgpu namespace.
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -46,7 +46,7 @@ namespace gputils {
     do { \
 	cudaError_t xerr = (x); \
 	if (_unlikely(xerr != cudaSuccess)) \
-	    throw ::gputils::make_cuda_exception(xerr, xstr, file, line); \
+	    throw ::ksgpu::make_cuda_exception(xerr, xstr, file, line); \
     } while (0)
 
 #define _CUDA_CALL_ABORT(x, xstr, file, line) \
@@ -193,7 +193,7 @@ extern void set_device_from_command_line(int argc, char **argv);
 extern double get_sm_cycles_per_second(int device=0);
 
 
-} // namespace gputils
+} // namespace ksgpu
 
 
-#endif // _GPUTILS_CUDA_UTILS_HPP
+#endif // _KSGPU_CUDA_UTILS_HPP

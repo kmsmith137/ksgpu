@@ -1,13 +1,13 @@
-#include "../include/gputils/CpuThreadPool.hpp"
-#include "../include/gputils/time_utils.hpp"    // get_time(), time_since()
-#include "../include/gputils/xassert.hpp"
+#include "../include/ksgpu/CpuThreadPool.hpp"
+#include "../include/ksgpu/time_utils.hpp"    // get_time(), time_since()
+#include "../include/ksgpu/xassert.hpp"
 
 #include <thread>
 #include <iostream>
 
 using namespace std;
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -154,4 +154,4 @@ void CpuThreadPool::_show_timings(int ncb, double ttot)
 }
 
 
-}  // namespace gputils
+}  // namespace ksgpu

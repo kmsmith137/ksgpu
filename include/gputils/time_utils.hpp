@@ -1,10 +1,10 @@
-#ifndef _GPUTILS_TIME_UTILS_HPP
-#define _GPUTILS_TIME_UTILS_HPP
+#ifndef _KSGPU_TIME_UTILS_HPP
+#define _KSGPU_TIME_UTILS_HPP
 
 #include <stdexcept>
 #include <sys/time.h>
 
-namespace gputils {
+namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
@@ -34,9 +34,6 @@ inline double time_since(const struct timeval &t0)
 }
 
 
-// Note: gputils/system_utils.hpp defines
-//  extern void usleep_x(long usec);
+}  // namespace ksgpu
 
-}  // namespace gputils
-
-#endif // _GPUTILS_TIME_UTILS_HPP
+#endif // _KSGPU_TIME_UTILS_HPP
