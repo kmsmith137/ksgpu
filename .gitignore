@@ -1,2 +1,8 @@
 *~
 *.o
+bin/
+lib/libgputils.a
+lib/libgputils.so
+src_python/ksgpu/__pycache__/
+src_python/ksgpu/ksgpu_pybind11.so
+src_python/ksgpu/libksgpu.so
