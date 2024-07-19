@@ -2,8 +2,8 @@
 
 Install with::
 
-    make install
+    make -j install
 
-to install in python site-packages.
+to install in python `site-packages`.
 
 Contact: Kendrick Smith <kmsmith@perimeterinstitute.ca>
