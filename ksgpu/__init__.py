@@ -1,8 +1,20 @@
+import os
+import ctypes
+import distutils.sysconfig
 import numpy
+
+# Equivalent to 'python3-config --extension-suffix'
+ext_suffix = distutils.sysconfig.get_config_var('EXT_SUFFIX')
+
+libksgpu_filename = os.path.join(os.path.dirname(__file__), 'lib', 'libksgpu.so')
+ctypes.CDLL(libksgpu_filename, mode = ctypes.RTLD_GLOBAL)
+
+libksgpu_pybind11_filename = os.path.join(os.path.dirname(__file__), 'ksgpu_pybind11' + ext_suffix)
+ctypes.CDLL(libksgpu_pybind11_filename, mode = ctypes.RTLD_GLOBAL)
+
 
 # FIXME this makes dir(ksgpu) look weird, since it consists entirely of ad hoc functions
 # for testing. I'll probably clean this up when there's more python functionality in ksgpu.
-
 from .ksgpu_pybind11 import *
 
 def launch_busy_wait_kernel(arr, a40_seconds):
