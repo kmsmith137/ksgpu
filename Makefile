@@ -62,7 +62,7 @@ include makefile_helper.out
 KSGPU_LIB := lib/libksgpu.so
 KSGPU_PYEXT = ksgpu/ksgpu_pybind11$(PYEXT_SUFFIX)
 
-# These get compiled into ksgpu/lib/libksgpu.so
+# These get compiled into lib/libksgpu.so
 LIB_SRCFILES := \
   src_lib/Array.cu \
   src_lib/Barrier.cu \
@@ -208,7 +208,7 @@ wheel_files.txt: Makefile ksgpu/include ksgpu/lib
 	for f in $(WHEEL_FILES); do echo $$f; done >>$@
 
 # Needed by pip/pipmake: list of all files that go into the sdist.
-sdist_files.txt:
+sdist_files.txt: Makefile
 	for f in $(SDIST_FILES); do echo $$f; done >>$@
 
 clean:

@@ -46,7 +46,7 @@ print(f"PYEXT_SUFFIX = {pyext_suffix}", file=s)
 
 s = s.getvalue()
 outfile = 'makefile_helper.out'
-# print(f'makefile_helper: writing {outfile}')
+print(f'Writing {outfile}')
 
 with open(outfile,'w') as f:
     print(s, file=f, end='')
