@@ -96,12 +96,20 @@ struct Array {
     inline Array<T> slice(int axis, int start, int stop) const;
     inline Array<T> slice(int axis, int ix) const;   // returns array of dimension (ndim-1)
 
+    // The new Arrays returned by transpose() contain references (not copies)
+    // to data in the original Array.
+    //
+    // FIXME transpose() hasn't been systematically tested.
+
+    inline Array<T> transpose(const int *perm) const;
+    inline Array<T> transpose(const std::vector<int> &perm) const;
+    inline Array<T> transpose(std::initializer_list<int> ix) const;
 
     // Reshape-by-reference. Throws an exception if either (1) requested shape
     // is incompatible with the current shape; (2) current strides don't permit
     // axes to be combined without copying.
     //
-    // FIXME reshape_ref() hasn't been systematically tested, and should be!
+    // FIXME reshape_ref() hasn't been systematically tested.
 
     inline Array<T> reshape_ref(int ndim, const long *shape) const;
     inline Array<T> reshape_ref(const std::vector<long> &shape) const;
@@ -415,6 +423,50 @@ Array<T> Array<T>::slice(int axis, int start, int stop) const
 
     ret.data = data + (start * strides[axis]);
     return ret;
+}
+
+
+template<typename T>
+inline Array<T> Array<T>::transpose(const int *perm) const
+{
+    Array<T> ret;
+    ret.ndim = this->ndim;
+    ret.data = this->data;
+    ret.size = this->size;
+    ret.base = this->base;
+    ret.aflags = this->aflags;
+
+    bool flags[ArrayMaxDim];
+
+    for (int d = 0; d < ArrayMaxDim; d++)
+        flags[d] = false;
+
+    for (int d = 0; d < ndim; d++) {
+        int p = perm[d];
+        xassert((p >= 0) && (p < ndim));
+        xassert(!flags[p]);   // if fails, then 'perm' is not a permutation
+
+        ret.shape[d] = this->shape[p];
+        ret.strides[d] = this->strides[p];
+        flags[p] = true;
+    }
+
+    ret.check_invariants();
+    return ret;
+}
+
+template<typename T>
+inline Array<T> Array<T>::transpose(const std::vector<int> &perm) const
+{
+    xassert(ssize_t(perm.size()) == ndim);
+    return this->transpose(&perm[0]);
+}
+
+template<typename T>
+inline Array<T> Array<T>::transpose(std::initializer_list<int> perm) const
+{
+    xassert(perm.size() == ndim);
+    return this->transpose(perm.begin());
 }
 
 
