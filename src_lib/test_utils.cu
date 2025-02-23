@@ -400,6 +400,7 @@ INSTANTIATE_TEMPLATES(ushort);
 INSTANTIATE_TEMPLATES(unsigned char);
 INSTANTIATE_TEMPLATES(complex<float>);
 INSTANTIATE_TEMPLATES(complex<double>);
+INSTANTIATE_TEMPLATES(complex<int>);
 
 // FIXME implement assert_arrays_equal<__half>().
 // In the meantime, I'm instantiating print_array<__half>(), but not assert_arrays_equal<__half>().
