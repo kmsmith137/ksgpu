@@ -48,10 +48,12 @@ NVCC_ARCH ?= $(DEFAULT_NVCC_ARCH)
 # PYEXT_SUFFIX is something like .cpython-312-x86_64-linux-gnu.so.
 
 
+ifneq ($(MAKECMDGOALS),clean)
+  include makefile_helper.out
+endif
+
 makefile_helper.out: makefile_helper.py Makefile
 	$(PYTHON) makefile_helper.py
-
-include makefile_helper.out
 
 
 ####################################################################################################
