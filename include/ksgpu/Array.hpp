@@ -458,14 +458,14 @@ inline Array<T> Array<T>::transpose(const int *perm) const
 template<typename T>
 inline Array<T> Array<T>::transpose(const std::vector<int> &perm) const
 {
-    xassert(ssize_t(perm.size()) == ndim);
+    xassert(long(perm.size()) == ndim);
     return this->transpose(&perm[0]);
 }
 
 template<typename T>
 inline Array<T> Array<T>::transpose(std::initializer_list<int> perm) const
 {
-    xassert(perm.size() == ndim);
+    xassert(long(perm.size()) == ndim);
     return this->transpose(perm.begin());
 }
 
