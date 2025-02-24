@@ -1,6 +1,6 @@
 import os
 import ctypes
-import distutils.sysconfig
+import sysconfig
 import numpy
 
 
@@ -15,7 +15,7 @@ import numpy
 
 
 # Equivalent to 'python3-config --extension-suffix'
-ext_suffix = distutils.sysconfig.get_config_var('EXT_SUFFIX')
+ext_suffix = sysconfig.get_config_var('EXT_SUFFIX')
 
 libksgpu_filename = os.path.join(os.path.dirname(__file__), 'lib', 'libksgpu.so')
 ctypes.CDLL(libksgpu_filename, mode = ctypes.RTLD_GLOBAL)
