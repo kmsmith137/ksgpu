@@ -207,10 +207,12 @@ $(KSGPU_PYEXT): $(PYEXT_OFILES) $(KSGPU_LIB) ksgpu/lib
 
 # Needed by pip/pipmake: list of all files that go into the (non-editable) wheel.
 wheel_files.txt: Makefile ksgpu/include ksgpu/lib
+	rm -f $@
 	for f in $(WHEEL_FILES); do echo $$f; done >>$@
 
 # Needed by pip/pipmake: list of all files that go into the sdist.
 sdist_files.txt: Makefile
+	rm -f $@
 	for f in $(SDIST_FILES); do echo $$f; done >>$@
 
 clean:
