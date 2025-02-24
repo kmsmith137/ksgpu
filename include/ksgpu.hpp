@@ -19,9 +19,6 @@
 // CpuThreadPool: run multiple CPU threads with dynamic load-balancing, intended for timing.
 #include "ksgpu/CpuThreadPool.hpp"
 
-// ThreadSafeRingBuffer<T>: pass data between producer/consumer threads.
-#include "ksgpu/ThreadSafeRingBuffer.hpp"
-
 // is_complex_v<T>, decomplexify_type<T>::type
 #include "ksgpu/complex_type_traits.hpp"
 
