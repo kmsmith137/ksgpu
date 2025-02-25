@@ -179,7 +179,7 @@ struct alloc_helper {
     alloc_helper(long nbytes, int flags_) :
 	nbytes_requested(nbytes), flags(flags_)
     {
-	check_aflags(flags, "af_alloc");
+	// check_aflags() has already been called by _af_alloc().
 	
 	long g = (flags & af_guard) ? nguard : 0;
 	this->nbytes_allocated = nbytes_requested + 2*g;
@@ -346,28 +346,53 @@ struct alloc_helper {
 };
 
 
-// Handles all flags except 'af_random'
-shared_ptr<void> _af_alloc(long nbytes, int flags)
+shared_ptr<void> _af_alloc(const Dtype &dtype, long nelts, int flags)
 {
+    check_aflags(flags, "af_alloc");
+    _check_dtype_valid(dtype, "_af_alloc");
+
+    xassert(nelts >= 0);
+    long nbits = nelts * dtype.nbits;
+    long nbytes = (nbits + 7) >> 3;
+
+    // Allocate bare pointer (h.data).
+    // Shared_ptr will be created later (see below).
     alloc_helper h(nbytes, flags);
 
-    // Keep this part in sync with "Step 1: allocate memory..."
-    // in 'struct alloc_helper' above.
+    // Now create shared_ptr.
+    // Warning: this part must be kept in sync by with "Step 1: allocate memory..."
+    // in 'struct alloc_helper' above (by hand).
+
+    shared_ptr<void> ret;
     
-    if (flags & (af_guard | af_verbose | af_mmap_flags)) {
-	
+    if (flags & (af_guard | af_verbose | af_mmap_flags)) {	
 	// In these cases, shared_ptr deletion logic is complicated enough that
 	// we need alloc_helper::operator(). In remaining cases, we can use a
-	// simple deleter (cudaFree(), cudaFreeHost(), free()).
-	
-	return shared_ptr<void> (h.data, h);
+	// simple deleter (cudaFree(), cudaFreeHost(), or free()).
+	ret = shared_ptr<void> (h.data, h);
     }
     else if (flags & (af_gpu | af_unified))
-	return shared_ptr<void> (h.data, cudaFree);
+	ret = shared_ptr<void> (h.data, cudaFree);
     else if (flags & af_rhost)
-	return shared_ptr<void> (h.data, cudaFreeHost);
+	ret = shared_ptr<void> (h.data, cudaFreeHost);
     else
-	return shared_ptr<void> (h.data, free);
+	ret = shared_ptr<void> (h.data, free);
+
+    // Preceding logic handles all flags except 'af_random'.
+    if (!(flags & af_random))
+        return ret;
+
+    if (!(flags & af_gpu)) {
+        _randomize(dtype, ret.get(), nelts);
+        return ret;
+    }
+    
+    // FIXME slow, memory-intensive way of randomizing array on GPU, by randomizing on CPU
+    // and copying. It would be better to launch a kernel to randomize directly on GPU.
+
+    shared_ptr<void> host = _af_alloc(dtype, nelts, af_rhost | af_random);         // note af_random
+    CUDA_CALL(cudaMemcpy(ret.get(), host.get(), nbytes, cudaMemcpyHostToDevice));  // note nbytes, not nelts
+    return ret;
 }
 
 
