@@ -3,12 +3,10 @@
 
 #include <vector>
 #include <random>
-#include <complex>
 #include <type_traits>
-#include <cuda_fp16.h>
 
+#include "Dtype.hpp"
 #include "xassert.hpp"
-#include "complex_type_traits.hpp"  // is_complex_v<T>, decomplexify_type<T>::type
 
 namespace ksgpu {
 #if 0
@@ -16,6 +14,22 @@ namespace ksgpu {
 #endif
 
 extern std::mt19937 default_rng;
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+// _randomize(): randomizes a buffer whose dtype is specified at runtime.
+extern void _randomize(const Dtype &dtype, void *buf, long nelts, std::mt19937 &rng = default_rng);
+
+
+// randomize(): randomize a buffer whose type T is specified at compile time.
+template<typename T>
+inline void randomize(T *buf, long nelts, std::mt19937 &rng = default_rng)
+{
+    static_assert(!std::is_void_v<T>, "randomize(): if T=void, then you must call _randomize() instead");
+    _randomize(Dtype::native<T>(), buf, nelts, rng);
+}
 
 
 // -------------------------------------------------------------------------------------------------
@@ -32,87 +46,6 @@ inline float rand_uniform(float lo=0.0, float hi=1.0, std::mt19937 &rng = defaul
 {
     return std::uniform_real_distribution<float>(lo,hi) (rng);
 }
-
-
-// -------------------------------------------------------------------------------------------------
-
-
-// Version of randomize() for floating-point types
-template<typename T>
-inline void randomize_f(T *buf, long nelts, std::mt19937 &rng = default_rng)
-{
-    static_assert(std::is_floating_point_v<T>);
-
-    auto dist = std::uniform_real_distribution<T>(-1.0, 1.0);    
-    for (long i = 0; i < nelts; i++)
-	buf[i] = dist(rng);
-}
-
-
-// Version of randomize() for integral types
-template<typename T>
-inline void randomize_i(T *buf, long nelts, std::mt19937 &rng = default_rng)
-{
-    static_assert(std::is_integral_v<T>);
-
-    long nbytes = nelts * sizeof(T);
-    long nints = nbytes / sizeof(int);
-    
-    for (long i = 0; i < nints; i++)
-	((int *)buf)[i] = rng();
-    for (long i = nints * sizeof(int); i < nbytes; i++)
-	((char *)buf)[i] = rng();
-}
-
-
-// General randomize() template, for built-in C++ int/float types.
-// For CUDA __half and __half2, we need specializations (see below).
-template<typename T>
-inline void randomize(T *buf, long nelts, std::mt19937 &rng = default_rng)
-{
-    xassert(nelts >= 0);
-
-    if constexpr (ksgpu::is_complex_v<T>) {
-	using Tr = typename ksgpu::decomplexify_type<T>::type;
-	randomize<Tr> (reinterpret_cast<Tr*> (buf), 2*nelts, rng);
-    }
-    else if constexpr (std::is_floating_point_v<T>)
-	randomize_f(buf, nelts, rng);
-    else {
-	static_assert(std::is_integral_v<T>, "randomize() array must be either integral, floating-point, or complex type");
-	randomize_i(buf, nelts, rng);
-    }
-}
-
-
-// __half randomize() template specialization.
-template<>
-inline void randomize(__half *buf, long nelts, std::mt19937 &rng)
-{
-    xassert(nelts >= 0);    
-    auto dist = std::uniform_real_distribution<float>(-1.0f, 1.0f);
-    
-    for (long i = 0; i < nelts; i++)
-	buf[i] = __float2half_rn(dist(rng));
-}
-
-
-// __half2 randomize() template specialization.
-template<>
-inline void randomize(__half2 *buf, long nelts, std::mt19937 &rng)
-{
-    xassert(nelts >= 0);
-    auto dist = std::uniform_real_distribution<float>(-1.0f, 1.0f);
-    
-    for (long i = 0; i < nelts; i++) {
-	float x = dist(rng);
-	float y = dist(rng);
-	buf[i] = __floats2half2_rn(x,y);
-    }
-}
-
-
-// -------------------------------------------------------------------------------------------------
 
 
 template<typename T>
@@ -156,6 +89,7 @@ inline T rand_element(const std::initializer_list<T> v, std::mt19937 &rng = defa
 }
 
 
+// Intended as a helper for random_integers_with_bounded_product(), but may be independently useful.
 extern std::vector<double> random_doubles_with_fixed_sum(int nelts, double sum);
 
 // Useful in unit tests, when generating randomly-sized arrays.

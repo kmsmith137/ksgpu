@@ -7,7 +7,78 @@ namespace ksgpu {
 }   // pacify editor auto-indent
 #endif
 
+
 std::mt19937 default_rng(137);
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+// Version of randomize() for floating-point types T=float, T=double.
+template<typename T>
+inline void _randomize_f(T *buf, long nelts, std::mt19937 &rng = default_rng)
+{
+    static_assert(std::is_floating_point_v<T>);
+
+    auto dist = std::uniform_real_distribution<T>(-1.0, 1.0);    
+    for (long i = 0; i < nelts; i++)
+	buf[i] = dist(rng);
+}
+
+// Version of randomize() for T=__half.
+template<>
+inline void _randomize_f(__half *buf, long nelts, std::mt19937 &rng)
+{
+    auto dist = std::uniform_real_distribution<float>(-1.0f, 1.0f);    
+    for (long i = 0; i < nelts; i++)
+	buf[i] = __float2half_rn(dist(rng));
+}
+
+
+void _randomize(const Dtype &dtype, void *buf, long nelts, std::mt19937 &rng)
+{
+    _check_dtype_valid(dtype, "randomize");
+    
+    xassert(nelts >= 0);
+    xassert((nelts == 0) || (buf != nullptr));
+
+    if (nelts == 0)
+	return;
+
+    if (dtype.flags & (df_int | df_uint)) {
+	// Ignore details of dtype, and generate the correct number of random bits.
+	// Note: this code is still correct if dtype is a complex type.
+	
+	long nbits = nelts * dtype.nbits;
+	long nbytes = (nbits + 7) >> 3;
+	long nints = nbytes / sizeof(int);
+
+	for (long i = 0; i < nints; i++)
+	    ((int *)buf)[i] = rng();
+	for (long i = nints * sizeof(int); i < nbytes; i++)
+	    ((char *)buf)[i] = rng();
+	
+	return;
+    }
+    
+    xassert(dtype.flags & df_float);
+
+    bool is_complex = (dtype.flags & df_complex);
+    long re_nelts = is_complex ? (nelts << 1) : (nelts);
+    long re_nbits = is_complex ? (dtype.nbits >> 1) : (dtype.nbits);
+
+    if (re_nbits == (8 * sizeof(float)))
+	_randomize_f<float> ((float *) buf, re_nelts, rng);
+    else if (re_nbits == (8 * sizeof(double)))
+	_randomize_f<double> ((double *) buf, re_nelts, rng);
+    else if (re_nbits == (8 * sizeof(__half)))
+	_randomize_f<__half> ((__half *) buf, re_nelts, rng);
+    else
+	throw std::runtime_error("randomize() not implemented for " + dtype.str());
+}
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 vector<double> random_doubles_with_fixed_sum(int n, double sum)
