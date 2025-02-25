@@ -19,6 +19,9 @@
 // CpuThreadPool: run multiple CPU threads with dynamic load-balancing, intended for timing.
 #include "ksgpu/CpuThreadPool.hpp"
 
+// Dtype class (used in Array)
+#include "ksgpu/Dtype.hpp"
+
 // is_complex_v<T>, decomplexify_type<T>::type
 #include "ksgpu/complex_type_traits.hpp"
 

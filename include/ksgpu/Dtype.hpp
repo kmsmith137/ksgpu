@@ -25,7 +25,7 @@ static constexpr unsigned short df_complex = 0x8;
 
 struct Dtype
 {
-    // Note: we don't currently support simd types (e.g. __half2).
+    // Note: we don't currently support simd types (e.g. cuda __half2).
     unsigned short flags = 0;
     unsigned short nbits = 0;   // for complex types, includes factor 2
     
@@ -48,6 +48,33 @@ struct Dtype
 
 
 extern std::ostream &operator<<(std::ostream &os, const Dtype &dt);
+
+
+inline void _check_dtype_valid(const Dtype &dtype, const char *where)
+{
+    if (!dtype.is_valid()) {
+	std::stringstream ss;
+	ss << where << ": got " << dtype;
+	throw std::runtime_error(ss.str());
+    }
+}
+
+// Checks for consistency between 'dtype' and native C++ type T.
+// (If T==void, then checks validity of 'dtype'.)
+template<typename T>
+inline void _check_dtype(const Dtype &dtype, const char *where)
+{
+    if constexpr (!std::is_void_v<T>) {
+	Dtype dt_expected = Dtype::native<T>();
+	if (dtype != dt_expected) {
+	    std::stringstream ss;
+	    ss << where << ": got dtype " << dtype << ", expected dtype " << dt_expected;
+	    throw std::runtime_error(ss.str());
+	}
+    }
+    else  // T==void
+	_check_dtype_valid(dtype, where);
+}
 
 
 // -------------------------------------------------------------------------------------------------
