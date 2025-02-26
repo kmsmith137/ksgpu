@@ -95,7 +95,7 @@ inline bool Dtype::is_valid() const
 }
 
 
-Dtype::Dtype(unsigned short flags_, unsigned short nbits_) :
+inline Dtype::Dtype(unsigned short flags_, unsigned short nbits_) :
     flags(flags_), nbits(nbits_)
 {
     if (!is_valid())

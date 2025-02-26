@@ -351,6 +351,9 @@ shared_ptr<void> _af_alloc(const Dtype &dtype, long nelts, int flags)
     check_aflags(flags, "af_alloc");
     _check_dtype_valid(dtype, "_af_alloc");
 
+    if (nelts == 0)
+	return shared_ptr<void> ();
+	
     xassert(nelts >= 0);
     long nbits = nelts * dtype.nbits;
     long nbytes = (nbits + 7) >> 3;

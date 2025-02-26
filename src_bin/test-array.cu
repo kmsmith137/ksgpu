@@ -58,14 +58,16 @@ struct RandomlyStridedArray {
 	memcpy(cbase_copy.get(), cbase.get(), cbase_len * sizeof(T));
 
 	arr.data = cbase.get();
+	arr.dtype = Dtype::native<T>();
 	arr.ndim = ndim;
 	arr.base = cbase;
-	arr.size = compute_size(ndim, &shape[0]);
 	arr.aflags = af_rhost;
+	arr.size = 1;
 	
 	for (int d = 0; d < ArrayMaxDim; d++) {
 	    arr.shape[d] = (d < ndim) ? shape[d] : 0;
 	    arr.strides[d] = (d < ndim) ? strides[d] : 0;
+	    arr.size *= ((d < ndim) ? shape[d] : 1);
 	}
 
 	arr.check_invariants();
@@ -315,20 +317,20 @@ struct FillTestInstance {
 
 // -------------------------------------------------------------------------------------------------
 //
-// test_reshape_ref()
+// test_reshape()
 //
-// FIXME it would be nice to test that reshape_ref() correctly throws an exception,
+// FIXME it would be nice to test that reshape() correctly throws an exception,
 // in cases where it should fail.
 
 
 template<typename T>
-static void test_reshape_ref(const vector<long> &dst_shape,
+static void test_reshape(const vector<long> &dst_shape,
 			     const vector<long> &src_shape,
 			     const vector<long> &src_strides,
 			     bool noisy=false)
 {
     if (noisy) {
-	cout << "test_reshape_ref: dst_shape=" << tuple_str(dst_shape)
+	cout << "test_reshape: dst_shape=" << tuple_str(dst_shape)
 	     << ", src_shape=" << tuple_str(src_shape)
 	     << ", src_strides=" << tuple_str(src_strides)
 	     << endl;
@@ -336,7 +338,7 @@ static void test_reshape_ref(const vector<long> &dst_shape,
 
     // Note: src array is uninitialized, but that's okay since we compare array addresses (not contents) below.
     Array<T> src(src_shape, src_strides, af_uhost);
-    Array<T> dst = src.reshape_ref(dst_shape);
+    Array<T> dst = src.reshape(dst_shape);
 
     auto src_ix = src.ix_start();
     auto dst_ix = dst.ix_start();
@@ -361,11 +363,11 @@ static void test_reshape_ref(const vector<long> &dst_shape,
 
 
 template<typename T>
-static void test_reshape_ref(bool noisy=false)
+static void test_reshape(bool noisy=false)
 {
     vector<long> dshape, sshape, sstrides;
     make_random_reshape_compatible_shapes(dshape, sshape, sstrides);
-    test_reshape_ref<T> (dshape, sshape, sstrides, noisy);
+    test_reshape<T> (dshape, sshape, sstrides, noisy);
 }
 
 
@@ -441,7 +443,7 @@ static void run_all_tests(bool noisy)
     ft.noisy = noisy;
     ft.run();
 
-    test_reshape_ref<T> (noisy);
+    test_reshape<T> (noisy);
 }
 
 

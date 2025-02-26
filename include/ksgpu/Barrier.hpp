@@ -12,6 +12,7 @@ namespace ksgpu {
 
 
 // Barrier: synchronization point between N threads
+// (Note that std::barrier was introduced in C++20, but I'm still on C++17.)
 
 struct Barrier
 {        

@@ -221,8 +221,8 @@ struct Array {
 
 extern int array_get_ncontig(const Array<void> &arr);
 extern void array_fill(Array<void> &dst, const Array<void> &src, bool noisy=false);
-extern void array_slice(Array<void> &dst, const Array<void> &src, int axis, int ix);
-extern void array_slice(Array<void> &dst, const Array<void> &src, int axis, int start, int stop);
+extern void array_slice(Array<void> &dst, const Array<void> &src, int axis, long ix);
+extern void array_slice(Array<void> &dst, const Array<void> &src, int axis, long start, long stop);
 extern void array_transpose(Array<void> &dst, const Array<void> &src, const int *perm);
 extern void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const long *dst_shape);
 
@@ -245,7 +245,7 @@ extern std::string _tuple_str(int ndim, const long *shape);
 // that can't be covered by any of the "stock" constructors.
 
 template<typename T>
-Array<T>::Array()
+inline Array<T>::Array()
 {
     if constexpr (!std::is_void_v<T>)
 	dtype = Dtype::native<T>();
@@ -264,15 +264,15 @@ Array<T>::Array()
 
 
 template<typename T>
-Array<T>::Array(const std::vector<long> &shape_, int aflags_)
+inline Array<T>::Array(const std::vector<long> &shape_, int aflags_)
     : Array(shape_.size(), &shape_[0], nullptr, aflags_) { }
 
 template<typename T>
-Array<T>::Array(std::initializer_list<long> shape_, int aflags_)
+inline Array<T>::Array(std::initializer_list<long> shape_, int aflags_)
     : Array(shape_.size(), shape_.begin(), nullptr, aflags_) { }
 
 template<typename T>
-Array<T>::Array(int ndim_, const long *shape_, int aflags_)
+inline Array<T>::Array(int ndim_, const long *shape_, int aflags_)
 {
     static_assert(!std::is_void_v<T>, "Array<T> constructor: If T=void, then you must call a constructor with a runtime dtype");
     this->_construct(Dtype::native<T>(), ndim_, shape_, nullptr, aflags_);
@@ -280,7 +280,7 @@ Array<T>::Array(int ndim_, const long *shape_, int aflags_)
 
 
 // This little device is useful in chaining Array constructors with shape + strides.
-template<class C> int ndim_ss(const C &shape, const C &strides)
+template<class C> inline int ndim_ss(const C &shape, const C &strides)
 {
     if (shape.size() != strides.size())
 	throw std::runtime_error("shape/strides length mismatch in Array constructor");
@@ -288,15 +288,15 @@ template<class C> int ndim_ss(const C &shape, const C &strides)
 }
 
 template<typename T>
-Array<T>::Array(const std::vector<long> &shape_, const std::vector<long> &strides_, int aflags_)
+inline Array<T>::Array(const std::vector<long> &shape_, const std::vector<long> &strides_, int aflags_)
     : Array(ndim_ss(shape_,strides_), &shape_[0], &strides_[0], aflags_) { }
 
 template<typename T>
-Array<T>::Array(std::initializer_list<long> shape_, std::initializer_list<long> strides_, int aflags_)
+inline Array<T>::Array(std::initializer_list<long> shape_, std::initializer_list<long> strides_, int aflags_)
     : Array(ndim_ss(shape_,strides_), shape_.begin(), strides_.begin(), aflags_) { }
 
 template<typename T>
-Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int aflags_)
+inline Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int aflags_)
 {
     static_assert(!std::is_void_v<T>, "Array<T> constructor: If T=void, then you must call a constructor with a runtime dtype");
     xassert(strides_ != nullptr);    
@@ -312,16 +312,16 @@ Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int aflags_
 
 
 template<typename T>
-Array<T>::Array(const Dtype &dtype_, const std::vector<long> &shape_, int aflags_)
+inline Array<T>::Array(const Dtype &dtype_, const std::vector<long> &shape_, int aflags_)
     : Array(dtype_, shape_.size(), &shape_[0], aflags_) { }
 
 template<typename T>
-Array<T>:: Array(const Dtype &dtype_, std::initializer_list<long> shape_, int aflags_)
+inline Array<T>:: Array(const Dtype &dtype_, std::initializer_list<long> shape_, int aflags_)
     : Array(dtype_, shape_.size(), shape_.begin(), aflags_) { }
 
 
 template<typename T>
-Array<T>::Array(const Dtype &dtype_, int ndim_, const long *shape_, int aflags_)
+inline Array<T>::Array(const Dtype &dtype_, int ndim_, const long *shape_, int aflags_)
 {
     this->_construct(dtype_, ndim_, shape_, nullptr, aflags_);
 }

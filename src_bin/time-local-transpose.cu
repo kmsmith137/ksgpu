@@ -16,7 +16,8 @@ using namespace ksgpu;
 
 struct local_transpose_f16
 {
-    using Dtype = __half2;
+    using Dtype16 = __half;
+    using Dtype32 = __half2;
     
     static __device__ __forceinline__ void do_transpose(__half2 &x, __half2 &y)
     {
@@ -30,7 +31,8 @@ struct local_transpose_f16
 
 struct local_transpose_i16
 {
-    using Dtype = uint;
+    using Dtype16 = ushort;
+    using Dtype32 = uint;
     
     static __device__ __forceinline__ void do_transpose(uint &x, uint &y)
     {
@@ -45,7 +47,7 @@ struct local_transpose_i16
 // -------------------------------------------------------------------------------------------------
 
 
-template<class T, typename D = typename T::Dtype>
+template<class T, typename D = typename T::Dtype32>
 __global__ void local_transpose_kernel(D *dst, const D *src, int niter)
 {
     int it = threadIdx.x;
@@ -94,8 +96,11 @@ __global__ void local_transpose_kernel(D *dst, const D *src, int niter)
 template<typename T>
 void time_local_transpose_kernel(const char *name)
 {
-    using D = typename T::Dtype;
-    static_assert(sizeof(D) == 4);
+    using D16 = typename T::Dtype16;
+    using D32 = typename T::Dtype32;
+    
+    static_assert(sizeof(D16) == 2);
+    static_assert(sizeof(D32) == 4);
     
     const int nblocks = 82 * 84;
     const int nthreads_per_block = 1024;
@@ -104,16 +109,16 @@ void time_local_transpose_kernel(const char *name)
     const int niter = 256 * 1024;
     const double tera_transposes_per_kernel = double(niter) * nblocks * nthreads_per_block * 12 / pow(2.,40.);
 
-    const int ninner = nblocks * nthreads_per_block * 8;
-    Array<D> dst({nstreams,ninner}, af_zero | af_gpu);
-    Array<D> src({nstreams,ninner}, af_zero | af_gpu);
+    const int ninner = nblocks * nthreads_per_block * 16;
+    Array<D16> dst({nstreams,ninner}, af_zero | af_gpu);
+    Array<D16> src({nstreams,ninner}, af_zero | af_gpu);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
 	{
-	    D *d = dst.data + istream*ninner;
-	    D *s = src.data + istream*ninner;
+	    D16 *d = dst.data + istream*ninner;
+	    D16 *s = src.data + istream*ninner;
 
-	    local_transpose_kernel<T> <<< nblocks, nthreads_per_block, 0, stream >>> (d, s, niter);
+	    local_transpose_kernel<T> <<< nblocks, nthreads_per_block, 0, stream >>> ((D32 *)d, (D32 *)s, niter);
 	    CUDA_PEEK(name);
 	};
 

@@ -22,7 +22,7 @@ using curand_state_t = curandStateXORWOW_t;
 
 struct CurandStateArray
 {
-    long nelts = 0;               // usually total number of threads in a kernel
+    long nelts = 0;              // usually total number of threads in a kernel
     curand_state_t *data = 0;    // 1-d array of length nelts, on GPU
 
     // Launches kernel to init state, blocks until kernel is complete.
@@ -50,7 +50,7 @@ CurandStateArray::CurandStateArray(long nelts_, ulong seed)
     xassert((nelts % 32) == 0);
     xassert(nelts <= 1024L * 1024L * 1024L);
 
-    this->ref = _af_alloc(nelts * sizeof(curand_state_t), af_gpu);
+    this->ref = _af_alloc(Dtype::native<char>(), nelts * sizeof(curand_state_t), af_gpu);
     this->data = reinterpret_cast<curand_state_t *> (ref.get());
 
     long nblocks = (nelts + 127) >> 7;    
