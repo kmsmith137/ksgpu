@@ -6,8 +6,10 @@
 #include <stdexcept>
 #include <cuda_fp16.h>    // __half
 
+#include "Dtype.hpp"
+#include "xassert.hpp"
 #include "mem_utils.hpp"  // af_alloc() and flags
-#include "xassert.hpp"    // af_alloc() and flags
+
 
 namespace ksgpu {
 #if 0
@@ -18,6 +20,26 @@ namespace ksgpu {
 static constexpr int ArrayMaxDim = 8;
 
 
+// Used to disable some Array<T> methods for (T == void), see below.
+template<typename T>
+using enable_if_non_void = std::enable_if_t<!std::is_void_v<T>>;
+
+
+// Array<T>: generic N-dimensional array with strides.
+//
+// If (T == void), then array type is determined at runtime by 'dtype' member.
+// If (T != void), then 'dtype' member must equal Dtype::native<T>(), and is redundant.
+//
+// Scope: Array<T> implements member functions for things like:
+//
+//   - moving/copying data (e.g. between CPU and GPU)
+//   - axis manipulation (e.g. reshape/transpose/slice)
+//   - type casting/conversion
+//   - debugging/printing/comparing arrays
+//
+// but doesn't implement any "math" kernels (e.g. tensor dot product). 
+
+
 template<typename T>
 struct Array {
     T *data = nullptr;
@@ -26,8 +48,9 @@ struct Array {
     long shape[ArrayMaxDim];
     long size = 0;
 
-    long strides[ArrayMaxDim];  // in units sizeof(T), not bytes
+    long strides[ArrayMaxDim];  // in multiples of dtype size (not bytes or bits)
 
+    Dtype dtype;
     std::shared_ptr<void> base;
     int aflags = 0;
 
@@ -41,6 +64,9 @@ struct Array {
     // Note that zero-dimensional arrays are empty (unlike numpy,
     // where zero-dimensional arrays have size 1).
 
+    // Default constructor: caller is responsible for initializing all members,
+    // then calling Array::check_invariants(). Useful in non-standard situations
+    // that can't be covered by any of the "stock" constructors.
     Array();
     
     // Allocator flags ('aflags') are defined in mem_utils.hpp
@@ -58,14 +84,22 @@ struct Array {
     Array(const std::vector<long> &shape, const std::vector<long> &strides, int aflags);
     Array(std::initializer_list<long> shape, std::initializer_list<long> strides, int aflags);
 
+    // These constructors allow an explicit dtype.
+    // If (T != void), then these constructors check that the dtype is consistent with T.
+    // If (T == void), then constructors _without_ an explicit dtype throw excptions.
+    Array(const Dtype &dtype, int ndim, const long *shape, int aflags);
+    Array(const Dtype &dtype, const std::vector<long> &shape, int aflags);
+    Array(const Dtype &dtype, std::initializer_list<long> shape, int aflags);
     
     // Is array addressable on GPU? On host?
     inline bool on_gpu() const { return !data || af_on_gpu(aflags); }
     inline bool on_host() const { return !data || af_on_host(aflags); }
 
-    // Copies data from 'src' to 'this'. Arrays must have the same shape, but need not have the same strides.
+    // Copies data from 'src' to 'this'.
+    // Arrays must have the same shape, but need not have the same strides.
+    // FIXME currently require dtypes to match exactly (e.g. can't fill signed int from unsigned int).
     // FIXME currently using cudaMemcpy() even if both arrays are on host -- is this slow?
-    inline void fill(const Array<T> &src);
+    template<typename T2> inline void fill(const Array<T2> &src, bool noisy=false);
     
     inline Array<T> clone(int aflags) const;
     inline Array<T> clone() const;  // retains location_flags of source array
@@ -76,70 +110,59 @@ struct Array {
 
     // Returns number of contiguous dimensions, assuming indices are ordered
     // from slowest to fastest varying. Returns 'ndim' for an empty array.
-    int get_ncontig() const;
-    bool is_fully_contiguous() const { return get_ncontig() == ndim; }
-    
-    // at(): range-checked accessor
-    // (I'm reserving operator[] for an unchecked accessor.)
-    
-    inline T& at(int ndim, const long *ix);
-    inline T& at(const std::vector<long> &ix);
-    inline T& at(std::initializer_list<long> ix);
-    
-    inline const T& at(int ndim, const long *ix) const;
-    inline const T& at(const std::vector<long> &ix) const;
-    inline const T& at(std::initializer_list<long> ix) const;
-
+    inline int get_ncontig() const;
+    inline bool is_fully_contiguous() const { return get_ncontig() == ndim; }
     
     // The new Arrays returned by slice() contain references
     // (not copies) to the data in the original Array.
-    inline Array<T> slice(int axis, int start, int stop) const;
-    inline Array<T> slice(int axis, int ix) const;   // returns array of dimension (ndim-1)
+    inline Array<T> slice(int axis, long start, long stop) const;
+    inline Array<T> slice(int axis, long ix) const;   // returns array of dimension (ndim-1)
 
-    // The new Arrays returned by transpose() contain references (not copies)
-    // to data in the original Array.
-    //
-    // FIXME transpose() hasn't been systematically tested.
+    // The new Arrays returned by transpose() contain references (not copies) to data in
+    // the original Array. (FIXME transpose() hasn't been systematically tested!)
 
     inline Array<T> transpose(const int *perm) const;
     inline Array<T> transpose(const std::vector<int> &perm) const;
     inline Array<T> transpose(std::initializer_list<int> ix) const;
 
-    // Reshape-by-reference. Throws an exception if either (1) requested shape
-    // is incompatible with the current shape; (2) current strides don't permit
-    // axes to be combined without copying.
-    //
-    // FIXME reshape_ref() hasn't been systematically tested.
-
-    inline Array<T> reshape_ref(int ndim, const long *shape) const;
-    inline Array<T> reshape_ref(const std::vector<long> &shape) const;
-    inline Array<T> reshape_ref(std::initializer_list<long> shape) const;
-
-    // Converts (array of type T) -> (array of type T2).
-    // FIXME for now, both arrays must be on host.
-    //
-    // Element conversion is done using C++ type conversion, except in cases
-    // (__half) <-> (float or double), when we call cuda intrinsics such as
-    // __float2half().
+    // Reshape-by-reference. Throws an exception if either (1) requested shape is
+    // incompatible with the current shape; (2) current strides don't permit axes to
+    // be combined without copying. (FIXME reshape() hasn't been systematically tested!)
     
+    inline Array<T> reshape(int ndim, const long *shape) const;
+    inline Array<T> reshape(const std::vector<long> &shape) const;
+    inline Array<T> reshape(std::initializer_list<long> shape) const;
+
+    // Type casting/conversion:
+    //
+    //   - (Array<T> &) can be implicitly converted to (Array<void> &).
+    //
+    //   - cast(): zero-copy conversion of Array types, throws exception if datatypes are incompatible.
+    //     (Morally similar to std::dynamic_pointer_cast()).
+    //
+    //   - convert_dtype(): returns copy of Array, with new datatype.
+    //     (Example: convert Array<int> -> Array<float>).
+    //
+    // FIXME current implementation of convert_dtype() is primitive:
+    //   - src/dst datatypes must be known at compile time (no Array<void>).
+    //   - both arrays must be on host
+    //   - slow!
+    
+    // Implicit conversions. The weird templating avoids instantiating for (T==void).    
+    template<typename U=T, typename=enable_if_non_void<U>> inline operator Array<void>& ();
+    template<typename U=T, typename=enable_if_non_void<U>> inline operator const Array<void>& () const;
+
+    // cast(): zero-copy conversion of (Array<T> &), throws exception if datatypes are incompatible.
+    template<typename U> inline Array<U>& cast();
+    template<typename U> inline const Array<U>& cast() const;
+
+    // convert_dtype(): returns copy of Array, with new datatype.
     template<typename Tdst> inline Array<Tdst> convert_dtype() const;
     template<typename Tdst> inline Array<Tdst> convert_dtype(int aflags) const;
 
-    
-    // For looping over array indices (not high-performance):
     //
-    //    Array<T> arr;
-    //    for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix)) {
-    //        T x = arr.at(ix);
-    //        // ...
-    //    }
-    //    
-    // Warning: ix_valid() is not a general-purpose index validator!
-    // It only works on the output of ix_start() -> ix_next() -> ...
-    
-    inline std::vector<long> ix_start() const;
-    inline bool ix_valid(const std::vector<long> &ix) const;
-    inline void ix_next(std::vector<long> &ix) const;
+    // Remaining methods are intended for debugging/testing.
+    //
     
     inline bool shape_equals(int ndim, const long *shape) const;
     inline bool shape_equals(const std::vector<long> &shape) const;
@@ -150,131 +173,113 @@ struct Array {
     inline std::string stride_str() const;
 
     // Throws exception on failure.
-    void check_invariants() const;
+    inline void check_invariants() const;
+        
+    // at(): range-checked accessor.
+    // (I'm reserving operator[] for an unchecked accessor.)
+    // The weird templating avoids instantiating for (T==void).
+    // Slow, and intended only for debugging!
+
+    template<typename U=T, typename=enable_if_non_void<U>> inline U& at(int ndim, const long *ix);
+    template<typename U=T, typename=enable_if_non_void<U>> inline U& at(const std::vector<long> &ix);
+    template<typename U=T, typename=enable_if_non_void<U>> inline U& at(std::initializer_list<long> ix);
     
-    // "Cheat" accessor, which gives a non-const reference to a const Array
-    inline T& _at(int ndim, const long *ix) const;
+    template<typename U=T, typename=enable_if_non_void<U>> inline const U& at(int ndim, const long *ix) const;
+    template<typename U=T, typename=enable_if_non_void<U>> inline const U& at(const std::vector<long> &ix) const;
+    template<typename U=T, typename=enable_if_non_void<U>> inline const U& at(std::initializer_list<long> ix) const;
+    
+    // ix_start(): for looping over array indices (not high-performance):
+    //
+    //    Array<T> arr;
+    //    for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix)) {
+    //        T x = arr.at(ix);
+    //        // ...
+    //    }
+    //    
+    // Warning: ix_valid() is not a general-purpose index validator!
+    // It only works on the output of ix_start() -> ix_next() -> ...
+    // Slow, and intended only for debugging!
+    
+    inline std::vector<long> ix_start() const;
+    inline bool ix_valid(const std::vector<long> &ix) const;
+    inline void ix_next(std::vector<long> &ix) const;
+
+    // Helper function for constructors.
+    inline void _construct(const Dtype &dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_);
+    
+    // "Cheat" accessor, which gives a non-const reference to a const Array.
+    template<typename U=T, typename=enable_if_non_void<U>> inline U& _at(int ndim, const long *ix) const;
 };
 
 
+// Alternate interfaces to some of the Array methods above:
+//   array_get_ncontig()   alternate interface to Array<T>::get_ncontig()
+//   array_fill()          alternate interface to Array<T>::fill()
+//   array_slice()         alternate interface to Array<T>::slice()
+//   array_transpose()     alternate interface to Array<T>::transpose()
+//   array_reshape()       alternate interface to Array<T>::reshape()
+
+extern int array_get_ncontig(const Array<void> &arr);
+extern void array_fill(Array<void> &dst, const Array<void> &src, bool noisy=false);
+extern void array_slice(Array<void> &dst, const Array<void> &src, int axis, int ix);
+extern void array_slice(Array<void> &dst, const Array<void> &src, int axis, int start, int stop);
+extern void array_transpose(Array<void> &dst, const Array<void> &src, const int *perm);
+extern void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const long *dst_shape);
+
+// Checks all Array invariants except dtype.
+extern void _check_array_invariants(const Array<void> &arr);
+
+// Misc helpers.
+extern bool _tuples_equal(int ndim1, const long *shape1, int ndim2, const long *shape2);
+extern std::string _tuple_str(int ndim, const long *shape);
+
+
 // -------------------------------------------------------------------------------------------------
 //
-// Non-inline functions defined elsewhere
+// The rest of this source file contains implementations of inline member functions.
+// First, constructors.
 
 
-extern void check_array_invariants(const void *data, int ndim, const long *shape,
-				   long size, const long *strides, int aflags);
-
-extern int compute_ncontig(int ndim, const long *shape, const long *strides);
-
-extern long compute_size(int ndim, const long *shape);
-
-extern bool shape_eq(int ndim1, const long *shape1, int ndim2, const long *shape2);
-
-extern std::string shape_str(int ndim, const long *shape);
-
-extern void reshape_ref_helper(int src_ndim, const long *src_shape, const long *src_strides,
-			       int dst_ndim, const long *dst_shape, long *dst_strides);
-
-extern void fill_helper(void *dst, int dst_ndim, const long *dst_shape, const long *dst_strides,
-			const void *src, int src_ndim, const long *src_shape, const long *src_strides,
-			long itemsize, bool noisy=false);
-
-
-// -------------------------------------------------------------------------------------------------
-//
-// Inline implementations
-
+// Default constructor: caller is responsible for initializing all members,
+// then calling Array::check_invariants(). Useful in non-standard situations
+// that can't be covered by any of the "stock" constructors.
 
 template<typename T>
 Array<T>::Array()
-    : Array(0, nullptr, 0) { }
+{
+    if constexpr (!std::is_void_v<T>)
+	dtype = Dtype::native<T>();
+    
+    for (int i = ndim; i < ArrayMaxDim; i++)
+	shape[i] = strides[i] = 0;
+
+    // No call to this->check_invariants() here.
+}
+
+
+// The next six Array constructors:
+//   - do not have a runtime 'dtype' arg
+//   - throw exceptions if called with T=void.
+//   - may have a 'strides' argument.
+
 
 template<typename T>
-Array<T>::Array(const std::vector<long> &shape_, int aflags)
-    : Array(shape_.size(), &shape_[0], aflags) { }
+Array<T>::Array(const std::vector<long> &shape_, int aflags_)
+    : Array(shape_.size(), &shape_[0], nullptr, aflags_) { }
 
 template<typename T>
-Array<T>::Array(std::initializer_list<long> shape_, int aflags)
-    : Array(shape_.size(), shape_.begin(), aflags) { }
-
+Array<T>::Array(std::initializer_list<long> shape_, int aflags_)
+    : Array(shape_.size(), shape_.begin(), nullptr, aflags_) { }
 
 template<typename T>
 Array<T>::Array(int ndim_, const long *shape_, int aflags_)
-    : ndim(ndim_), aflags(aflags_)
 {
-    xassert(ndim >= 0);
-    xassert(ndim <= ArrayMaxDim);
-
-    for (int i = ndim; i < ArrayMaxDim; i++)
-	shape[i] = strides[i] = 0;
-
-    if (ndim == 0) {
-	data = nullptr;
-	size = 0;
-	return;
-    }
-
-    size = 1;    
-    for (int i = ndim-1; i >= 0; i--) {
-	strides[i] = size;
-	shape[i] = shape_[i];
-	size *= shape_[i];
-	xassert(shape[i] >= 0);
-    }
-
-    if (size != 0) {
-	std::shared_ptr<T> p = af_alloc<T> (size, aflags);
-	data = p.get();
-	base = p;  // implicit conversion shared_ptr<T> -> shared_ptr<void>
-    }
-    else
-	data = nullptr;
+    static_assert(!std::is_void_v<T>, "Array<T> constructor: If T=void, then you must call a constructor with a runtime dtype");
+    this->_construct(Dtype::native<T>(), ndim_, shape_, nullptr, aflags_);
 }
 
 
-template<typename T>
-Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int aflags_)
-    : ndim(ndim_), aflags(aflags_)
-{
-    xassert(ndim > 0);
-    xassert(ndim <= ArrayMaxDim);
-
-    for (int i = ndim; i < ArrayMaxDim; i++)
-	shape[i] = strides[i] = 0;
-
-    if (ndim == 0) {
-	data = nullptr;
-	size = 0;
-	return;
-    }
-
-    size = 1;
-    long nalloc = 1;
-	
-    for (int d = 0; d < ndim; d++) {
-	shape[d] = shape_[d];
-	strides[d] = strides_[d];
-	
-	xassert(shape[d] >= 0);
-	xassert(strides[d] >= 0);
-	size *= shape[d];
-	nalloc += (shape[d]-1) * strides[d];
-    }
-
-    if (size != 0) {
-	std::shared_ptr<T> p = af_alloc<T> (nalloc, aflags);
-	data = p.get();
-	base = p;  // implicit conversion shared_ptr<T> -> shared_ptr<void>
-    }
-    else
-	data = nullptr;
-
-    this->check_invariants();
-}
-
-
-// This little device is useful in chaining Array constructors
+// This little device is useful in chaining Array constructors with shape + strides.
 template<class C> int ndim_ss(const C &shape, const C &strides)
 {
     if (shape.size() != strides.size())
@@ -283,145 +288,153 @@ template<class C> int ndim_ss(const C &shape, const C &strides)
 }
 
 template<typename T>
-Array<T>::Array(const std::vector<long> &shape_, const std::vector<long> &strides_, int aflags)
-    : Array(ndim_ss(shape_,strides_), &shape_[0], &strides_[0], aflags) { }
+Array<T>::Array(const std::vector<long> &shape_, const std::vector<long> &strides_, int aflags_)
+    : Array(ndim_ss(shape_,strides_), &shape_[0], &strides_[0], aflags_) { }
 
 template<typename T>
-Array<T>::Array(std::initializer_list<long> shape_, std::initializer_list<long> strides_, int aflags)
-    : Array(ndim_ss(shape_,strides_), shape_.begin(), strides_.begin(), aflags) { }
-
+Array<T>::Array(std::initializer_list<long> shape_, std::initializer_list<long> strides_, int aflags_)
+    : Array(ndim_ss(shape_,strides_), shape_.begin(), strides_.begin(), aflags_) { }
 
 template<typename T>
-void Array<T>::fill(const Array<T> &src)
+Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int aflags_)
 {
-    fill_helper(data, ndim, shape, strides,
-		src.data, src.ndim, src.shape, src.strides,
-		sizeof(T), false);   // noisy=false
+    static_assert(!std::is_void_v<T>, "Array<T> constructor: If T=void, then you must call a constructor with a runtime dtype");
+    xassert(strides_ != nullptr);    
+    this->_construct(Dtype::native<T>(), ndim_, shape_, strides_, aflags_);
+}
+
+
+// The next three Array constructors:
+//   - have a runtime 'dtype' arg
+//   - are callable with (T == void).
+//   - if called with (T != void), check consistency between runtime 'dtype' arg, and compile-time type T.
+//   - do not have a 'strides' argument.
+
+
+template<typename T>
+Array<T>::Array(const Dtype &dtype_, const std::vector<long> &shape_, int aflags_)
+    : Array(dtype_, shape_.size(), &shape_[0], aflags_) { }
+
+template<typename T>
+Array<T>:: Array(const Dtype &dtype_, std::initializer_list<long> shape_, int aflags_)
+    : Array(dtype_, shape_.size(), shape_.begin(), aflags_) { }
+
+
+template<typename T>
+Array<T>::Array(const Dtype &dtype_, int ndim_, const long *shape_, int aflags_)
+{
+    this->_construct(dtype_, ndim_, shape_, nullptr, aflags_);
+}
+
+
+// Helper function for constructors.
+template<typename T>
+inline void Array<T>::_construct(const Dtype &dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
+{
+    _check_dtype<T> (dtype_, "Array constructor");
+    
+    xassert(ndim_ >= 0);
+    xassert(ndim_ <= ArrayMaxDim);
+    xassert((ndim_ == 0) || (shape_ != nullptr));  // if strides_ is null, then array is contiguous.
+    // check_aflags() will be called in _af_alloc() below.
+
+    this->ndim = ndim_;
+    this->dtype = dtype_;
+    this->aflags = aflags_;
+    this->size = ndim_ ? 1 : 0;  // updated in loop below
+    long nalloc = size;
+	
+    for (int d = 0; d < ndim; d++) {
+	shape[d] = shape_[d];
+	strides[d] = strides_ ? strides_[d] : size;
+	
+	xassert(shape[d] >= 0);
+	xassert(strides[d] >= 0);
+	
+	size *= shape_[d];
+	nalloc += (shape_[d]-1) * strides[d];
+	// Note that if array is contiguous, then nalloc==size.
+    }
+
+    for (int d = ndim; d < ArrayMaxDim; d++)
+	shape[d] = strides[d] = 0;
+
+    // Note: _af_alloc() calls check_aflags().
+    // Note: if nalloc==0, then _af_alloc() returns an empty pointer.
+    this->base = _af_alloc(dtype, nalloc, aflags);
+    this->data = reinterpret_cast<T *> (base.get());
+    this->check_invariants();    
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// Member functions which move data around: fill(), clone(), to_gpu(), to_host().
+
+
+template<typename T> template<typename T2>
+inline void Array<T>::fill(const Array<T2> &src, bool noisy)
+{
+    // Implicit conversion (Array<T> &) -> (Array<void> &).
+    array_fill(*this, src, noisy);
 }
 
 
 template<typename T>
-Array<T> Array<T>::clone(int aflags_) const
+inline Array<T> Array<T>::clone(int aflags_) const
 {
     Array<T> ret(this->ndim, this->shape, aflags_ & ~af_initialization_flags);
-    ret.fill(*this);
+    array_fill(ret, *this);
     return ret;
 }
 
 template<typename T>
-Array<T> Array<T>::clone() const
+inline Array<T> Array<T>::clone() const
 {
     return this->clone(this->aflags & af_location_flags);
 }
 
 template<typename T>
-Array<T> Array<T>::to_gpu() const
+inline Array<T> Array<T>::to_gpu() const
 {
     return this->on_gpu() ? (*this) : this->clone(af_gpu);
 }
 
 template<typename T>
-Array<T> Array<T>::to_host(bool registered) const
+inline Array<T> Array<T>::to_host(bool registered) const
 {
     int dst_flags = registered ? af_rhost : af_uhost;
     return this->on_host() ? (*this) : this->clone(dst_flags);
 }
 
+
+// -------------------------------------------------------------------------------------------------
+//
+// Member functions for axis manipulation: get_ncontig(), slice(), transpose(), reshape().
+
+
 template<typename T>
-int Array<T>::get_ncontig() const
+inline int Array<T>::get_ncontig() const
 {
-    return compute_ncontig(ndim, shape, strides);
+    // Note implicit conversion (Array<T> &) -> (Array<void> &).
+    return array_get_ncontig(*this);
 }
 
-template<typename T>
-T& Array<T>::_at(int nd, const long *ix) const
-{
-    xassert(on_host());
-    xassert(this->ndim == nd);
-    
-    long pos = 0;
-    for (int d = 0; d < nd; d++) {
-	xassert(ix[d] >= 0 && ix[d] < shape[d]);
-	pos += ix[d] * strides[d];
-    }
-    
-    return data[pos];
-}
-
-template<typename T> T& Array<T>::at(int nd, const long *ix)          { return _at(nd, ix); }
-template<typename T> T& Array<T>::at(const std::vector<long> &ix)     { return _at(ix.size(), &ix[0]); }
-template<typename T> T& Array<T>::at(std::initializer_list<long> ix)  { return _at(ix.size(), ix.begin()); }
-
-template<typename T> const T& Array<T>::at(int nd, const long *ix) const          { return _at(nd, ix); }
-template<typename T> const T& Array<T>::at(const std::vector<long> &ix) const     { return _at(ix.size(), &ix[0]); }
-template<typename T> const T& Array<T>::at(std::initializer_list<long> ix) const  { return _at(ix.size(), ix.begin()); }
-
 
 template<typename T>
-Array<T> Array<T>::slice(int axis, int ix) const
+inline Array<T> Array<T>::slice(int axis, long ix) const
 {
-    xassert((axis >= 0) && (axis < ndim));
-    xassert((ix >= 0) && (ix < shape[axis]));
-
-    // Slicing (1-dim -> 0-dim) doesn't make sense,
-    // since our zero-dimensional Arrays are empty.
-    xassert(ndim > 1);
-    
     Array<T> ret;
-    ret.ndim = ndim-1;
-    ret.aflags = aflags & af_location_flags;
-    ret.base = base;
-    ret.size = 1;
-
-// Suppress spurious GCC warning in loop that follows.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-    
-    for (int i = 0; i < ndim-1; i++) {
-	int j = (i < axis) ? i : (i+1);
-	ret.shape[i] = shape[j];
-	ret.strides[i] = strides[j];
-	ret.size *= shape[j];
-    }
-    
-#pragma GCC diagnostic pop
-
-    if (ret.size == 0) {
-	ret.data = nullptr;
-	return ret;
-    }
-
-    ret.data = data + (ix * strides[axis]);    
+    array_slice(ret, *this, axis, ix);
     return ret;
 }
 
 
 template<typename T>
-Array<T> Array<T>::slice(int axis, int start, int stop) const
+inline Array<T> Array<T>::slice(int axis, long start, long stop) const
 {
-    // Currently we allow slices like arr[2:10] but not arr[2:-10] or arr[2:10:2].
-    // This would be easy to generalize!
-    xassert((axis >= 0) && (axis < ndim));
-    xassert((start >= 0) && (start <= stop) && (stop <= shape[axis]));
-    
     Array<T> ret;
-    ret.ndim = ndim;
-    ret.aflags = aflags & af_location_flags;
-    ret.base = base;
-    ret.size = 1;
-
-    for (int i = 0; i < ndim; i++) {
-	ret.shape[i] = (i == axis) ? (stop-start) : shape[i];
-	ret.strides[i] = strides[i];
-	ret.size *= ret.shape[i];
-    }
-
-    if (ret.size == 0) {
-	ret.data = nullptr;
-	return ret;
-    }
-
-    ret.data = data + (start * strides[axis]);
+    array_slice(ret, *this, axis, start, stop);
     return ret;
 }
 
@@ -430,30 +443,10 @@ template<typename T>
 inline Array<T> Array<T>::transpose(const int *perm) const
 {
     Array<T> ret;
-    ret.ndim = this->ndim;
-    ret.data = this->data;
-    ret.size = this->size;
-    ret.base = this->base;
-    ret.aflags = this->aflags;
-
-    bool flags[ArrayMaxDim];
-
-    for (int d = 0; d < ArrayMaxDim; d++)
-        flags[d] = false;
-
-    for (int d = 0; d < ndim; d++) {
-        int p = perm[d];
-        xassert((p >= 0) && (p < ndim));
-        xassert(!flags[p]);   // if fails, then 'perm' is not a permutation
-
-        ret.shape[d] = this->shape[p];
-        ret.strides[d] = this->strides[p];
-        flags[p] = true;
-    }
-
-    ret.check_invariants();
+    array_transpose(ret, *this, perm);
     return ret;
 }
+
 
 template<typename T>
 inline Array<T> Array<T>::transpose(const std::vector<int> &perm) const
@@ -461,6 +454,7 @@ inline Array<T> Array<T>::transpose(const std::vector<int> &perm) const
     xassert(long(perm.size()) == ndim);
     return this->transpose(&perm[0]);
 }
+
 
 template<typename T>
 inline Array<T> Array<T>::transpose(std::initializer_list<int> perm) const
@@ -471,52 +465,43 @@ inline Array<T> Array<T>::transpose(std::initializer_list<int> perm) const
 
 
 template<typename T>
-Array<T> Array<T>::reshape_ref(int ndim_, const long *shape_) const
+Array<T> Array<T>::reshape(int ndim_, const long *shape_) const
 {
-    xassert(ndim_ >= 0);
-    xassert(ndim_ <= ArrayMaxDim);
-	   
     Array<T> ret;
-    ret.ndim = ndim_;
-    ret.data = this->data;
-    ret.size = this->size;
-    ret.base = this->base;
-    ret.aflags = this->aflags;
-    
-    for (int d = 0; d < ret.ndim; d++)
-	ret.shape[d] = shape_[d];
-
-    // reshape_ref_helper()
-    //  - assumes src_ndim, src_shape, src_strides, dst_ndim have been validated by caller
-    //  - validates dst_shape
-    //  - initializes dst_strides
-    //  - throws exception if shapes are incompatible, or src_strides are bad.
-    reshape_ref_helper(ndim, shape, strides, ret.ndim, ret.shape, ret.strides);
-    
+    array_reshape(ret, *this, ndim_, shape_);
     return ret;
 }
 
 template<typename T>
-inline Array<T> Array<T>::reshape_ref(const std::vector<long> &shape) const
+inline Array<T> Array<T>::reshape(const std::vector<long> &shape) const
 {
-    return reshape_ref(shape.size(), &shape[0]);
+    return this->reshape(shape.size(), &shape[0]);
 }
 
 template<typename T>
-inline Array<T> Array<T>::reshape_ref(std::initializer_list<long> shape) const
+inline Array<T> Array<T>::reshape(std::initializer_list<long> shape) const
 {
-    return reshape_ref(shape.size(), shape.begin());
+    return this->reshape(shape.size(), shape.begin());
 }
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// Member functions intended for debugging/testing:
+//  - ix_start(), ix_valid(), ix_next()
+//  - shape_equals(), shape_str(), stride_str()
+//  - check_invariants()
+//  - at().
+
+
 template<typename T>
-std::vector<long> Array<T>::ix_start() const
+inline std::vector<long> Array<T>::ix_start() const
 {
     return std::vector<long> (ndim, 0);
 }
 
 template<typename T>
-bool Array<T>::ix_valid(const std::vector<long> &ix) const
+inline bool Array<T>::ix_valid(const std::vector<long> &ix) const
 {
     // Warning: ix_valid() is not a general-purpose index validator!
     // Only works on the output of ix_start() -> ix_next() -> ...
@@ -524,7 +509,7 @@ bool Array<T>::ix_valid(const std::vector<long> &ix) const
 }
 
 template<typename T>
-void Array<T>::ix_next(std::vector<long> &ix) const
+inline void Array<T>::ix_next(std::vector<long> &ix) const
 {
     for (int d = ndim-1; d >= 1; d--) {
 	if (ix[d] < shape[d]-1) {
@@ -540,78 +525,176 @@ void Array<T>::ix_next(std::vector<long> &ix) const
 
 
 template<typename T>
-bool Array<T>::shape_equals(int ndim_, const long *shape_) const
+inline bool Array<T>::shape_equals(int ndim_, const long *shape_) const
 {
-    return shape_eq(this->ndim, this->shape, ndim_, shape_);
+    return _tuples_equal(this->ndim, this->shape, ndim_, shape_);
 }
 
 template<typename T>
-bool Array<T>::shape_equals(const std::vector<long> &shape) const
+inline bool Array<T>::shape_equals(const std::vector<long> &shape) const
 {
-    return shape_eq(this->ndim, this->shape, shape.size(), &shape[0]);
+    return _tuples_equal(this->ndim, this->shape, shape.size(), &shape[0]);
 }
 
 template<typename T>
-bool Array<T>::shape_equals(std::initializer_list<long> shape_) const
+inline bool Array<T>::shape_equals(std::initializer_list<long> shape_) const
 {
-    return shape_eq(this->ndim, this->shape, shape_.size(), shape_.begin());
+    return _tuples_equal(this->ndim, this->shape, shape_.size(), shape_.begin());
 }
 
 template<typename T> template<typename T2>
-bool Array<T>::shape_equals(const Array<T2> &a) const
+inline bool Array<T>::shape_equals(const Array<T2> &a) const
 {
-    return shape_eq(this->ndim, this->shape, a.ndim, a.shape);
+    return _tuples_equal(this->ndim, this->shape, a.ndim, a.shape);
 }
 
-template<typename T> std::string Array<T>::shape_str() const
+template<typename T>
+inline std::string Array<T>::shape_str() const
 {
-    return ::ksgpu::shape_str(ndim, shape);
+    return _tuple_str(ndim, shape);
 }
 
-template<typename T> std::string Array<T>::stride_str() const
+template<typename T>
+inline std::string Array<T>::stride_str() const
 {
-    return ::ksgpu::shape_str(ndim, strides);
+    return _tuple_str(ndim, strides);
 }
 
-template<typename T> void Array<T>::check_invariants() const
+template<typename T>
+inline void Array<T>::check_invariants() const
 {
-    check_array_invariants(data, ndim, shape, size, strides, aflags);
+    _check_dtype<T> (dtype, "check_invariants");
+    _check_array_invariants(*this);
+}
+
+
+// Array<T>::at(): range-checked accessor.
+// (I'm reserving operator[] for an unchecked accessor.)
+// The weird double template avoids instantiating for (T==void).
+
+
+template<typename T> template<typename U, typename X>
+inline U& Array<T>::at(int nd, const long *ix) { return _at(nd, ix); }
+
+template<typename T> template<typename U, typename X>
+inline U& Array<T>::at(const std::vector<long> &ix) { return _at(ix.size(), &ix[0]); }
+
+template<typename T> template<typename U, typename X>
+inline U& Array<T>::at(std::initializer_list<long> ix) { return _at(ix.size(), ix.begin()); }
+
+template<typename T> template<typename U, typename X>
+inline const U& Array<T>::at(int nd, const long *ix) const { return _at(nd, ix); }
+
+template<typename T> template<typename U, typename X>
+inline const U& Array<T>::at(const std::vector<long> &ix) const { return _at(ix.size(), &ix[0]); }
+
+template<typename T> template<typename U, typename X>
+inline const U& Array<T>::at(std::initializer_list<long> ix) const { return _at(ix.size(), ix.begin()); }
+
+
+template<typename T> template<typename U, typename X>
+inline U& Array<T>::_at(int nd, const long *ix) const
+{
+    xassert(on_host());
+    xassert(this->ndim == nd);
+    
+    long pos = 0;
+    for (int d = 0; d < nd; d++) {
+	xassert(ix[d] >= 0 && ix[d] < shape[d]);
+	pos += ix[d] * strides[d];
+    }
+    
+    return data[pos];
 }
 
 
 // -------------------------------------------------------------------------------------------------
 //
-// Array<T>::convert_dtype()
+// Type casting/conversion:
+//
+//   - Array<T> can be implicitly converted to Array<void>.
+//
+//   - cast(): zero-copy conversion of Array types, throws exception if datatypes are incompatible.
+//     (Morally similar to std::dynamic_pointer_cast()).
+//
+//   - convert_dtype(): returns copy of Array, with new datatype.
+//     (Example: convert Array<int> -> Array<float>).
 
+
+// Implicit conversions (Array<T> &) -> (Array<void> &) and (const Array<T> &) -> (const Array<void> &).
+// (The weird double-templating avoids instantiating for (T==void), see declaration above.)
+
+template<typename T> template<typename U, typename X>
+inline Array<T>::operator Array<void>& ()
+{
+	return reinterpret_cast<Array<void> &> (*this);
+}
+
+template<typename T> template<typename U, typename X>
+inline Array<T>::operator const Array<void>& () const
+{
+    return reinterpret_cast<const Array<void> &> (*this);
+}
+
+
+// cast(): explicit pointer conversion with runtime type-checking.
+// (Morally similar to std::dynamic_pointer_cast()).
+
+template<typename T> template<typename U>
+inline Array<U>& Array<T>::cast()
+{
+    _check_dtype<U> (dtype, "Array::cast()");
+    return reinterpret_cast<Array<U> &> (*this);
+}
+
+template<typename T> template<typename U>
+inline const Array<U>& Array<T>::cast() const
+{
+    _check_dtype<U> (dtype, "Array::cast()");
+    return reinterpret_cast<const Array<U> &> (*this);
+}
+
+
+// convert_dtype(): returns copy of Array, with new datatype.
+// (Example: convert Array<int> -> Array<float>).
+//
+// Current implementation of convert_dtype() is primitive:
+//   - src/dst datatypes must be known at compile time (no Array<void>).
+//   - both arrays must be on host
+//   - slow!
+//
+// Element conversion is done using C++ type conversion, except in cases
+// (__half) <-> (float or double), when we call cuda intrinsics such as
+// __float2half().
 
 // Default dtype converter (just use C++ type conversion)
 template<typename Tdst, typename Tsrc>
-struct DtypeConverter
+struct dtype_converter
 {
     static inline Tdst convert(Tsrc x) { return x; }
 };
 
 // Dtype conversion float -> __half
-template<> struct DtypeConverter<__half, float>
+template<> struct dtype_converter<__half, float>
 {
     static inline __half convert(float x) { return __float2half(x); }
 };
 
 // Dtype conversion double -> __half
-template<> struct DtypeConverter<__half, double>
+template<> struct dtype_converter<__half, double>
 {
     static inline __half convert(double x) { return __double2half(x); }
 };
 
 
 // Dtype conversion __half -> float
-template<> struct DtypeConverter<float, __half>
+template<> struct dtype_converter<float, __half>
 {
     static inline float convert(__half x) { return __half2float(x); }
 };
 
 // Dtype conversion __half -> double
-template<> struct DtypeConverter<double, __half>
+template<> struct dtype_converter<double, __half>
 {
     // CUDA doesn't define __half2double()
     static inline double convert(__half x) { return __half2float(x); }
@@ -640,7 +723,7 @@ inline void convert_dtype_helper(Tdst *dst,
     }
     else {
 	for (int i = 0; i < nelts_contig; i++)
-	    dst[i] = DtypeConverter<Tdst,Tsrc>::convert(src[i]);
+	    dst[i] = dtype_converter<Tdst,Tsrc>::convert(src[i]);
     }
 }
 

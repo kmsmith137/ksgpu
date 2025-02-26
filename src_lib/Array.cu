@@ -16,17 +16,36 @@ namespace ksgpu {
 #endif
 
 
-long compute_size(int ndim, const long *shape)
+bool _tuples_equal(int ndim1, const long *shape1, int ndim2, const long *shape2)
 {
-    long ret = ndim ? 1 : 0;
-    for (int d = 0; d < ndim; d++)
-	ret *= shape[d];
-    return ret;
+    if (ndim1 != ndim2)
+	return false;
+    
+    for (int i = 0; i < ndim1; i++)
+	if (shape1[i] != shape2[i])
+	    return false;
+
+    return true;
 }
 
 
-int compute_ncontig(int ndim, const long *shape, const long *strides)
+string _tuple_str(int ndim, const long *shape)
 {
+    // Defined in string_utils.hpp.
+    // (Defining this one-line wrapper helps with compile time.)
+    return ksgpu::tuple_str(ndim, shape);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+int array_get_ncontig(const Array<void> &arr)
+{
+    int ndim = arr.ndim;
+    const long *shape = arr.shape;
+    const long *strides = arr.strides;
+    
     for (int d = 0; d < ndim; d++)
 	if (shape[d] == 0)
 	    return ndim;
@@ -42,27 +61,9 @@ int compute_ncontig(int ndim, const long *shape, const long *strides)
 }
 
 
-string shape_str(int ndim, const long *shape)
-{
-    // Avoids #include-ing string_utils.hpp in Array.hpp
-    return tuple_str(ndim, shape);
-}
-
-
-bool shape_eq(int ndim1, const long *shape1, int ndim2, const long *shape2)
-{
-    if (ndim1 != ndim2)
-	return false;
-    
-    for (int i = 0; i < ndim1; i++)
-	if (shape1[i] != shape2[i])
-	    return false;
-
-    return true;
-}
-
-
 // -------------------------------------------------------------------------------------------------
+//
+// _check_array_invariants()
 
 
 // Helper for check_array_invariants()
@@ -77,22 +78,25 @@ struct stride_checker {
 };
 
 
-void check_array_invariants(const void *data, int ndim, const long *shape,
-			    long size, const long *strides, int aflags)
+// Checks all array invariants except dtype.
+void _check_array_invariants(const Array<void> &arr)
 {
+    int ndim = arr.ndim;
     xassert((ndim >= 0) && (ndim <= ArrayMaxDim));
 
+    long expected_size = ndim ? 1 : 0;
+    
     for (int d = 0; d < ndim; d++) {
-	xassert(shape[d] >= 0);
-	xassert(strides[d] >= 0);
+	xassert(arr.shape[d] >= 0);
+	xassert(arr.strides[d] >= 0);
+	expected_size *= arr.shape[d];
     }
 
-    xassert(size == compute_size(ndim, shape));
-    xassert(!((data == nullptr) && (size != 0)));
-    xassert(!((data != nullptr) && (size == 0)));    
-    check_aflags(aflags);
+    xassert_eq(arr.size, expected_size);
+    xassert_eq((arr.data != nullptr), (arr.size != 0));
+    check_aflags(arr.aflags, "Array::check_invariants");
 
-    if (size <= 1)
+    if (arr.size <= 1)
 	return;
 
     // Stride checks follow
@@ -102,11 +106,11 @@ void check_array_invariants(const void *data, int ndim, const long *shape,
     
     for (int d = 0; d < ndim; d++) {
 	// Length-1 axes can have arbitrary strides
-	if (shape[d] == 1)
+	if (arr.shape[d] == 1)
 	    continue;
 	
-	sc[n].axis_length = shape[d];
-	sc[n].axis_stride = strides[d];
+	sc[n].axis_length = arr.shape[d];
+	sc[n].axis_stride = arr.strides[d];
 	n++;
     }
 
@@ -122,66 +126,64 @@ void check_array_invariants(const void *data, int ndim, const long *shape,
 
 
 // -------------------------------------------------------------------------------------------------
-
-
-// reshape_helper2()
 //
-//   - assumes src_ndim, src_shape, src_strides, dst_ndim have been validated by caller
-//   - validates dst_shape
-//   - initializes dst_strides
-//
-// Return value:
-//   0 = success
-//   1 = dst_shape is incompatible with src_shape (or dst_shape is invalid)
-//   2 = src and dst shapes are compatible, but src_strides don't allow axes to be combined
+// array_reshape()
 
-static int reshape_helper2(int src_ndim, const long *src_shape, const long *src_strides,
-			   int dst_ndim, const long *dst_shape, long *dst_strides)
+
+// reshape_helper()
+//
+//   - assumes (dst.ndim, dst.shape, dst.size) have been initialized by caller
+//      and error-checked, but not checked for consistency with 'src'.
+//
+//   - initializes dst.strides and returns:
+//       0 = success
+//       1 = dst.shape is incompatible with src_shape (or dst.shape is invalid)
+//       2 = src and dst shapes are compatible, but src_strides don't allow axes to be combined
+
+
+static int reshape_helper(Array<void> &dst, const Array<void> &src)
 {
     // If we detect shape incompatbility, we "return 1" immediately.
     // If we detect bad src_strides, we set ret=2, rather than "return 2" immediately.
     // This is so shape incompatibility takes precedence over bad strides.
     int ret = 0;
     
-    for (int d = 0; d < dst_ndim; d++)
-	if (dst_shape[d] < 0)
-	    return 1;  // invalid dst_shape
-    
-    long src_size = compute_size(src_ndim, src_shape);
-    long dst_size = compute_size(dst_ndim, dst_shape);
-    if (src_size != dst_size)
+    if (dst.size != src.size)
 	return 1;      // catches empty-array corner cases
 
-    if (src_size == 0) {
+    if (src.size == 0) {
 	// Both arrays are empty
-	for (int d = 0; d < dst_ndim; d++)
-	    dst_strides[d] = 0;  // arbitrary
+	for (int d = 0; d < ArrayMaxDim; d++)
+	    dst.strides[d] = 0;  // arbitrary
 	return 0;
     }
 
+    for (int d = dst.ndim; d < ArrayMaxDim; d++)
+	dst.strides[d] = 0;
+    
     int is = 0;
     int id = 0;
     
     for (;;) {
-	// At top of loop, src indices <is and dst_indices <id
+	// At top of loop, src indices < is and dst indices < id
 	// have been "consumed", and verified to be compatible.
 	
 	// Advance until non-1 is reached
-	while ((is < src_ndim) && (src_shape[is] == 1))
+	while ((is < src.ndim) && (src.shape[is] == 1))
 	    is++;
 	
 	// Advance until non-1 is reached
-	while ((id < dst_ndim) && (dst_shape[id] == 1))
-	    dst_strides[id++] = 0;  // arbitrary
+	while ((id < dst.ndim) && (dst.shape[id] == 1))
+	    dst.strides[id++] = 0;  // arbitrary
 
-	if ((is == src_ndim) && (id == dst_ndim))
+	if ((is == src.ndim) && (id == dst.ndim))
 	    return ret;  // shapes are compatible (return value may be 0 or 2)
 
-	if ((is == src_ndim) || (id == dst_ndim))
-	    return 1;    // should never happen, thanks to "if (src_size != dst_size) ..." above
+	if ((is == src.ndim) || (id == dst.ndim))
+	    return 1;    // should never happen, thanks to "if (dst.size != src.size) ..." above
 
-	long ss = src_shape[is];
-	long sd = dst_shape[id];
+	long ss = src.shape[is];
+	long sd = dst.shape[id];
 	xassert((ss >= 2) && (sd >= 2));  // should never fail
 
 	if ((ss % sd) == 0) {
@@ -190,13 +192,13 @@ static int reshape_helper2(int src_ndim, const long *src_shape, const long *src_
 	    // At top, dst axes <= id have "consumed" sd elements, where sd | ss.
 	    
 	    for (;;) {
-		dst_strides[id] = (ss/sd) * src_strides[is];
+		dst.strides[id] = (ss/sd) * src.strides[is];
 		id++;
 		if (ss == sd)
 		    break;
-		if (id == dst_ndim)
+		if (id == dst.ndim)
 		    return 1;
-		sd *= dst_shape[id];
+		sd *= dst.shape[id];
 		if ((ss % sd) != 0)
 		    return 1;
 	    }
@@ -208,22 +210,22 @@ static int reshape_helper2(int src_ndim, const long *src_shape, const long *src_
 	    // In the loop below, destination axis parameters (id,sd) are fixed.
 	    // At top, src axes <= is have "consumed" ss elements, where ss | sd.
 	    
-	    long tot_stride = (src_strides[is] * ss);
-	    if (tot_stride % sd != 0)
+	    long tot_stride = (src.strides[is] * ss);
+	    if ((tot_stride % sd) != 0)
 		ret = 2;   // not "return 2"
 	    
-	    dst_strides[id] = tot_stride / sd;
+	    dst.strides[id] = tot_stride / sd;
 
 	    for (;;) {
 		is++;
 		if (ss == sd)
 		    break;
-		if (is == src_ndim)
+		if (is == src.ndim)
 		    return 1;
-		ss *= src_shape[is];
+		ss *= src.shape[is];
 		if ((sd % ss) != 0)
 		    return 1;
-		if ((src_strides[is] * ss) != tot_stride)
+		if ((src.strides[is] * ss) != tot_stride)
 		    ret = 2;  // not "return 2"
 	    }
 
@@ -235,173 +237,351 @@ static int reshape_helper2(int src_ndim, const long *src_shape, const long *src_
 }
 	    
 
-// reshape_ref_helper()
-//
-//   - assumes src_ndim, src_shape, src_strides, dst_ndim have been validated by caller
-//   - validates dst_shape
-//   - initializes dst_strides
-
-void reshape_ref_helper(int src_ndim, const long *src_shape, const long *src_strides,
-			int dst_ndim, const long *dst_shape, long *dst_strides)
+void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const long *dst_shape)
 {
-    int status = reshape_helper2(src_ndim, src_shape, src_strides, dst_ndim, dst_shape, dst_strides);
+    xassert(dst_ndim >= 0);
+    xassert(dst_ndim <= ArrayMaxDim);
+    xassert((dst_ndim == 0) || (dst_shape != nullptr));
+
+    dst.ndim = dst_ndim;
+    dst.data = src.data;
+    dst.base = src.base;
+    dst.dtype = src.dtype;
+    dst.aflags = src.aflags;
+    dst.size = dst_ndim ? 1 : 0;
+    
+    for (int d = 0; d < dst_ndim; d++) {
+	xassert(dst_shape[d] >= 0);
+	dst.shape[d] = dst_shape[d];
+	dst.size *= dst_shape[d];
+    }
+
+    for (int d = dst_ndim; d < ArrayMaxDim; d++)
+	dst.shape[d] = 0;
+
+    // reshape_helper() initializes dst.strides
+    int status = reshape_helper(dst, src);
 
     if (status == 1) {
 	stringstream ss;
-	ss << "Array::reshape_ref(): src_shape=" << shape_str(src_ndim, src_shape)
-	   << " is incompatible with dst_shape=" << shape_str(dst_ndim, dst_shape);
+	ss << "Array::reshape_ref(): src_shape=" << src.shape_str()
+	   << " is incompatible with dst_shape=" << dst.shape_str();
 	throw runtime_error(ss.str());
 	
     }
     else if (status == 2) {
 	stringstream ss;
-	ss << "Array::reshape_ref(): src_shape=" << shape_str(src_ndim, src_shape)
-	   << " and dst_shape=" << shape_str(dst_ndim, dst_shape)
-	   << " are compatible, but src_strides=" << shape_str(src_ndim, src_strides)
+	ss << "Array::reshape_ref(): src_shape=" << src.shape_str()
+	   << " and dst_shape=" << dst.shape_str()
+	   << " are compatible, but src_strides=" << src.stride_str()
 	   << " don't allow axes to be combined";
 	throw runtime_error(ss.str());
     }
+
+    dst.check_invariants();
 }
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// array_fill()
 
 
 struct fill_axis {
     long length;
-    long dstride;  // in bytes
-    long sstride;  // in bytes
+    long dstride_nbits;
+    long sstride_nbits;
 
     inline bool operator<(const fill_axis &a) const
     {
 	// FIXME put more thought into this
-	return dstride < a.dstride;
-    }
-
-    void show() const
-    {
-	cout << "    fill_axis(len=" << length << ", dstride=" << dstride << ", sstride=" << sstride << ")\n";
+	return dstride_nbits < a.dstride_nbits;
     }
 };
 
 
-static void fill_helper2(char *dst, const char *src, int ndim, const fill_axis *axes)
+// Recursive helper function called by array_fill().
+static void array_fill2(char *dst, const char *src, int ndim, const fill_axis *axes)
 {
-    // Caller guarantees the following:
+    // Caller guarantees the following (these are asserts in array_fill()).
+    // Note that axis 0 corresponds to single bits.
+    //
     //   ndim > 0
-    //   axes[0].dstride == 1
-    //   axes[0].sstride == 1
+    //   axes[0].dstride_nbits == 1
+    //   axes[0].sstride_nbits == 1
+    //   (axes[0].length % 8) == 0
+    //   (axes[d].dstride_nbits % 8) == 0    for d > 0
+    //   (axes[d].sstride_nbits % 8) == 0    for d > 0
     
-    if (ndim <= 1) {
-	CUDA_CALL(cudaMemcpy(dst, src, axes[0].length, cudaMemcpyDefault));
-	return;
-    }
+    if (ndim <= 1)
+	CUDA_CALL(cudaMemcpy(dst, src, axes[0].length >> 3, cudaMemcpyDefault));
 
-    if (ndim == 2) {
+    else if (ndim == 2) {
 	// These two conditions are required by cudaMemcpy2D().
 	// In particular, strides must be positive.
-	xassert(axes[1].dstride >= axes[0].length);
-	xassert(axes[1].sstride >= axes[0].length);
-	CUDA_CALL(cudaMemcpy2D(dst, axes[1].dstride, src, axes[1].sstride, axes[0].length, axes[1].length, cudaMemcpyDefault));
-	return;
+	xassert(axes[1].dstride_nbits >= axes[0].length);
+	xassert(axes[1].sstride_nbits >= axes[0].length);
+	
+	CUDA_CALL(cudaMemcpy2D(dst, axes[1].dstride_nbits >> 3,
+			       src, axes[1].sstride_nbits >> 3,
+			       axes[0].length >> 3,
+			       axes[1].length,
+			       cudaMemcpyDefault));
     }
 
-    // Note: there is a cudaMemcpy3D(), but it requires that either the
-    // data be in a cudaArray, or that strides are contiguous (so that
-    // it's a cudaMemcpy2D in disguise), so we can't use it here.
-    
-    for (int i = 0; i < axes[ndim-1].length; i++) {
-	fill_helper2(dst + i * axes[ndim-1].dstride,
-		     src + i * axes[ndim-1].sstride,
-		     ndim-1, axes);
+    else {
+	// Note: there is a cudaMemcpy3D(), but it requires that either the
+	// data be in a cudaArray, or that strides are contiguous (so that
+	// it's a cudaMemcpy2D in disguise), so we can't use it here.
+
+	long ds = axes[ndim-1].dstride_nbits >> 3;
+	long ss = axes[ndim-1].sstride_nbits >> 3;
+	
+	for (int i = 0; i < axes[ndim-1].length; i++)
+	    array_fill2(dst + i*ds, src + i*ss, ndim-1, axes);
     }
 }
 
 
+// Helper function called by array_fill().
+static void show_array_fill(ostream &os, const Array<void> &dst, const Array<void> &src, int naxes, const fill_axis *axes)
+{
+    os << "ksgpu::Array::fill: shape=" << dst.shape_str()
+       << ", dst.strides=" << dst.stride_str()
+       << ", src.strides=" << src.stride_str()
+       << ", elt_nbits=" << dst.dtype.nbits
+       << "\n";
+    
+    for (int d = 0; d < naxes; d++)
+	os << "    coalesced axis: len=" << axes[d].length
+	   << ", dstride_nbits=" << axes[d].dstride_nbits
+	   << ", sstride_nbits=" << axes[d].sstride_nbits
+	   << "\n";
+}
 
-void fill_helper(void *dst, int dst_ndim, const long *dst_shape, const long *dstride,
-		 const void *src, int src_ndim, const long *src_shape, const long *sstride,
-		 long itemsize, bool noisy)
+
+void array_fill(Array<void> &dst, const Array<void> &src, bool noisy)
 {
     // Check that dst/src shapes match.
-    
-    if (!shape_eq(dst_ndim, dst_shape, src_ndim, src_shape)) {
+    if (!dst.shape_equals(src)) {
 	stringstream ss;
-	ss << "ksgpu::Array::fill(): dst_shape=" << shape_str(dst_ndim,dst_shape)
-	   << " and src_shape=" << shape_str(src_ndim,src_shape) << " are unequal";
+	ss << "ksgpu::Array::fill(): dst.shape=" << dst.shape_str()
+	   << " and src.shape=" << src.shape_str() << " are unequal";
 	throw runtime_error(ss.str());
     }
 
-    int ndim = dst_ndim;
-    const long *shape = dst_shape;
-
-    // If empty array, then return early
-    
-    if (dst_ndim == 0)
-	return;
-    
-    for (int d = 0; d < ndim; d++) {
-	if (shape[d] == 0)
-	    return;
+    // Check that dst/src dtypes match.
+    // Currently require dtypes to match exactly (e.g. can't fill signed int from unsigned int).
+    if (dst.dtype != src.dtype) {
+	stringstream ss;
+	ss << "ksgpu::Array::fill(): dst.dtype=" << dst.dtype
+	   << " and src.dtype=" << src.dtype << " are unequal";
+	throw runtime_error(ss.str());
     }
 
+    // If empty array, then return early.
+    if (dst.size == 0)
+	return;
+
     // Uncoalesced axes
+    int ndim = dst.ndim;
+    long elt_nbits = dst.dtype.nbits;
     fill_axis axes_u[ndim];
     int nax_u = 0;
-
+    
     for (int d = 0; d < ndim; d++) {
-	if (shape[d] <= 1)
+	if (dst.shape[d] <= 1)
 	    continue;
 
-	axes_u[nax_u].length = shape[d];
-	axes_u[nax_u].dstride = dstride[d] * itemsize;
-	axes_u[nax_u].sstride = sstride[d] * itemsize;
+	axes_u[nax_u].length = dst.shape[d];
+	axes_u[nax_u].dstride_nbits = dst.strides[d] * elt_nbits;
+	axes_u[nax_u].sstride_nbits = src.strides[d] * elt_nbits;
 	nax_u++;
     }
 
     // Sort by increasing dstride
     std::sort(axes_u, axes_u + nax_u);
 
-    // Coalece axes, and represent itemsize by a new axis
+    // Coalece axes, and represent itemsize by a new length-nbits axis.
     fill_axis axes_c[ndim+1];
     int nax_c = 1;
 
-    axes_c[0].length = itemsize;
-    axes_c[0].dstride = 1;
-    axes_c[0].sstride = 1;
+    axes_c[0].length = elt_nbits;
+    axes_c[0].dstride_nbits = 1;
+    axes_c[0].sstride_nbits = 1;
 
-    // (Length * stride) of last coalesced axis.
-    long dlen = itemsize;
-    long slen = itemsize;
+    // (Length * stride_nbits) of last coalesced axis.
+    long dlen = elt_nbits;
+    long slen = elt_nbits;
     
     for (int d = 0; d < nax_u; d++) {
-	if ((axes_u[d].dstride == dlen) && (axes_u[d].sstride == slen)) {
-	    // Can coalesce
+	if ((axes_u[d].dstride_nbits == dlen) && (axes_u[d].sstride_nbits == slen)) {
+	    // Can coalesce.
 	    long s = axes_u[d].length;
 	    axes_c[nax_c-1].length *= s;
 	    dlen *= s;
 	    slen *= s;
 	}
 	else {
-	    // Can't coalesce
+	    // Can't coalesce.
 	    axes_c[nax_c] = axes_u[d];
-	    dlen = axes_u[d].length * axes_u[d].dstride;
-	    slen = axes_u[d].length * axes_u[d].sstride;
+	    dlen = axes_u[d].length * axes_u[d].dstride_nbits;
+	    slen = axes_u[d].length * axes_u[d].sstride_nbits;
 	    nax_c++;
 	}
     }
 
-    if (noisy) {
-	cout << "fill: input shape=" << tuple_str(ndim, shape)
-	     << ", dstride_nelts=" << tuple_str(ndim, dstride)
-	     << ", sstride_nelts=" << tuple_str(ndim, sstride)
-	     << ", itemsize=" << itemsize << "\n";
+    if (noisy)
+	show_array_fill(cout, dst, src, nax_c, axes_c);    
+    
+    xassert(nax_c > 0);
+    xassert(axes_c[0].dstride_nbits == 1);
+    xassert(axes_c[0].sstride_nbits == 1);
 
-	for (int d = 0; d < nax_c; d++)
-	    axes_c[d].show();	
+    bool invalid = (axes_c[0].length & 7) != 0;
+
+    for (int d = 1; d < nax_c; d++)
+	if ((axes_c[d].dstride_nbits & 7) || (axes_c[d].sstride_nbits & 7))
+	    invalid = true;
+
+    if (invalid) {
+	stringstream ss;
+	ss << "Array::fill() operation can't be decomposed into byte-contiguous copies.\n"
+	   << "This is currently treated as an error, even in tame cases such as a contiguous 1-d array with (total_nbits % 8) != 0.\n"
+	   << "Addressing this is nontrivial (e.g. consider case where 'tame' array is subarray of an ambient array).\n"
+	   << "I may revisit this in the future, but it's not a high priority right now.\n";
+	
+	show_array_fill(ss, dst, src, nax_c, axes_c);
+	throw runtime_error(ss.str());
+    }
+
+    array_fill2((char *) dst.data, (const char *) src.data, nax_c, axes_c);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// array_slice()
+
+
+void array_slice(Array<void> &dst, const Array<void> &src, int axis, long ix)
+{
+    int ndim = src.ndim;
+    
+    xassert((axis >= 0) && (axis < ndim));
+    xassert((ix >= 0) && (ix < src.shape[axis]));
+
+    // Slicing (1-dim -> 0-dim) doesn't make sense,
+    // since our zero-dimensional Arrays are empty.
+    xassert(ndim > 1);
+    
+    dst.ndim = ndim-1;
+    dst.dtype = src.dtype;
+    dst.aflags = src.aflags & af_location_flags;
+    dst.base = src.base;
+    dst.size = 1;  // will be updated in loop below
+
+// Suppress spurious GCC warning in loop that follows.
+// FIXME is this really necessary?
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+    
+    for (int i = 0; i < ndim-1; i++) {
+	int j = (i < axis) ? i : (i+1);
+	dst.shape[i] = src.shape[j];
+	dst.strides[i] = src.strides[j];
+	dst.size *= src.shape[j];
     }
     
-    fill_helper2((char *)dst, (const char *)src, nax_c, axes_c);
+#pragma GCC diagnostic pop
+
+    for (int i = ndim-1; i < ArrayMaxDim; i++) {
+	dst.shape[i] = 0;
+	dst.strides[i] = 0;
+    }
+
+    long nbits = ix * src.strides[axis] * long(src.dtype.nbits);
+    
+    if (dst.size && (nbits & 7))
+	throw runtime_error("Array::slice(): slicing operation is not byte-aligned");
+
+    const char *p = dst.size ? ((const char *)src.data + (nbits >> 3)) : nullptr;
+    dst.data = (void *) p;
+    dst.check_invariants();
+}
+
+
+void array_slice(Array<void> &dst, const Array<void> &src, int axis, long start, long stop)
+{
+    int ndim = src.ndim;
+    
+    // Currently we allow slices like arr[2:10] but not arr[2:-10] or arr[2:10:2].
+    // This would be easy to generalize!
+    xassert((axis >= 0) && (axis < ndim));
+    xassert((start >= 0) && (start <= stop) && (stop <= src.shape[axis]));
+    
+    dst.ndim = ndim;
+    dst.dtype = src.dtype;
+    dst.aflags = src.aflags & af_location_flags;
+    dst.base = src.base;
+    dst.size = 1;  // will be updated in loop below
+
+    for (int i = 0; i < ndim; i++) {
+	dst.shape[i] = (i == axis) ? (stop-start) : src.shape[i];
+	dst.strides[i] = src.strides[i];
+	dst.size *= src.shape[i];
+    }
+
+    for (int i = ndim; i < ArrayMaxDim; i++)
+	dst.shape[i] = dst.strides[i] = 0;
+    
+    long nbits = start * src.strides[axis] * long(src.dtype.nbits);
+    
+    if (dst.size && (nbits & 7))
+	throw runtime_error("Array::slice(): slicing operation is not byte-aligned");
+
+    const char *p = dst.size ? ((const char *)src.data + (nbits >> 3)) : nullptr;
+    dst.data = (void *)p;
+    dst.check_invariants();
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// array_transpose()
+
+
+void array_transpose(Array<void> &dst, const Array<void> &src, const int *perm)
+{
+    xassert(perm != nullptr);
+    int ndim = src.ndim;
+    
+    dst.ndim = ndim;
+    dst.data = src.data;
+    dst.size = src.size;
+    dst.base = src.base;
+    dst.dtype = src.dtype;
+    dst.aflags = src.aflags;
+
+    bool flags[ArrayMaxDim];
+
+    for (int d = 0; d < ArrayMaxDim; d++)
+        flags[d] = false;
+
+    for (int d = 0; d < ndim; d++) {
+        int p = perm[d];
+        xassert((p >= 0) && (p < ndim));
+        xassert(!flags[p]);   // if fails, then 'perm' is not a permutation
+
+        dst.shape[d] = src.shape[p];
+        dst.strides[d] = src.strides[p];
+        flags[p] = true;
+    }
+
+    for (int d = ndim; d < ArrayMaxDim; d++)
+	dst.shape[d] = dst.strides[d] = 0;
+    
+    dst.check_invariants();
 }
 
 
