@@ -325,9 +325,9 @@ struct FillTestInstance {
 
 template<typename T>
 static void test_reshape(const vector<long> &dst_shape,
-			     const vector<long> &src_shape,
-			     const vector<long> &src_strides,
-			     bool noisy=false)
+			 const vector<long> &src_shape,
+			 const vector<long> &src_strides,
+			 bool noisy=false)
 {
     if (noisy) {
 	cout << "test_reshape: dst_shape=" << tuple_str(dst_shape)
@@ -407,10 +407,7 @@ static void test_convert_dtype(const vector<long> &shape, const vector<long> &st
     for (auto ix = src.ix_start(); src.ix_valid(ix); src.ix_next(ix)) {
 	double fsrc = convert_to_double(src.at(ix));
 	double fdst = convert_to_double(dst.at(ix));
-	
-	// FIXME currently assuming threshold appropriate for float16,
-	// since the only implemented conversions are float32 <-> float16.
-	xassert(abs(fsrc-fdst) < epsilon);
+	xassert_le(abs(fsrc-fdst), epsilon);
     }
 }
 
@@ -454,7 +451,7 @@ int main(int argc, char **argv)
 
     bool noisy = false;
     int niter = 1000;
-
+	
     for (int i = 0; i < niter; i++) {
 	if (i % 100 == 0)
 	    cout << "test-array: iteration " << i << "/" << niter << endl;

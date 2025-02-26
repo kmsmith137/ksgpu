@@ -127,7 +127,7 @@ struct Array {
 
     // Reshape-by-reference. Throws an exception if either (1) requested shape is
     // incompatible with the current shape; (2) current strides don't permit axes to
-    // be combined without copying. (FIXME reshape() hasn't been systematically tested!)
+    // be combined without copying.
     
     inline Array<T> reshape(int ndim, const long *shape) const;
     inline Array<T> reshape(const std::vector<long> &shape) const;
