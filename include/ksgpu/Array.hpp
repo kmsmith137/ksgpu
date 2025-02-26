@@ -265,11 +265,11 @@ inline Array<T>::Array()
 
 template<typename T>
 inline Array<T>::Array(const std::vector<long> &shape_, int aflags_)
-    : Array(shape_.size(), &shape_[0], nullptr, aflags_) { }
+    : Array(shape_.size(), &shape_[0], aflags_) { }
 
 template<typename T>
 inline Array<T>::Array(std::initializer_list<long> shape_, int aflags_)
-    : Array(shape_.size(), shape_.begin(), nullptr, aflags_) { }
+    : Array(shape_.size(), shape_.begin(), aflags_) { }
 
 template<typename T>
 inline Array<T>::Array(int ndim_, const long *shape_, int aflags_)
