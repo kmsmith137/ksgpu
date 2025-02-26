@@ -344,7 +344,7 @@ inline void Array<T>::_construct(const Dtype &dtype_, int ndim_, const long *sha
     this->size = ndim_ ? 1 : 0;  // updated in loop below
     long nalloc = size;
 	
-    for (int d = 0; d < ndim; d++) {
+    for (int d = ndim-1; d >= 0; d--) {
 	shape[d] = shape_[d];
 	strides[d] = strides_ ? strides_[d] : size;
 	
