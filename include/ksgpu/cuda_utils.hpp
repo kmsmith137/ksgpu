@@ -186,9 +186,6 @@ public:
 
 
 extern void assign_kernel_dims(dim3 &nblocks, dim3 &nthreads, long nx, long ny, long nz, int threads_per_block=128, bool noisy=false);
-    
-// Implements command-line usage: program [device].
-extern void set_device_from_command_line(int argc, char **argv);
 
 extern double get_sm_cycles_per_second(int device=0);
 

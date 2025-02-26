@@ -76,9 +76,6 @@ static void time_kernel(const char *name)
     
 int main(int argc, char **argv)
 {
-    // Implements command-line usage: program [device].
-    set_device_from_command_line(argc, argv);
-    
     time_kernel<true,false> ("Read shared memory");
     time_kernel<false,true> ("Write shared memory");
     time_kernel<true,true> ("Read/write shared memory");
