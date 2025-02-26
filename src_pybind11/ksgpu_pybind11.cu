@@ -1,5 +1,7 @@
 // For an explanation of PY_ARRAY_UNIQUE_SYMBOL, see comments later in this source filE.
 #define PY_ARRAY_UNIQUE_SYMBOL PyArray_API_ksgpu
+#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#include <numpy/arrayobject.h>
 
 #include "../include/ksgpu/pybind11.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
@@ -66,25 +68,14 @@ static Array<double> _arange(long n)
 
 static void _convert_array_from_python(py::object &obj)
 {
-    // FIXME eventually, this function should work for arbitrary types.
-    using T = double;
-    
-    void *data = nullptr;
-    Array<T> value;
+    ksgpu::Array<void> arr;
 
     ksgpu::convert_array_from_python(
-        data,                                 // void *&data
-	value.ndim,                           // int &ndim
-	value.shape,                          // long *shape
-	value.strides,                        // long *strides
-	value.size,                           // long &size
-	ksgpu::dlpack_type_code<T>::value,  // int dlpack_type_code
-	sizeof(T),                            // int itemsize
-	value.base,                           // std::shared_ptr<void> &base
-	value.aflags,                         // int &aflags
-	obj.ptr(),                            // PyObject *src
-	false,                                // bool convert
-	"convert_array_from_python"           // const char *debug_prefix
+	arr,                          // Array<void> &dst
+	obj.ptr(),                    // PyObject *src
+	ksgpu::Dtype(),               // Dtype dt_expected
+	false,                        // bool convert
+	"convert_array_from_python"   // const char *debug_prefix
     );
 }
 
@@ -186,7 +177,7 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
 	  py::arg("n"));
 
     m.def("convert_array_from_python", &_convert_array_from_python,
-	  "Converts Array<double> from python to C++, but with a lot of debug output."
+	  "Converts array from python to C++, but with a lot of debug output."
 	  " This is intended as a mechanism for tracing/debugging array conversion.",
 	  py::arg("arr"));
 

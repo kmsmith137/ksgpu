@@ -1,15 +1,13 @@
 #ifndef _KSGPU_PYBIND11_HPP
 #define _KSGPU_PYBIND11_HPP
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#include <numpy/arrayobject.h>
 #include <pybind11/pybind11.h>
 
-// ksgpu::Array<T>
+#include "Dtype.hpp"
 #include "Array.hpp"
+#include "xassert.hpp"
 
-// convert_array_from_python(), convert_array_to_python()
-// array_type_name<T>, npy_type_num<T>, dlpack_type_code<T>
+// convert_array_from_python(), convert_array_to_python(), array_type_name<T>
 #include "pybind11_utils.hpp"
 
 
@@ -35,27 +33,19 @@ struct type_caster<ksgpu::Array<T>>
 
     bool load(handle src, bool convert)
     {
-	void *data = nullptr;
-
+	ksgpu::Dtype dt_expected;
+	
+	if constexpr (!std::is_void_v<T>)
+	    dt_expected = ksgpu::Dtype::native<T>();
+	
 	// Throws a C++ exception on failure. (I tried a few ways of reporting
 	// failure, including calling PyErr_SetString() and returning false,
 	// but I liked throwing a C++ exception best.)
-
-	ksgpu::convert_array_from_python(
-	    data,                                 // void *&data
-	    this->value.ndim,                     // int &ndim
-	    this->value.shape,                    // long *shape
-	    this->value.strides,                  // long *strides
-	    this->value.size,                     // long &size
-	    ksgpu::dlpack_type_code<T>::value,  // int dlpack_type_code
-	    sizeof(T),                            // int itemsize
-	    this->value.base,                     // std::shared_ptr<void> &base
-	    this->value.aflags,                   // int &aflags
-	    src.ptr(),                            // PyObject *src
-	    convert                               // bool convert
-	);
-
-	this->value.data = reinterpret_cast<T *> (data);
+	//
+	// If 'dt_expected' is an empty type (i.e. flags==nbits==0) then no
+	// type-checking is performed.
+	
+	ksgpu::convert_array_from_python(this->value, src.ptr(), dt_expected, convert);
 	return true;
     }
     
@@ -68,18 +58,7 @@ struct type_caster<ksgpu::Array<T>>
 	// and returns NULL. (I tried a few ways of reporting failure, and I liked
 	// this way best.)
 	
-	return ksgpu::convert_array_to_python(
-	    src.data,                         // void *data
-	    src.ndim,                         // int ndim
-	    src.shape,                        // const long *shape
-	    src.strides,                      // const long *strides
-	    ksgpu::npy_type_num<T>::value,  // int npy_typenum
-	    sizeof(T),                        // int itemsize
-	    src.base,                         // const shared_ptr<void> &base
-	    src.aflags,                       // int aflags
-	    policy,                           // pybind11::return_value_policy policy
-	    parent                            // pybind11::handle parent
-	);
+	return ksgpu::convert_array_to_python(src, policy, parent);
     }
 };
 
