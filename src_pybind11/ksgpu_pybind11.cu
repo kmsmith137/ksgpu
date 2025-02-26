@@ -54,12 +54,12 @@ static void _double(Array<double> &arr)
 }    
 
 
-static Array<double> _arange(long n)
+static Array<int> _arange(int n)
 {
     // Note af_verbose here.
-    Array<double> ret({n}, af_uhost | af_verbose);
+    Array<int> ret({n}, af_uhost | af_verbose);
     
-    for (long i = 0; i < n; i++)
+    for (int i = 0; i < n; i++)
 	ret.at({i}) = i;
     
     return ret;
@@ -97,13 +97,13 @@ void _launch_busy_wait_kernel(Array<uint> &arr, double a40_sec, long stream_ptr)
 
 struct Stash
 {
-    Array<double> x;
+    Array<void> x;
     
-    Stash(const Array<double> &x_) : x(x_) { }
+    Stash(const Array<void> &x_) : x(x_) { }
     ~Stash() { cout << "Stash destructor called!" << endl; }
     
-    Array<double> get() { return x; }
-    void clear() { x = Array<double> (); }
+    Array<void> get() { return x; }
+    void clear() { x = Array<void> (); }
 };
 
 
@@ -156,7 +156,7 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
     py::class_<PybindBasePtr>(m, "BasePtr", baseptr_doc);
 
     py::class_<Stash>(m, "Stash", stash_doc)
-	.def(py::init<const Array<double> &>(), py::arg("arr"))
+	.def(py::init<const Array<void> &>(), py::arg("arr"))
 	.def("get", &Stash::get)
         .def("clear", &Stash::clear)
     ;
