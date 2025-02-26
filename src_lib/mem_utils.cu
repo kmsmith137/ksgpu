@@ -68,8 +68,8 @@ string aflag_str(int flags)
     int count = 0;
     
     _aflag_str(ss, count, flags & af_gpu, "af_gpu");
-    _aflag_str(ss, count, flags & af_gpu, "af_uhost");
-    _aflag_str(ss, count, flags & af_gpu, "af_rhost");
+    _aflag_str(ss, count, flags & af_uhost, "af_uhost");
+    _aflag_str(ss, count, flags & af_rhost, "af_rhost");
     _aflag_str(ss, count, flags & af_unified, "af_unified");    
     _aflag_str(ss, count, flags & af_zero, "af_zero");
     _aflag_str(ss, count, flags & af_random, "af_random");
