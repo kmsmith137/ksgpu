@@ -27,7 +27,7 @@ inline long make_random_axis(long maxaxis, long &maxsize)
     long n = std::min(maxaxis, maxsize);
     double t = rand_uniform(1.0e-6, log(n+1.0) - 1.0e-6);
     long ret = long(exp(t));  // round down
-    maxsize = maxsize / ret;        // round down
+    maxsize = maxsize / ret;  // round down
     return ret;
 }
 
@@ -53,7 +53,7 @@ vector<long> make_random_shape(int ndim, long maxaxis, long maxsize)
 // -------------------------------------------------------------------------------------------------
 
 
-vector<long> make_random_strides(int ndim, const long *shape, int ncontig, int nalign)
+vector<long> make_random_strides(int ndim, const long *shape, int ncontig, long nalign)
 {
     xassert(ndim <= ArrayMaxDim);
     xassert(ncontig >= 0);
@@ -91,7 +91,7 @@ vector<long> make_random_strides(int ndim, const long *shape, int ncontig, int n
 }
 
 
-vector<long> make_random_strides(const vector<long> &shape, int ncontig, int nalign)
+vector<long> make_random_strides(const vector<long> &shape, int ncontig, long nalign)
 {
     return make_random_strides(shape.size(), &shape[0], ncontig, nalign);
 }
@@ -173,7 +173,7 @@ void make_random_reshape_compatible_shapes(vector<long> &dshape,
 
     for (int i = 0; i < nblocks; i++) {
 	const RcBlock &block = blocks[i];
-	int block_stride = block_strides[i];
+	long block_stride = block_strides[i];
 	
 	vector<long> &fshape = block.dflag ? dshape : sshape;   // "factored" shape
 	vector<long> &ushape = block.dflag ? sshape : dshape;   // "unfactored" shape

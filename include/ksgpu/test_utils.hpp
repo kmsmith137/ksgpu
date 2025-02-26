@@ -67,8 +67,8 @@ extern std::vector<long> make_random_shape(int ndim=0, long maxaxis=20, long max
 
 // If ncontig > 0, then the last 'ncontig' axes are guaranteed contiguous.
 // If nalign > 1, then all strides besides the last 'ncontig' are guaranteed multiples of 'nalign'.
-extern std::vector<long> make_random_strides(int ndim, const long *shape, int ncontig=0, int nalign=1);
-extern std::vector<long> make_random_strides(const std::vector<long> &shape, int ncontig=0, int nalign=1);
+extern std::vector<long> make_random_strides(int ndim, const long *shape, int ncontig=0, long nalign=1);
+extern std::vector<long> make_random_strides(const std::vector<long> &shape, int ncontig=0, long nalign=1);
 
 
 // This specialized function is intended for testing Array<T>::reshape_ref() (see tests/test-array.cu).
