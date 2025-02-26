@@ -529,7 +529,7 @@ void array_slice(Array<void> &dst, const Array<void> &src, int axis, long start,
     for (int i = 0; i < ndim; i++) {
 	dst.shape[i] = (i == axis) ? (stop-start) : src.shape[i];
 	dst.strides[i] = src.strides[i];
-	dst.size *= src.shape[i];
+	dst.size *= dst.shape[i];
     }
 
     for (int i = ndim; i < ArrayMaxDim; i++)
