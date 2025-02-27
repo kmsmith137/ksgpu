@@ -40,6 +40,8 @@ struct Dtype
     template<typename T> static inline Dtype native();
 
     inline bool is_valid() const;
+    inline bool is_empty() const { return (flags == 0) && (nbits == 0); }
+    
     inline bool operator==(const Dtype &x) const { return (flags == x.flags) && (nbits == x.nbits); }
     inline bool operator!=(const Dtype &x) const { return (flags != x.flags) || (nbits != x.nbits); }
     

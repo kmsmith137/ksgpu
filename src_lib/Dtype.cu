@@ -40,6 +40,11 @@ static string dflag_str(unsigned short f)
 // Pretty-print a dtype.
 ostream &operator<<(ostream &os, const Dtype &dt)
 {
+    if (dt.is_empty()) {
+	os << "empty_dtype";
+	return os;
+    }
+    
     if (!dt.is_valid()) {
 	os << "invalid_dtype(flags = (" << dflag_str(dt.flags) << "), nbits = " << dt.nbits;
 	if (dt.flags == df_complex)
