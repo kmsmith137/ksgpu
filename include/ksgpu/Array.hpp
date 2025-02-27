@@ -87,9 +87,14 @@ struct Array {
     // These constructors allow an explicit dtype.
     // If (T != void), then these constructors check that the dtype is consistent with T.
     // If (T == void), then constructors _without_ an explicit dtype throw excptions.
+    
     Array(const Dtype &dtype, int ndim, const long *shape, int aflags);
     Array(const Dtype &dtype, const std::vector<long> &shape, int aflags);
     Array(const Dtype &dtype, std::initializer_list<long> shape, int aflags);
+    
+    Array(const Dtype &dtype, int ndim, const long *shape, const long *strides, int aflags);
+    Array(const Dtype &dtype, const std::vector<long> &shape, const std::vector<long> &strides, int aflags);
+    Array(const Dtype &dtype, std::initializer_list<long> shape, std::initializer_list<long> strides, int aflags);
     
     // Is array addressable on GPU? On host?
     inline bool on_gpu() const { return !data || af_on_gpu(aflags); }
@@ -152,9 +157,10 @@ struct Array {
     template<typename U=T, typename=enable_if_non_void<U>> inline operator Array<void>& ();
     template<typename U=T, typename=enable_if_non_void<U>> inline operator const Array<void>& () const;
 
-    // cast(): zero-copy conversion of (Array<T> &), throws exception if datatypes are incompatible.
-    template<typename U> inline Array<U>& cast();
-    template<typename U> inline const Array<U>& cast() const;
+    // cast(): zero-copy conversion of (Array<T> &).
+    // If datatypes are incompatible, throws an exception beginning with the 'where' string.
+    template<typename U> inline Array<U>& cast(const char *where = "Array::cast()");
+    template<typename U> inline const Array<U>& cast(const char *where = "Array::cast()") const;
 
     // convert_dtype(): returns copy of Array, with new datatype.
     template<typename Tdst> inline Array<Tdst> convert_dtype() const;
@@ -304,11 +310,11 @@ inline Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int 
 }
 
 
-// The next three Array constructors:
+// The next six Array constructors:
 //   - have a runtime 'dtype' arg
 //   - are callable with (T == void).
 //   - if called with (T != void), check consistency between runtime 'dtype' arg, and compile-time type T.
-//   - do not have a 'strides' argument.
+//   - may have a 'strides' argument.
 
 
 template<typename T>
@@ -319,10 +325,25 @@ template<typename T>
 inline Array<T>:: Array(const Dtype &dtype_, std::initializer_list<long> shape_, int aflags_)
     : Array(dtype_, shape_.size(), shape_.begin(), aflags_) { }
 
-
 template<typename T>
 inline Array<T>::Array(const Dtype &dtype_, int ndim_, const long *shape_, int aflags_)
 {
+    this->_construct(dtype_, ndim_, shape_, nullptr, aflags_);
+}
+
+
+template<typename T>
+inline Array<T>::Array(const Dtype &dtype_, const std::vector<long> &shape_, const std::vector<long> &strides_, int aflags_)
+    : Array(dtype_, ndim_ss(shape_,strides_), &shape_[0], &strides_[0], aflags_) { }
+
+template<typename T>
+inline Array<T>:: Array(const Dtype &dtype_, std::initializer_list<long> shape_, std::initializer_list<long> strides_, int aflags_)
+    : Array(dtype_, ndim_ss(shape_,strides_), shape_.begin(), strides_.begin(), aflags_) { }
+
+template<typename T>
+inline Array<T>::Array(const Dtype &dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
+{
+    xassert(strides_ != nullptr);
     this->_construct(dtype_, ndim_, shape_, nullptr, aflags_);
 }
 
@@ -641,16 +662,16 @@ inline Array<T>::operator const Array<void>& () const
 // (Morally similar to std::dynamic_pointer_cast()).
 
 template<typename T> template<typename U>
-inline Array<U>& Array<T>::cast()
+inline Array<U>& Array<T>::cast(const char *where)
 {
-    _check_dtype<U> (dtype, "Array::cast()");
+    _check_dtype<U> (dtype, where);
     return reinterpret_cast<Array<U> &> (*this);
 }
 
 template<typename T> template<typename U>
-inline const Array<U>& Array<T>::cast() const
+inline const Array<U>& Array<T>::cast(const char *where) const
 {
-    _check_dtype<U> (dtype, "Array::cast()");
+    _check_dtype<U> (dtype, where);
     return reinterpret_cast<const Array<U> &> (*this);
 }
 
