@@ -242,7 +242,8 @@ void print_array(const Array<void> &arr, const vector<string> &axis_names, std::
     xassert((axis_names.size() == 0) || (axis_names.size() == uint(arr.ndim)));
 
     if (!arr.on_host()) {
-	print_array(arr.to_host(), axis_names, os);
+	Array<void> harr = harr.to_host(false);  // page_locked=false
+	print_array(harr, axis_names, os);
 	return;
     }
 
