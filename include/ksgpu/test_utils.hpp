@@ -18,15 +18,11 @@ namespace ksgpu {
 
 
 // Very boneheaded function which prints an array.
-// Currently one line per array element -- could be improved!
-// Instantiated for T = __half, float, double, (u)int, (u)long, (u)short, (u)char, complex<float>, complex<double>, complex<int>.
-// FIXME to do: implement for T=void.
+// FIXME currently one line per array element -- could be improved!
 
-template<typename T>
-extern void
-print_array(const Array<T> &arr,
-	    const std::vector<std::string> &axis_names = {},
-	    std::ostream &os = std::cout);
+extern void print_array(const Array<void> &arr, 
+			const std::vector<std::string> &axis_names = {},
+			std::ostream &os = std::cout);
 
 
 // Instantiated for T = float, double, (u)int, (u)long, (u)short, (u)char, complex<float>, complex<double>, complex<int>.
@@ -40,7 +36,7 @@ print_array(const Array<T> &arr,
 //
 // FIXME to do: implement for T=__half.
 // Temporary workaround:
-//    (1) convert both arrays to float with Array<__half>:convert_dtype<float>()
+//    (1) convert both arrays to float with Array<__half>:convert<float>()
 //    (2) call assert_arrays_equal(..., epsabs=0.01, epsrel=0.005);
 
 template<typename T>

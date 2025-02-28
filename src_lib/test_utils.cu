@@ -214,11 +214,10 @@ inline ostream &operator<<(ostream &os, __half x)
 
 
 template<typename T>
-void print_array(const Array<T> &arr, const vector<string> &axis_names, std::ostream &os)
+static void _print_array(const Array<void> &arr_, const vector<string> &axis_names, std::ostream &os)
 {
-    xassert((axis_names.size() == 0) || (axis_names.size() == uint(arr.ndim)));
-
-    int nd = arr.ndim;
+    Array<T> arr = arr_.cast<T> ("print_array");
+    int nd = arr_.ndim;
     
     for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix)) {
 	if (axis_names.size() == 0) {
@@ -235,7 +234,67 @@ void print_array(const Array<T> &arr, const vector<string> &axis_names, std::ost
 
 	os << ": " << arr.at(ix) << "\n";
     }
+}
 
+
+void print_array(const Array<void> &arr, const vector<string> &axis_names, std::ostream &os)
+{
+    xassert((axis_names.size() == 0) || (axis_names.size() == uint(arr.ndim)));
+
+    if (!arr.on_host()) {
+	print_array(arr.to_host(), axis_names, os);
+	return;
+    }
+
+    if (arr.dtype == Dtype::native<float>())
+	_print_array<float> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<double>())
+	_print_array<double> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<__half>())
+	_print_array<__half> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<int>())
+	_print_array<int> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<uint>())
+	_print_array<uint> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<long>())
+	_print_array<long> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<ulong>())
+	_print_array<ulong> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<short>())
+	_print_array<short> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<ushort>())
+	_print_array<ushort> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<char>())
+	_print_array<char> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<unsigned char>())
+	_print_array<unsigned char> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<complex<float>>())
+	_print_array<complex<float>> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<complex<double>>())
+	_print_array<complex<double>> (arr, axis_names, os);
+    
+    else if (arr.dtype == Dtype::native<complex<int>>())
+	_print_array<complex<int>> (arr, axis_names, os);
+
+    else {
+	stringstream ss;
+	ss << "ksgpu::print_array() is not implemented for dtype " + arr.dtype.str()
+	   << ". Adding new dtypes to print_array() should be straightforward.";
+	throw runtime_error(ss.str());
+    }
+    
     os.flush();
 }
 
@@ -363,12 +422,6 @@ void launch_busy_wait_kernel(Array<uint> &arr, double a40_seconds, cudaStream_t 
 // -------------------------------------------------------------------------------------------------
 
 
-#define INSTANTIATE_PRINT_ARRAY(T)	    \
-    template void print_array(              \
-	const Array<T> &arr,                \
-	const vector<string> &axis_names,   \
-	ostream &os)
-
 #define INSTANTIATE_ASSERT_ARRAYS_EQUAL(T)  \
     template				    \
     ksgpu::decomplexify_type<T>::type	    \
@@ -383,28 +436,19 @@ void launch_busy_wait_kernel(Array<uint> &arr, double a40_seconds, cudaStream_t 
 	long max_display, 	            \
 	bool verbose)
 
-#define INSTANTIATE_TEMPLATES(T) \
-    INSTANTIATE_PRINT_ARRAY(T); \
-    INSTANTIATE_ASSERT_ARRAYS_EQUAL(T)
-
-
-INSTANTIATE_TEMPLATES(float);
-INSTANTIATE_TEMPLATES(double);
-INSTANTIATE_TEMPLATES(int);
-INSTANTIATE_TEMPLATES(long);
-INSTANTIATE_TEMPLATES(short);
-INSTANTIATE_TEMPLATES(char);
-INSTANTIATE_TEMPLATES(uint);
-INSTANTIATE_TEMPLATES(ulong);
-INSTANTIATE_TEMPLATES(ushort);
-INSTANTIATE_TEMPLATES(unsigned char);
-INSTANTIATE_TEMPLATES(complex<float>);
-INSTANTIATE_TEMPLATES(complex<double>);
-INSTANTIATE_TEMPLATES(complex<int>);
-
-// FIXME implement assert_arrays_equal<__half>().
-// In the meantime, I'm instantiating print_array<__half>(), but not assert_arrays_equal<__half>().
-INSTANTIATE_PRINT_ARRAY(__half);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(float);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(double);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(int);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(long);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(short);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(char);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(uint);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(ulong);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(ushort);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(unsigned char);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(complex<float>);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(complex<double>);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(complex<int>);
 
 
 }  // namespace ksgpu

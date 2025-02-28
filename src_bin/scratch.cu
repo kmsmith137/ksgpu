@@ -3,8 +3,7 @@
 
 //#include <iostream>
 // #include "../include/ksgpu.hpp"
-#include "../include/ksgpu/xassert.hpp"
-#include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/test_utils.hpp"
 
 using namespace std;
 using namespace ksgpu;
@@ -12,10 +11,7 @@ using namespace ksgpu;
 
 int main(int argc, char **argv)
 {
-    int m = 2;
-    int n = 3;
-    int p = 5;
-    Array<int> arr({2,3,4}, af_uhost);
-    xassert_shape_eq(arr, ({m,n,p}));
+    Array<__half> a({2,3,4}, af_uhost | af_random);
+    print_array(a, {"ax0","ax1","ax2"});
     return 0;
 }
