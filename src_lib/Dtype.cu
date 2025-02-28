@@ -80,4 +80,24 @@ string Dtype::str() const
 }
 
 
+double Dtype::precision() const
+{
+    ushort f = (flags & ~df_complex);
+    int c = (flags & df_complex) ? 2 : 1;
+
+    if (f == df_float) {
+	if (nbits == 64*c) return 1.0e-15;
+	if (nbits == 32*c) return 1.0e-6;
+	if (nbits == 16*c) return 1.0e-3;
+    }
+	
+    else if ((f == df_int) || (f == df_uint))
+	return 0;
+
+    stringstream ss;
+    ss << "Dtype_precision(): invalid dtype: " << (*this);
+    throw runtime_error(ss.str());
+}
+
+
 } // namespace ksgpu

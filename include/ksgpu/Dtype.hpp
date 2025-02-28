@@ -46,6 +46,10 @@ struct Dtype
     inline bool operator!=(const Dtype &x) const { return (flags != x.flags) || (nbits != x.nbits); }
     
     std::string str() const;
+
+    // (float64, float32, float16) -> (1.0e-15, 1.0e-6, 1.0e-3).
+    // (all integer types) -> 0
+    double precision() const;
 };
 
 
