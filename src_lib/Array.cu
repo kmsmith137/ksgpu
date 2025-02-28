@@ -64,6 +64,10 @@ int array_get_ncontig(const Array<void> &arr)
 // _check_array_invariants()
 
 
+// Just for readability.
+inline bool iff(bool x, bool y) { return x==y; }
+
+
 // Helper for check_array_invariants()
 struct stride_checker {
     long axis_length;
@@ -77,22 +81,22 @@ struct stride_checker {
 
 
 // Checks all array invariants except dtype.
-void _check_array_invariants(const Array<void> &arr)
+void _check_array_invariants(const Array<void> &arr, const char *where)
 {
     int ndim = arr.ndim;
-    xassert((ndim >= 0) && (ndim <= ArrayMaxDim));
+    xassert_where((ndim >= 0) && (ndim <= ArrayMaxDim), where);
 
     long expected_size = ndim ? 1 : 0;
     
     for (int d = 0; d < ndim; d++) {
-	xassert(arr.shape[d] >= 0);
-	xassert(arr.strides[d] >= 0);
+	xassert_where(arr.shape[d] >= 0, where);
+	xassert_where(arr.strides[d] >= 0, where);
 	expected_size *= arr.shape[d];
     }
 
-    xassert_eq(arr.size, expected_size);
-    xassert_eq((arr.data != nullptr), (arr.size != 0));
-    check_aflags(arr.aflags, "Array::check_invariants");
+    xassert_where((arr.size == expected_size), where);
+    xassert_where(iff(arr.data != nullptr, arr.size != 0), where);
+    check_aflags(arr.aflags, where);
 
     if (arr.size <= 1)
 	return;
@@ -112,12 +116,12 @@ void _check_array_invariants(const Array<void> &arr)
 	n++;
     }
 
-    xassert(n > 0);  // should never fail
+    xassert_where(n > 0, where);  // should never fail
     std::sort(sc, sc+n);
 
     long min_stride = 1;
     for (int i = 0; i < n; i++) {
-	xassert(sc[i].axis_stride >= min_stride);
+	xassert_where(sc[i].axis_stride >= min_stride, where);
 	min_stride += (sc[i].axis_length - 1) * sc[i].axis_stride;
     }
 }
@@ -276,7 +280,7 @@ void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const
 	throw runtime_error(ss.str());
     }
 
-    dst.check_invariants();
+    dst.check_invariants("array_reshape()");
 }
 
 
@@ -566,7 +570,7 @@ void array_slice(Array<void> &dst, const Array<void> &src, int axis, long ix)
 
     const char *p = dst.size ? ((const char *)src.data + (nbits >> 3)) : nullptr;
     dst.data = (void *) p;
-    dst.check_invariants();
+    dst.check_invariants("\"thin\" array_slice()");
 }
 
 
@@ -601,7 +605,7 @@ void array_slice(Array<void> &dst, const Array<void> &src, int axis, long start,
 
     const char *p = dst.size ? ((const char *)src.data + (nbits >> 3)) : nullptr;
     dst.data = (void *)p;
-    dst.check_invariants();
+    dst.check_invariants("\"thick\" array_slice()");
 }
 
 
@@ -640,7 +644,7 @@ void array_transpose(Array<void> &dst, const Array<void> &src, const int *perm)
     for (int d = ndim; d < ArrayMaxDim; d++)
 	dst.shape[d] = dst.strides[d] = 0;
     
-    dst.check_invariants();
+    dst.check_invariants("array_transpose()");
 }
 
 

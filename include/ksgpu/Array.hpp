@@ -172,7 +172,7 @@ struct Array {
     inline std::string stride_str() const;
 
     // Throws exception on failure.
-    inline void check_invariants() const;
+    inline void check_invariants(const char *where = "Array::check_invariants()") const;
         
     // at(): range-checked accessor.
     // (I'm reserving operator[] for an unchecked accessor.)
@@ -265,7 +265,7 @@ extern void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim
 extern void array_convert(Array<void> &dst, const Array<void> &src, bool noisy=false);
 
 // Checks all Array invariants except dtype.
-extern void _check_array_invariants(const Array<void> &arr);
+extern void _check_array_invariants(const Array<void> &arr, const char *where = "ksgpu::check_array_invariants()");
 
 // Misc helpers.
 extern bool _tuples_equal(int ndim1, const long *shape1, int ndim2, const long *shape2);
@@ -416,7 +416,7 @@ inline void Array<T>::_construct(const Dtype &dtype_, int ndim_, const long *sha
     // Note: if nalloc==0, then _af_alloc() returns an empty pointer.
     this->base = _af_alloc(dtype, nalloc, aflags);
     this->data = reinterpret_cast<T *> (base.get());
-    this->check_invariants();    
+    this->check_invariants("array_allocate()");
 }
 
 
@@ -614,10 +614,10 @@ inline std::string Array<T>::stride_str() const
 }
 
 template<typename T>
-inline void Array<T>::check_invariants() const
+inline void Array<T>::check_invariants(const char *where) const
 {
-    _check_dtype<T> (dtype, "check_invariants");
-    _check_array_invariants(*this);
+    _check_dtype<T> (dtype, where);
+    _check_array_invariants(*this, where);
 }
 
 

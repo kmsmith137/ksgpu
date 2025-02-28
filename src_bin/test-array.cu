@@ -70,7 +70,7 @@ struct RandomlyStridedArray {
 	    arr.size *= ((d < ndim) ? shape[d] : 1);
 	}
 
-	arr.check_invariants();
+	arr.check_invariants("RandomlyStridedArray::arr");
 	// check_for_buffer_overflows();
 
 	axes.resize(ndim);
@@ -175,7 +175,6 @@ struct RandomlyStridedArray {
 	    cout << "    test_thin_slice(axis=" << axis << ",pos=" << pos << ")" << endl;
 
 	Array<T> s = arr.slice(axis, pos);
-	s.check_invariants();
 
 	xassert(s.ndim == ndim-1);
 	for (int d = 0; d < axis; d++)
@@ -215,7 +214,6 @@ struct RandomlyStridedArray {
 	}
 
 	Array<T> s = arr.slice(axis, start, stop);
-	s.check_invariants();
 
 	xassert(s.ndim == ndim);
 	for (int d = 0; d < ndim; d++) {
