@@ -22,9 +22,6 @@
 // Dtype class (used in Array)
 #include "ksgpu/Dtype.hpp"
 
-// is_complex_v<T>, decomplexify_type<T>::type
-#include "ksgpu/complex_type_traits.hpp"
-
 // constexpr_is_pow2(), constexpr_ilog2()
 #include "ksgpu/constexpr_functions.hpp"
 
