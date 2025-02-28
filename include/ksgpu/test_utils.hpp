@@ -1,11 +1,7 @@
 #ifndef _KSGPU_TEST_UTILS_HPP
 #define _KSGPU_TEST_UTILS_HPP
 
-#include <iostream>
 #include "Array.hpp"
-
-// is_complex_v<T>, decomplexify_type<T>::type
-#include "complex_type_traits.hpp"
 
 
 namespace ksgpu {

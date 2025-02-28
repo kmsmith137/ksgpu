@@ -1,11 +1,8 @@
 #include "../include/ksgpu/test_utils.hpp"
-#include "../include/ksgpu/complex_type_traits.hpp"  // is_complex_v<T>, decomplexify_type<T>::type
 #include "../include/ksgpu/rand_utils.hpp"
 #include "../include/ksgpu/xassert.hpp"
 
 #include <cmath>
-#include <complex>
-#include <iostream>
 
 using namespace std;
 
