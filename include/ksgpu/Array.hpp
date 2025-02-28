@@ -27,7 +27,7 @@ using enable_if_non_void = std::enable_if_t<!std::is_void_v<T>>;
 
 // Array<T>: generic N-dimensional array with strides.
 //
-// If (T == void), then array type is determined at runtime by 'dtype' member.
+// If (T == void), then array datatype is determined at runtime by 'dtype' member.
 // If (T != void), then 'dtype' member must equal Dtype::native<T>(), and is redundant.
 //
 // Scope: Array<T> implements member functions for things like:
@@ -145,13 +145,8 @@ struct Array {
     //   - cast(): zero-copy conversion of Array types, throws exception if datatypes are incompatible.
     //     (Morally similar to std::dynamic_pointer_cast()).
     //
-    //   - convert_dtype(): returns copy of Array, with new datatype.
+    //   - convert(): returns copy of Array, with new datatype.
     //     (Example: convert Array<int> -> Array<float>).
-    //
-    // FIXME current implementation of convert_dtype() is primitive:
-    //   - src/dst datatypes must be known at compile time (no Array<void>).
-    //   - both arrays must be on host
-    //   - slow!
     
     // Implicit conversions. The weird templating avoids instantiating for (T==void).    
     template<typename U=T, typename=enable_if_non_void<U>> inline operator Array<void>& ();
@@ -162,9 +157,9 @@ struct Array {
     template<typename U> inline Array<U>& cast(const char *where = "Array::cast()");
     template<typename U> inline const Array<U>& cast(const char *where = "Array::cast()") const;
 
-    // convert_dtype(): returns copy of Array, with new datatype.
-    template<typename Tdst> inline Array<Tdst> convert_dtype() const;
-    template<typename Tdst> inline Array<Tdst> convert_dtype(int aflags) const;
+    // convert(): returns copy of Array, with new datatype.
+    template<typename Tdst> inline Array<Tdst> convert() const;
+    template<typename Tdst> inline Array<Tdst> convert(int aflags) const;
 
     //
     // Remaining methods are intended for debugging/testing.
@@ -224,6 +219,7 @@ struct Array {
 //   array_slice()         alternate interface to Array<T>::slice()
 //   array_transpose()     alternate interface to Array<T>::transpose()
 //   array_reshape()       alternate interface to Array<T>::reshape()
+//   array_convert()       alternate interface to Array<T>::convert()
 
 extern int array_get_ncontig(const Array<void> &arr);
 extern void array_fill(Array<void> &dst, const Array<void> &src, bool noisy=false);
@@ -231,6 +227,7 @@ extern void array_slice(Array<void> &dst, const Array<void> &src, int axis, long
 extern void array_slice(Array<void> &dst, const Array<void> &src, int axis, long start, long stop);
 extern void array_transpose(Array<void> &dst, const Array<void> &src, const int *perm);
 extern void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const long *dst_shape);
+extern void array_convert(Array<void> &dst, const Array<void> &src, bool noisy=false);
 
 // Checks all Array invariants except dtype.
 extern void _check_array_invariants(const Array<void> &arr);
@@ -638,7 +635,7 @@ inline U& Array<T>::_at(int nd, const long *ix) const
 //   - cast(): zero-copy conversion of Array types, throws exception if datatypes are incompatible.
 //     (Morally similar to std::dynamic_pointer_cast()).
 //
-//   - convert_dtype(): returns copy of Array, with new datatype.
+//   - convert(): returns copy of Array, with new datatype.
 //     (Example: convert Array<int> -> Array<float>).
 
 
@@ -676,102 +673,22 @@ inline const Array<U>& Array<T>::cast(const char *where) const
 }
 
 
-// convert_dtype(): returns copy of Array, with new datatype.
+// convert(): returns copy of Array, with new datatype.
 // (Example: convert Array<int> -> Array<float>).
-//
-// Current implementation of convert_dtype() is primitive:
-//   - src/dst datatypes must be known at compile time (no Array<void>).
-//   - both arrays must be on host
-//   - slow!
-//
-// Element conversion is done using C++ type conversion, except in cases
-// (__half) <-> (float or double), when we call cuda intrinsics such as
-// __float2half().
-
-// Default dtype converter (just use C++ type conversion)
-template<typename Tdst, typename Tsrc>
-struct dtype_converter
-{
-    static inline Tdst convert(Tsrc x) { return x; }
-};
-
-// Dtype conversion float -> __half
-template<> struct dtype_converter<__half, float>
-{
-    static inline __half convert(float x) { return __float2half(x); }
-};
-
-// Dtype conversion double -> __half
-template<> struct dtype_converter<__half, double>
-{
-    static inline __half convert(double x) { return __double2half(x); }
-};
-
-
-// Dtype conversion __half -> float
-template<> struct dtype_converter<float, __half>
-{
-    static inline float convert(__half x) { return __half2float(x); }
-};
-
-// Dtype conversion __half -> double
-template<> struct dtype_converter<double, __half>
-{
-    // CUDA doesn't define __half2double()
-    static inline double convert(__half x) { return __half2float(x); }
-};
-
-
-template<typename Tdst, typename Tsrc>
-inline void convert_dtype_helper(Tdst *dst,
-				 const Tsrc *src,
-				 int nouter_dims,
-				 const long *outer_shape,			    
-				 const long *outer_dst_strides,
-				 const long *outer_src_strides,
-				 long nelts_contig)
-{
-    if (nouter_dims > 0) {
-	for (int i = 0; i < outer_shape[0]; i++) {
-	    convert_dtype_helper(dst + i * outer_dst_strides[0],
-				 src + i * outer_src_strides[0],
-				 nouter_dims - 1,
-				 outer_shape + 1,
-				 outer_dst_strides + 1,
-				 outer_src_strides + 1,
-				 nelts_contig);
-	}
-    }
-    else {
-	for (int i = 0; i < nelts_contig; i++)
-	    dst[i] = dtype_converter<Tdst,Tsrc>::convert(src[i]);
-    }
-}
-
 
 template<typename Tsrc> template<typename Tdst>
-inline Array<Tdst> Array<Tsrc>::convert_dtype(int aflags) const
+inline Array<Tdst> Array<Tsrc>::convert(int aflags) const
 {
-    xassert(on_host());           // src array must be on host
-    xassert(af_on_host(aflags));  // dst array must be on host
     Array<Tdst> dst(ndim, shape, aflags);
-
-    int ncontig = get_ncontig();
-    int nouter = ndim - ncontig;
-
-    long nelts_contig = 1;
-    for (int i = nouter; i < ndim; i++)
-	nelts_contig *= shape[i];
-
-    convert_dtype_helper(dst.data, this->data, nouter, shape, dst.strides, strides, nelts_contig);
+    array_convert(dst, *this, false);  // noisy=false
     return dst;
 }
 
 
 template<typename Tsrc> template<typename Tdst>
-inline Array<Tdst> Array<Tsrc>::convert_dtype() const
+inline Array<Tdst> Array<Tsrc>::convert() const
 {
-    return this->convert_dtype<Tdst> (aflags & af_location_flags);
+    return this->convert<Tdst> (aflags & af_location_flags);
 }
 
     

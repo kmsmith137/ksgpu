@@ -284,46 +284,145 @@ void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const
 
 // -------------------------------------------------------------------------------------------------
 //
-// array_fill()
+// fill_axis: a helper class for array_fill() and array_convert().
 
 
 struct fill_axis {
-    long length;
-    long dstride_nbits;
-    long sstride_nbits;
+    // Meaning of 'dstride' and 'sstride' is context-dependent:
+    //  - in array_fill(), strides are bit counts.
+    //  - in array_convert(), strides are element counts.
+    
+    long length = 0;
+    long dstride = 0;
+    long sstride = 0;
 
     inline bool operator<(const fill_axis &a) const
     {
 	// FIXME put more thought into this
-	return dstride_nbits < a.dstride_nbits;
+	return dstride < a.dstride;
     }
+
+    fill_axis() { }
+    fill_axis(const fill_axis &) = default;
 };
 
 
+static void init_uncoalesced_axes(int &naxes, fill_axis *axes, const Array<void> &dst, const Array<void> &src, const char *where)
+{	
+    // Check that dst/src shapes match.
+    // Note: we don't check that dst/src dtypes match.
+    
+    if (!dst.shape_equals(src)) {
+	stringstream ss;
+	ss << where << ": dst.shape=" << dst.shape_str()
+	   << " and src.shape=" << src.shape_str() << " are unequal";
+	throw runtime_error(ss.str());
+    }
+
+    if (dst.size == 0) {
+	naxes = 0;
+	return;
+    }
+
+    if (dst.size == 1) {
+	naxes = 1;
+	axes[0].length = 1;
+	axes[0].dstride = 1;
+	axes[0].sstride = 1;
+	return;
+    }
+
+    // Uncoalesced axes.
+    int ndim = dst.ndim;
+    naxes = 0;
+    
+    for (int d = 0; d < ndim; d++) {
+	xassert(dst.shape[d] > 0);
+	
+	// Skip length-1 axes.
+	if (dst.shape[d] == 1)
+	    continue;
+	
+	axes[naxes].length = dst.shape[d];
+	axes[naxes].dstride = dst.strides[d];
+	axes[naxes].sstride = src.strides[d];
+	naxes++;
+    }
+
+    xassert(naxes > 0);
+}
+
+
+// 'noinline' suppresses gcc compiler warning when inlining std::sort() on few-element array.
+static __attribute__((noinline)) void
+init_coalesced_axes(int &nax_c, fill_axis *axes_c, int nax_u, fill_axis *axes_u)
+{
+    // Sort 'axes_u' by increasing dstride.
+    xassert(nax_u > 0);
+    std::sort(axes_u, axes_u + nax_u);
+    
+    axes_c[0] = axes_u[0];
+    nax_c = 1;
+    
+    for (int i = 1; i < nax_u; i++) {
+	long ds = axes_c[nax_c-1].length * axes_c[nax_c-1].dstride;
+	long ss = axes_c[nax_c-1].length * axes_c[nax_c-1].sstride;
+	bool can_coalesce = (axes_u[i].dstride == ds) && (axes_u[i].sstride == ss);
+	
+	if (can_coalesce)
+	    axes_c[nax_c-1].length *= axes_u[i].length;
+	else
+	    axes_c[nax_c++] = axes_u[i];
+    }
+}
+
+
+static void show_axes(ostream &os, const Array<void> &dst, const Array<void> &src, int nax_c, const fill_axis *axes_c)
+{
+    os << "    shape=" << dst.shape_str()
+       << ", dst.strides=" << dst.stride_str()
+       << ", src.strides=" << src.stride_str()
+       << ", dst.dtype=" << dst.dtype
+       << ", src.dtype=" << src.dtype
+       << "\n";
+    
+    for (int d = 0; d < nax_c; d++)
+	os << "    coalesced axis: len=" << axes_c[d].length
+	   << ", dstride=" << axes_c[d].dstride
+	   << ", sstride=" << axes_c[d].sstride
+	   << "\n";
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// array_fill()
+
+
 // Recursive helper function called by array_fill().
-static void array_fill2(char *dst, const char *src, int ndim, const fill_axis *axes)
+static void array_fill2(char *dst, const char *src, int naxes, const fill_axis *axes)
 {
     // Caller guarantees the following (these are asserts in array_fill()).
-    // Note that axis 0 corresponds to single bits.
+    // Note that fill_axis::dstride and fill_axis::sstride correspond to bits.
     //
-    //   ndim > 0
-    //   axes[0].dstride_nbits == 1
-    //   axes[0].sstride_nbits == 1
+    //   naxes > 0
+    //   axes[0].dstride == 1
+    //   axes[0].sstride == 1
     //   (axes[0].length % 8) == 0
-    //   (axes[d].dstride_nbits % 8) == 0    for d > 0
-    //   (axes[d].sstride_nbits % 8) == 0    for d > 0
+    //   (axes[d].dstride % 8) == 0    for d > 0
+    //   (axes[d].sstride % 8) == 0    for d > 0
     
-    if (ndim <= 1)
+    if (naxes == 1)
 	CUDA_CALL(cudaMemcpy(dst, src, axes[0].length >> 3, cudaMemcpyDefault));
 
-    else if (ndim == 2) {
+    else if (naxes == 2) {
 	// These two conditions are required by cudaMemcpy2D().
 	// In particular, strides must be positive.
-	xassert(axes[1].dstride_nbits >= axes[0].length);
-	xassert(axes[1].sstride_nbits >= axes[0].length);
+	xassert(axes[1].dstride >= axes[0].length);
+	xassert(axes[1].sstride >= axes[0].length);
 	
-	CUDA_CALL(cudaMemcpy2D(dst, axes[1].dstride_nbits >> 3,
-			       src, axes[1].sstride_nbits >> 3,
+	CUDA_CALL(cudaMemcpy2D(dst, axes[1].dstride >> 3,
+			       src, axes[1].sstride >> 3,
 			       axes[0].length >> 3,
 			       axes[1].length,
 			       cudaMemcpyDefault));
@@ -334,41 +433,22 @@ static void array_fill2(char *dst, const char *src, int ndim, const fill_axis *a
 	// data be in a cudaArray, or that strides are contiguous (so that
 	// it's a cudaMemcpy2D in disguise), so we can't use it here.
 
-	long ds = axes[ndim-1].dstride_nbits >> 3;
-	long ss = axes[ndim-1].sstride_nbits >> 3;
+	xassert(naxes >= 3);
+	long ds = axes[naxes-1].dstride >> 3;
+	long ss = axes[naxes-1].sstride >> 3;
 	
-	for (int i = 0; i < axes[ndim-1].length; i++)
-	    array_fill2(dst + i*ds, src + i*ss, ndim-1, axes);
+	for (long i = 0; i < axes[naxes-1].length; i++)
+	    array_fill2(dst + i*ds, src + i*ss, naxes-1, axes);
     }
-}
-
-
-// Helper function called by array_fill().
-static void show_array_fill(ostream &os, const Array<void> &dst, const Array<void> &src, int naxes, const fill_axis *axes)
-{
-    os << "ksgpu::Array::fill: shape=" << dst.shape_str()
-       << ", dst.strides=" << dst.stride_str()
-       << ", src.strides=" << src.stride_str()
-       << ", elt_nbits=" << dst.dtype.nbits
-       << "\n";
-    
-    for (int d = 0; d < naxes; d++)
-	os << "    coalesced axis: len=" << axes[d].length
-	   << ", dstride_nbits=" << axes[d].dstride_nbits
-	   << ", sstride_nbits=" << axes[d].sstride_nbits
-	   << "\n";
 }
 
 
 void array_fill(Array<void> &dst, const Array<void> &src, bool noisy)
 {
-    // Check that dst/src shapes match.
-    if (!dst.shape_equals(src)) {
-	stringstream ss;
-	ss << "ksgpu::Array::fill(): dst.shape=" << dst.shape_str()
-	   << " and src.shape=" << src.shape_str() << " are unequal";
-	throw runtime_error(ss.str());
-    }
+    // Uncoalesced axes.
+    int nax_u = 0;
+    fill_axis axes_u[ArrayMaxDim+1];
+    init_uncoalesced_axes(nax_u, axes_u, dst, src, "Array::fill()");
 
     // Check that dst/src dtypes match.
     // Currently require dtypes to match exactly (e.g. can't fill signed int from unsigned int).
@@ -379,82 +459,63 @@ void array_fill(Array<void> &dst, const Array<void> &src, bool noisy)
 	throw runtime_error(ss.str());
     }
 
-    // If empty array, then return early.
-    if (dst.size == 0)
+    // Pure paranoia.
+    xassert(dst.size == src.size);
+    xassert(dst.dtype.nbits == src.dtype.nbits);
+    int nbits = dst.dtype.nbits;
+    
+    // Return early if there is no data to copy.
+    if (nax_u == 0)
 	return;
 
-    // Uncoalesced axes
-    int ndim = dst.ndim;
-    long elt_nbits = dst.dtype.nbits;
-    fill_axis axes_u[ndim];
-    int nax_u = 0;
-    
-    for (int d = 0; d < ndim; d++) {
-	if (dst.shape[d] <= 1)
-	    continue;
-
-	axes_u[nax_u].length = dst.shape[d];
-	axes_u[nax_u].dstride_nbits = dst.strides[d] * elt_nbits;
-	axes_u[nax_u].sstride_nbits = src.strides[d] * elt_nbits;
-	nax_u++;
+    // Convert strides to bits.
+    for (int i = 0; i < nax_u; i++) {
+	axes_u[i].dstride *= nbits;
+	axes_u[i].sstride *= nbits;
     }
 
-    // Sort by increasing dstride
-    std::sort(axes_u, axes_u + nax_u);
+    // Add dummy "single-bit" axis -- this allows us to subsequently ignore dtypes, and work with bits.
+    axes_u[nax_u].length = nbits;
+    axes_u[nax_u].dstride = 1;
+    axes_u[nax_u].sstride = 1;
+    nax_u++;
 
-    // Coalece axes, and represent itemsize by a new length-nbits axis.
-    fill_axis axes_c[ndim+1];
-    int nax_c = 1;
+    // Coalesced axes.
+    int nax_c = 0;
+    fill_axis axes_c[ArrayMaxDim+1];
+    init_coalesced_axes(nax_c, axes_c, nax_u, axes_u);   // note: permutes 'axes_u' in place.
 
-    axes_c[0].length = elt_nbits;
-    axes_c[0].dstride_nbits = 1;
-    axes_c[0].sstride_nbits = 1;
-
-    // (Length * stride_nbits) of last coalesced axis.
-    long dlen = elt_nbits;
-    long slen = elt_nbits;
-    
-    for (int d = 0; d < nax_u; d++) {
-	if ((axes_u[d].dstride_nbits == dlen) && (axes_u[d].sstride_nbits == slen)) {
-	    // Can coalesce.
-	    long s = axes_u[d].length;
-	    axes_c[nax_c-1].length *= s;
-	    dlen *= s;
-	    slen *= s;
-	}
-	else {
-	    // Can't coalesce.
-	    axes_c[nax_c] = axes_u[d];
-	    dlen = axes_u[d].length * axes_u[d].dstride_nbits;
-	    slen = axes_u[d].length * axes_u[d].sstride_nbits;
-	    nax_c++;
-	}
+    if (noisy) {
+	cout << "Array::fill(): note that 'dst/src' strides are elements, and 'coalesced axis' strides are bits\n";
+	show_axes(cout, dst, src, nax_c, axes_c);
     }
-
-    if (noisy)
-	show_array_fill(cout, dst, src, nax_c, axes_c);    
+    
+    // Now a bunch of asserts/checks, in preparation for calling array_fill2().
     
     xassert(nax_c > 0);
-    xassert(axes_c[0].dstride_nbits == 1);
-    xassert(axes_c[0].sstride_nbits == 1);
+    xassert(axes_c[0].dstride == 1);
+    xassert(axes_c[0].sstride == 1);
 
     bool invalid = (axes_c[0].length & 7) != 0;
 
     for (int d = 1; d < nax_c; d++)
-	if ((axes_c[d].dstride_nbits & 7) || (axes_c[d].sstride_nbits & 7))
+	if ((axes_c[d].dstride & 7) || (axes_c[d].sstride & 7))
 	    invalid = true;
 
     if (invalid) {
 	stringstream ss;
+	
 	ss << "Array::fill() operation can't be decomposed into byte-contiguous copies.\n"
 	   << "This is currently treated as an error, even in tame cases such as a contiguous 1-d array with (total_nbits % 8) != 0.\n"
 	   << "Addressing this is nontrivial (e.g. consider case where 'tame' array is subarray of an ambient array).\n"
-	   << "I may revisit this in the future, but it's not a high priority right now.\n";
+	   << "I may revisit this in the future, but it's not a high priority right now.\n"
+	   << "In the diagnostic output below, note that 'dst/src' strides are elements, and 'coalesced axis' strides are bits\n";
 	
-	show_array_fill(ss, dst, src, nax_c, axes_c);
+	show_axes(ss, dst, src, nax_c, axes_c);
 	throw runtime_error(ss.str());
     }
 
+    // Checks pass, now we can call array_fill2().
     array_fill2((char *) dst.data, (const char *) src.data, nax_c, axes_c);
 }
 
@@ -582,6 +643,143 @@ void array_transpose(Array<void> &dst, const Array<void> &src, const int *perm)
 	dst.shape[d] = dst.strides[d] = 0;
     
     dst.check_invariants();
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// array_convert()
+//
+// Currently, we only implement conversions between { __half, float, double }.
+//
+// Adding more (dst_dtype, src_dtype) pairs should be strightforward:
+//  - make sure convert_0d<Tdst,Tsrc> is defined
+//  - add if-statements in get_1d_converter() and partially_templated_1d_converter().
+//  - add unit test coverage
+
+
+// --- scalar (0-dimensional) converters start here ---
+
+template<typename Tdst, typename Tsrc>
+struct convert_0d { static inline Tdst conv(Tsrc x) { return x; } };
+
+// Conversions involving __half use CUDA intrinsics.
+// Note that CUDA defines __half2float() but not __half2double().
+template<> struct convert_0d<__half,float>  { static inline __half conv(float x)  { return __float2half(x); } };
+template<> struct convert_0d<__half,double> { static inline __half conv(double x) { return __double2half(x); } };
+template<> struct convert_0d<float,__half>  { static inline float conv(__half x)  { return __half2float(x); } };
+template<> struct convert_0d<double,__half> { static inline double conv(__half x) { return __half2float(x); } };
+
+
+// --- 1-d converters start here ---
+
+using converter_1d = void (*)(void *, const void *, const fill_axis &);
+
+template<typename Tdst, typename Tsrc>
+static void fully_templated_1d_converter(void *dst_, const void *src_, const fill_axis &axis)
+{
+    Tdst *dst = (Tdst *) dst_;
+    const Tsrc *src = (const Tsrc *) src_;
+    
+    for (long i = 0; i < axis.length; i++)
+	dst[i * axis.dstride] = convert_0d<Tdst,Tsrc>::conv(src[i * axis.sstride]);
+}
+
+template<typename Tdst>
+static converter_1d partially_templated_1d_converter(Dtype src_dtype)
+{
+    if (src_dtype == Dtype::native<__half>())
+	return fully_templated_1d_converter<Tdst, __half>;
+    
+    if (src_dtype == Dtype::native<float>())
+	return fully_templated_1d_converter<Tdst, float>;
+    
+    if (src_dtype == Dtype::native<double>())
+	return fully_templated_1d_converter<Tdst, double>;
+
+    return nullptr;
+}
+
+static converter_1d get_1d_converter(Dtype dst_dtype, Dtype src_dtype)
+{
+    if (dst_dtype == Dtype::native<__half>())
+	return partially_templated_1d_converter<__half> (src_dtype);
+    
+    if (dst_dtype == Dtype::native<float>())
+	return partially_templated_1d_converter<float> (src_dtype);
+    
+    if (dst_dtype == Dtype::native<double>())
+	return partially_templated_1d_converter<double> (src_dtype);
+
+    return nullptr;
+}
+
+// --- generic (N-dimensional) conversion starts here
+
+static void convert_Nd(char *dst, const char *src, int naxes, const fill_axis *axes, converter_1d conv_1d, int dst_nbytes, int src_nbytes)
+{
+    if (naxes == 1) {
+	conv_1d(dst, src, *axes);
+	return;
+    }
+
+    xassert(naxes >= 2);
+    long ds = axes[naxes-1].dstride * dst_nbytes;
+    long ss = axes[naxes-1].sstride * src_nbytes;
+    
+    for (long i = 0; i < axes[naxes-1].length; i++)
+	convert_Nd(dst + i*ds, src + i*ss, naxes-1, axes, conv_1d, dst_nbytes, src_nbytes);
+}
+
+
+void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
+{
+    if (!src.on_host())
+	throw runtime_error("Array::convert(): source array must be on host");
+    if (!dst.on_host())
+	throw runtime_error("Array::convert(): destination array must be on host");
+    
+    if (dst.dtype == src.dtype) {
+	array_fill(dst, src, noisy);
+	return;
+    }
+
+    // Uncoalesced axes.
+    int nax_u = 0;
+    fill_axis axes_u[ArrayMaxDim];
+    init_uncoalesced_axes(nax_u, axes_u, dst, src, "Array::convert()");
+    
+    // Return early if there is no data to convert.
+    if (nax_u == 0)
+	return;
+
+    // Coalesced axes.
+    int nax_c = 0;
+    fill_axis axes_c[ArrayMaxDim];
+    init_coalesced_axes(nax_c, axes_c, nax_u, axes_u);   // note: permutes 'axes_u' in place.
+
+    converter_1d conv_1d = get_1d_converter(dst.dtype, src.dtype);
+
+    if (!conv_1d) {
+	stringstream ss;
+	ss << "Array::convert(): (dst_dtype, src_dtype) = (" << dst.dtype << ", " << src.dtype
+	   << ") is currently unimplemented (implementing new dtypes should be straightforward,"
+	   << " see comments in ksgpu/src_lib/Array.cu";
+	throw runtime_error(ss.str());
+    }
+
+    if (noisy) {
+	cout << "Array::convert(): note that all strides are elements (not bits or bytes)\n";
+	show_axes(cout, dst, src, nax_c, axes_c);
+    }
+
+    xassert((dst.dtype.nbits & 7) == 0);
+    xassert((src.dtype.nbits & 7) == 0);
+    
+    int dst_nbytes = dst.dtype.nbits >> 3;
+    int src_nbytes = src.dtype.nbits >> 3;
+    
+    convert_Nd((char *) dst.data, (const char *) src.data, nax_c, axes_c, conv_1d, dst_nbytes, src_nbytes);
 }
 
 

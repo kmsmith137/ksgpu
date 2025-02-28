@@ -303,7 +303,7 @@ struct FillTestInstance {
 	Array<T> &arr1 = rs1.arr;
 	Array<T> &arr2 = rs2.arr;
 
-	arr1.fill(arr2);
+	array_fill(arr1, arr2, noisy);
 	
 	for (auto ix = arr1.ix_start(); arr1.ix_valid(ix); arr1.ix_next(ix))
 	    xassert(arr1.at(ix) == arr2.at(ix));
@@ -373,7 +373,7 @@ static void test_reshape(bool noisy=false)
 
 // -------------------------------------------------------------------------------------------------
 //
-// test_convert_dtype()
+// test_convert()
 
 
 inline double convert_to_double(double x) { return x; }
@@ -387,12 +387,12 @@ template<> struct dtype_epsilon<__half> { static constexpr double value = 0.005;
 
 
 template<typename Tdst, typename Tsrc>
-static void test_convert_dtype(const vector<long> &shape, const vector<long> &strides, bool noisy=false)
+static void test_convert(const vector<long> &shape, const vector<long> &strides, bool noisy=false)
 {
     double epsilon = std::max(dtype_epsilon<Tdst>::value, dtype_epsilon<Tsrc>::value);
     
     if (noisy) {
-	cout << "test_convert_dtype(Tdst=" << type_name<Tdst>()
+	cout << "test_convert(Tdst=" << type_name<Tdst>()
 	     << ", Tsrc=" << type_name<Tsrc>()
 	     << ", shape=" << tuple_str(shape)
 	     << ", strides=" << tuple_str(strides)
@@ -400,7 +400,7 @@ static void test_convert_dtype(const vector<long> &shape, const vector<long> &st
     }
 
     Array<Tsrc> src(shape, strides, af_uhost | af_random);
-    Array<Tdst> dst = src.template convert_dtype<Tdst> ();
+    Array<Tdst> dst = src.template convert<Tdst> ();
 
     xassert(dst.shape_equals(src));
 
@@ -413,7 +413,7 @@ static void test_convert_dtype(const vector<long> &shape, const vector<long> &st
 
 
 template<typename Tdst, typename Tsrc>
-static void test_convert_dtype(bool noisy=false)
+static void test_convert(bool noisy=false)
 {
     vector<long> shape = make_random_shape();
 
@@ -421,7 +421,7 @@ static void test_convert_dtype(bool noisy=false)
     int ncontig = rand_int(0, ndim+1);
     vector<long> strides = make_random_strides(shape, ncontig);
 
-    test_convert_dtype<Tdst,Tsrc> (shape, strides, noisy);
+    test_convert<Tdst,Tsrc> (shape, strides, noisy);
 }
 
 
@@ -431,7 +431,7 @@ static void test_convert_dtype(bool noisy=false)
 template<typename T>
 static void run_all_tests(bool noisy)
 {
-    // Note: test_convert_dtype() is not included in run_all_tests().
+    // Note: test_convert() is not included in run_all_tests().
     
     RandomlyStridedArray<T> rs(noisy);	
     rs.run_simple_tests();
@@ -450,19 +450,19 @@ int main(int argc, char **argv)
     int niter = 1000;
 	
     for (int i = 0; i < niter; i++) {
-	if (i % 100 == 0)
+	if (i % 10 == 0)
 	    cout << "test-array: iteration " << i << "/" << niter << endl;
 
 	run_all_tests<float> (noisy);
 	run_all_tests<char> (noisy);
 
-	// test_convert_dtype() is not included in run_all_tests().
-	test_convert_dtype<__half, float> (noisy);
-	test_convert_dtype<__half, double> (noisy);
-	test_convert_dtype<float, __half> (noisy);
-	test_convert_dtype<float, double> (noisy);
-	test_convert_dtype<double, __half> (noisy);
-	test_convert_dtype<double, float> (noisy);
+	// test_convert() is not included in run_all_tests().
+	test_convert<__half, float> (noisy);
+	test_convert<__half, double> (noisy);
+	test_convert<float, __half> (noisy);
+	test_convert<float, double> (noisy);
+	test_convert<double, __half> (noisy);
+	test_convert<double, float> (noisy);
     }
 
     cout << "test-array passed!" << endl;
