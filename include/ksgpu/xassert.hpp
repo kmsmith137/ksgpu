@@ -1,6 +1,7 @@
 #ifndef _KSGPU_XASSERT_HPP
 #define _KSGPU_XASSERT_HPP
 
+#include <string>
 #include <sstream>
 #include <stdexcept>
 
@@ -22,13 +23,21 @@
 	    throw std::runtime_error("C++ assertion '" __STRING(cond) "' failed (" __FILE__ ":" __STRING(line) ")"); \
     } while (0)
 
-
 // xassert_msg(): use customized error message.
 // The 'msg' argument can either be a (const char *) or a (const std::string &).
 #define xassert_msg(cond, msg) \
     do { \
         if (_unlikely(!(cond))) \
 	    throw std::runtime_error(msg); \
+    } while (0)
+
+// xassert_where(): prepend 'where' string to error message.
+// The 'where' argument can either be a (const char *) or a (const sd::string *)
+#define xassert_where(cond, where) _xassert_where(cond, where, __LINE__)
+#define _xassert_where(cond, where, line) \
+    do { \
+        if (_unlikely(!(cond))) \
+	    throw std::runtime_error(std::string(where) + ": C++ assertion '" __STRING(cond) "' failed (" __FILE__ ":" __STRING(line) ")"); \
     } while (0)
 
 
