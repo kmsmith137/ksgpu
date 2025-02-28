@@ -217,11 +217,32 @@ struct Array {
 
 
 // print_array(): very boneheaded function which prints an array.
+// The array can either be on the CPU or GPU.
 // FIXME currently one line per array element -- could be improved!
 
 extern void print_array(const Array<void> &arr, 
 			const std::vector<std::string> &axis_names = {},
 			std::ostream &os = std::cout);
+
+
+// assert_arrays_equal(): I use this function extensively in unit tests.
+//
+// If arrays 'arr1' and 'arr2' are not equal (within roundoff error), then print
+// some verbose debugging output and call exit(1). The arrays can either be on the
+// CPU or the GPU.
+
+
+extern double assert_arrays_equal(
+    const Array<void> &arr1,
+    const Array<void> &arr2,
+    const std::string &name1,
+    const std::string &name2,
+    const std::vector<std::string> &axis_names,
+    double epsabs = -1.0,   // if negative, defaults to 10 * max(arr1.dtype.precision(), arr2.dtype.precision())
+    double epsrel = -1.0,   // if negative, defaults to 10 * max(arr1.dtype.precision(), arr2.dtype.precision())
+    long max_display = 15,  // max number of lines to display before truncating output
+    bool verbose = false
+);
 
 
 // -------------------------------------------------------------------------------------------------

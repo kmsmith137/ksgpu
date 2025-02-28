@@ -15,37 +15,6 @@ namespace ksgpu {
 
 
 // -------------------------------------------------------------------------------------------------
-
-
-
-// Instantiated for T = float, double, (u)int, (u)long, (u)short, (u)char, complex<float>, complex<double>, complex<int>.
-// For non floating point types, the 'epsabs' and 'epsrel' arguments are ignored.
-//
-// Returns the max difference between arrays. The return value is:
-//    T    if instantiated for a non-complex type T
-//    R    if instantiated for T= std::complex<R>
-//
-// FIXME to do: implement for T=void.
-//
-// FIXME to do: implement for T=__half.
-// Temporary workaround:
-//    (1) convert both arrays to float with Array<__half>:convert<float>()
-//    (2) call assert_arrays_equal(..., epsabs=0.01, epsrel=0.005);
-
-template<typename T>
-extern typename ksgpu::decomplexify_type<T>::type
-assert_arrays_equal(const Array<T> &arr1,
-		    const Array<T> &arr2,
-		    const std::string &name1,
-		    const std::string &name2,
-		    const std::vector<std::string> &axis_names,
-		    float epsabs = 3.0e-5,
-		    float epsrel = 1.0e-5,
-		    long max_display = 15,
-		    bool verbose = false);
-
-
-// -------------------------------------------------------------------------------------------------
 //
 // Helper functions for making random array shapes/strides (intended for unit tests)
 

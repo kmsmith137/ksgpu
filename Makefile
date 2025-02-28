@@ -71,6 +71,7 @@ LIB_SRCFILES := \
   src_lib/CpuThreadPool.cu \
   src_lib/CudaStreamPool.cu \
   src_lib/Dtype.cu \
+  src_lib/assert_arrays_equal.cu \
   src_lib/cuda_utils.cu \
   src_lib/mem_utils.cu \
   src_lib/memcpy_kernels.cu \

@@ -9,19 +9,10 @@
 using namespace std;
 using namespace ksgpu;
 
-template<typename T> void f()
-{
-    Array<T> arr({2,3}, af_uhost | af_random);
-    cout << "XXX: " << arr.dtype << endl;
-    print_array(arr);
-}
-
 int main(int argc, char **argv)
 {
-    f<__half> ();
-    f<float> ();
-    f<complex<double>> ();
-    f<int> ();
-    f<complex<long>> ();
+    float x = 1.0;
+    double y = 2.0;
+    bool b = (x < y);
     return 0;
 }
