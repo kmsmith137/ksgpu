@@ -19,7 +19,7 @@ template<typename T>
 inline bool _isfinite(T x)
 {
     static_assert(std::is_integral_v<T>);
-    return false;
+    return true;
 }
 
 inline bool _isfinite(float x) { return std::isfinite(x); }
@@ -155,7 +155,7 @@ double _assert_arrays_equal(
     cout.flush();
     
     if (nfail > 0)
-	exit(1);
+	throw runtime_error("Arrays were not equal as expected");
     
     return maxdiff;    
 }

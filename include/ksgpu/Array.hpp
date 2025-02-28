@@ -228,8 +228,8 @@ extern void print_array(const Array<void> &arr,
 // assert_arrays_equal(): I use this function extensively in unit tests.
 //
 // If arrays 'arr1' and 'arr2' are not equal (within roundoff error), then print
-// some verbose debugging output and call exit(1). The arrays can either be on the
-// CPU or the GPU.
+// some verbose debugging output and throw an exception. The arrays can either be
+// on the CPU or the GPU.
 
 
 extern double assert_arrays_equal(
