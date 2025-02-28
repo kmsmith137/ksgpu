@@ -401,7 +401,7 @@ inline void Array<T>::fill(const Array<T2> &src, bool noisy)
 template<typename T>
 inline Array<T> Array<T>::clone(int aflags_) const
 {
-    Array<T> ret(this->ndim, this->shape, aflags_ & ~af_initialization_flags);
+    Array<T> ret(this->dtype, this->ndim, this->shape, aflags_ & ~af_initialization_flags);
     array_fill(ret, *this);
     return ret;
 }
