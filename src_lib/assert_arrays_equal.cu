@@ -57,7 +57,7 @@ inline double l1_norm(__half x)
 template<typename T>
 inline double l1_norm(complex<T> x)
 {
-    return std::abs(x.real()) + std::abs(x.imag());
+    return l1_norm(x.real()) + l1_norm(x.imag());
 }
 
 
@@ -87,7 +87,7 @@ template<> struct absdiff<__half,__half> { static inline double eval( __half x, 
 template<typename T1, typename T2>
 struct absdiff<complex<T1>, complex<T2>>
 {
-    inline double eval(complex<T1> x, complex<T2> y)
+    static inline double eval(complex<T1> x, complex<T2> y)
     {
 	using C = absdiff<T1,T2>;
 	return C::eval(x.real(), y.real()) + C::eval(x.imag(), y.imag());
@@ -184,7 +184,7 @@ static aae_func get_aae_func1(Dtype dt1, Dtype dt2)
 	return _assert_arrays_equal<T1, T2>;
     
     if ((dt1 == Dtype::native<complex<T1>>()) && (dt2 == Dtype::native<complex<T2>>()))
-	return _assert_arrays_equal<T1, T2>;
+	return _assert_arrays_equal<complex<T1>, complex<T2>>;
 
     return nullptr;
 }
@@ -217,8 +217,8 @@ static aae_func get_aae_func(Dtype dt1, Dtype dt2)
     if (!f) f = get_aae_func1<ushort,ushort> (dt1, dt2);
     if (!f) f = get_aae_func1<char,char> (dt1, dt2);
     if (!f) f = get_aae_func1<unsigned char, unsigned char> (dt1, dt2);
-    
-    return nullptr;
+
+    return f;
 }
 
 
