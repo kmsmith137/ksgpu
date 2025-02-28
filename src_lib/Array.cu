@@ -3,8 +3,6 @@
 #include "../include/ksgpu/string_utils.hpp"  // tuple_str()
 
 #include <sstream>
-#include <iostream>
-#include <stdexcept>
 #include <algorithm>
 
 using namespace std;
@@ -780,6 +778,94 @@ void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
     int src_nbytes = src.dtype.nbits >> 3;
     
     convert_Nd((char *) dst.data, (const char *) src.data, nax_c, axes_c, conv_1d, dst_nbytes, src_nbytes);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// print_array()
+
+
+template<typename T>
+static void _print_array(const Array<void> &arr_, const vector<string> &axis_names, std::ostream &os)
+{
+    Array<T> arr = arr_.cast<T> ("print_array");
+    int nd = arr_.ndim;
+    
+    for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix)) {
+	if (axis_names.size() == 0) {
+	    os << "    (";
+	    for (int d = 0; d < nd; d++)
+		os << (d ? "," : "") << ix[d];
+	    os << ((nd <= 1) ? ",)" : ")");
+	}
+	else {
+	    os << "   ";
+	    for (int d = 0; d < nd; d++)
+		os << " " << axis_names[d] << "=" << ix[d];
+	}
+
+	os << ": " << arr.at(ix) << "\n";
+    }
+}
+
+
+template<typename T>
+static void _print_array2(const Array<void> &arr, const vector<string> &axis_names, std::ostream &os)
+{
+    if (arr.dtype == Dtype::native<T>())
+	_print_array<T> (arr, axis_names, os);
+    else if (arr.dtype == Dtype::native<complex<T>>())
+	_print_array<complex<T>> (arr, axis_names, os);
+    else
+	throw runtime_error("internal error in ksgpu::print_array()");
+}
+
+
+void print_array(const Array<void> &arr_, const vector<string> &axis_names, std::ostream &os)
+{
+    xassert((axis_names.size() == 0) || (axis_names.size() == uint(arr_.ndim)));
+    
+    Array<void> arr = arr_.to_host(false);  // page_locked=true
+    Dtype dt = arr.dtype.real();
+
+    if (dt == Dtype::native<float>())
+	_print_array2<float> (arr, axis_names, os);
+    
+    else if (dt == Dtype::native<double>())
+	_print_array2<double> (arr, axis_names, os);
+    
+    else if (dt == Dtype::native<__half>())
+	_print_array2<__half> (arr, axis_names, os);
+    
+    else if (dt == Dtype::native<int>())
+	_print_array2<int> (arr, axis_names, os);
+    
+    else if (dt == Dtype::native<uint>())
+	_print_array2<uint> (arr, axis_names, os);
+    
+    else if (dt == Dtype::native<long>())
+	_print_array2<long> (arr, axis_names, os);
+    
+    else if (dt == Dtype::native<ulong>())
+	_print_array2<ulong> (arr, axis_names, os);
+    
+    else if (dt == Dtype::native<short>())
+	_print_array2<short> (arr, axis_names, os);
+    
+    else if (dt == Dtype::native<ushort>())
+	_print_array2<ushort> (arr, axis_names, os);
+    
+    else if (dt == Dtype::native<char>())
+	_print_array2<char> (arr, axis_names, os);
+    
+    else if (dt == Dtype::native<unsigned char>())
+	_print_array2<unsigned char> (arr, axis_names, os);
+
+    else
+	throw runtime_error("ksgpu::print_array() is not implemented for dtype " + arr.dtype.str());
+    
+    os.flush();
 }
 
 

@@ -3,14 +3,28 @@
 
 #include <string>
 #include <complex>
+#include <iostream>
 #include <stdexcept>
 #include <type_traits>
 #include <cuda_fp16.h>  // __half
+
+
+// Define operator<<() for CUDA __half.
+// Note: this has nothing to do with 'class Dtype', but I couldn't find a better place to put it!
+inline std::ostream &operator<<(std::ostream &os, __half x)
+{
+    os << __half2float(x);
+    return os;
+}
+
 
 namespace ksgpu {
 #if 0
 }   // pacify editor auto-indent
 #endif
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 // Flags for use in Dtype::flags.
@@ -50,6 +64,10 @@ struct Dtype
     // (float64, float32, float16) -> (1.0e-15, 1.0e-6, 1.0e-3).
     // (all integer types) -> 0
     double precision() const;
+
+    // If 'this' is a complex dtype, returns the dtype of the real part (i.e. "half" of 'this').
+    // Otherwise, returns a copy of 'this'.
+    Dtype real() const;
 };
 
 
@@ -86,6 +104,13 @@ inline void _check_dtype(const Dtype &dtype, const char *where)
 // -------------------------------------------------------------------------------------------------
 
 
+inline Dtype::Dtype(unsigned short flags_, unsigned short nbits_) :
+    flags(flags_), nbits(nbits_)
+{
+    if (!is_valid())
+	throw std::runtime_error("Dtype constructor: " + str());
+}
+
 inline bool Dtype::is_valid() const
 {
     unsigned short f = flags & ~df_complex;
@@ -101,12 +126,7 @@ inline bool Dtype::is_valid() const
 }
 
 
-inline Dtype::Dtype(unsigned short flags_, unsigned short nbits_) :
-    flags(flags_), nbits(nbits_)
-{
-    if (!is_valid())
-	throw std::runtime_error("Dtype constructor: " + str());
-}
+// -------------------------------------------------------------------------------------------------
 
 
 // Helper class for Dtype::native<T>().

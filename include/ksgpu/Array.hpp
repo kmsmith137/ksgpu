@@ -1,10 +1,8 @@
 #ifndef _KSGPU_ARRAY_HPP
 #define _KSGPU_ARRAY_HPP
 
-#include <string>
 #include <vector>
 #include <stdexcept>
-#include <cuda_fp16.h>    // __half
 
 #include "Dtype.hpp"
 #include "xassert.hpp"
@@ -211,6 +209,22 @@ struct Array {
     // "Cheat" accessor, which gives a non-const reference to a const Array.
     template<typename U=T, typename=enable_if_non_void<U>> inline U& _at(int ndim, const long *ix) const;
 };
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// Intended for debugging.
+
+
+// print_array(): very boneheaded function which prints an array.
+// FIXME currently one line per array element -- could be improved!
+
+extern void print_array(const Array<void> &arr, 
+			const std::vector<std::string> &axis_names = {},
+			std::ostream &os = std::cout);
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 // Alternate interfaces to some of the Array methods above:

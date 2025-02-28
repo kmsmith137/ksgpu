@@ -95,7 +95,21 @@ double Dtype::precision() const
 	return 0;
 
     stringstream ss;
-    ss << "Dtype_precision(): invalid dtype: " << (*this);
+    ss << "Dtype::precision(): invalid dtype: " << (*this);
+    throw runtime_error(ss.str());
+}
+
+
+Dtype Dtype::real() const
+{
+    if ((flags & df_complex) == 0)
+	return *this;
+
+    if ((nbits & 1) == 0)
+	return Dtype(flags & ~df_complex, nbits >> 1);
+
+    stringstream ss;
+    ss << "Dtype::real(): invalid dtype: " << (*this);
     throw runtime_error(ss.str());
 }
 

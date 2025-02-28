@@ -17,13 +17,6 @@ namespace ksgpu {
 // -------------------------------------------------------------------------------------------------
 
 
-// Very boneheaded function which prints an array.
-// FIXME currently one line per array element -- could be improved!
-
-extern void print_array(const Array<void> &arr, 
-			const std::vector<std::string> &axis_names = {},
-			std::ostream &os = std::cout);
-
 
 // Instantiated for T = float, double, (u)int, (u)long, (u)short, (u)char, complex<float>, complex<double>, complex<int>.
 // For non floating point types, the 'epsabs' and 'epsrel' arguments are ignored.
