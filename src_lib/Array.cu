@@ -668,6 +668,17 @@ template<> struct convert_0d<__half,double> { static inline __half conv(double x
 template<> struct convert_0d<float,__half>  { static inline float conv(__half x)  { return __half2float(x); } };
 template<> struct convert_0d<double,__half> { static inline double conv(__half x) { return __half2float(x); } };
 
+// Conversions involving complex<...>
+template<typename Tdst, typename Tsrc>
+struct convert_0d<complex<Tdst>, complex<Tsrc>>
+{
+    static inline complex<Tdst> conv(complex<Tsrc> x)
+    {
+	using C = convert_0d<Tdst,Tsrc>;
+	return { C::conv(x.real()), C::conv(x.imag()) };
+    }
+};
+
 
 // --- 1-d converters start here ---
 
@@ -683,31 +694,47 @@ static void fully_templated_1d_converter(void *dst_, const void *src_, const fil
 	dst[i * axis.dstride] = convert_0d<Tdst,Tsrc>::conv(src[i * axis.sstride]);
 }
 
-template<typename Tdst>
-static converter_1d partially_templated_1d_converter(Dtype src_dtype)
+template<typename Tdst, typename Tsrc>
+static converter_1d doubly_templated_1d_converter(Dtype dst_dtype, Dtype src_dtype)
 {
-    if (src_dtype == Dtype::native<__half>())
-	return fully_templated_1d_converter<Tdst, __half>;
+    if ((dst_dtype == Dtype::native<Tdst>()) && (src_dtype == Dtype::native<Tsrc>()))
+	return fully_templated_1d_converter<Tdst, Tsrc>;
     
-    if (src_dtype == Dtype::native<float>())
-	return fully_templated_1d_converter<Tdst, float>;
+    if ((dst_dtype == Dtype::native<complex<Tdst>>()) && (src_dtype == Dtype::native<complex<Tsrc>>()))
+	return fully_templated_1d_converter<complex<Tdst>, complex<Tsrc>>;
+
+    return nullptr;
+}
+
+template<typename Tdst>
+static converter_1d singly_templated_1d_converter(Dtype dst_dtype, Dtype src_dtype)
+{
+    Dtype dt = src_dtype.real();
     
-    if (src_dtype == Dtype::native<double>())
-	return fully_templated_1d_converter<Tdst, double>;
+    if (dt == Dtype::native<__half>())
+	return doubly_templated_1d_converter<Tdst, __half> (dst_dtype, src_dtype);
+    
+    if (dt == Dtype::native<float>())
+	return doubly_templated_1d_converter<Tdst, float> (dst_dtype, src_dtype);
+    
+    if (dt == Dtype::native<double>())
+	return doubly_templated_1d_converter<Tdst, double> (dst_dtype, src_dtype);
 
     return nullptr;
 }
 
 static converter_1d get_1d_converter(Dtype dst_dtype, Dtype src_dtype)
 {
-    if (dst_dtype == Dtype::native<__half>())
-	return partially_templated_1d_converter<__half> (src_dtype);
+    Dtype dt = dst_dtype.real();
     
-    if (dst_dtype == Dtype::native<float>())
-	return partially_templated_1d_converter<float> (src_dtype);
+    if (dt == Dtype::native<__half>())
+	return singly_templated_1d_converter<__half> (dst_dtype, src_dtype);
     
-    if (dst_dtype == Dtype::native<double>())
-	return partially_templated_1d_converter<double> (src_dtype);
+    if (dt == Dtype::native<float>())
+	return singly_templated_1d_converter<float> (dst_dtype, src_dtype);
+    
+    if (dt == Dtype::native<double>())
+	return singly_templated_1d_converter<double> (dst_dtype, src_dtype);
 
     return nullptr;
 }
@@ -762,7 +789,7 @@ void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
 	stringstream ss;
 	ss << "Array::convert(): (dst_dtype, src_dtype) = (" << dst.dtype << ", " << src.dtype
 	   << ") is currently unimplemented (implementing new dtypes should be straightforward,"
-	   << " see comments in ksgpu/src_lib/Array.cu";
+	   << " see comments in ksgpu/src_lib/Array.cu)";
 	throw runtime_error(ss.str());
     }
 
