@@ -164,21 +164,22 @@ double _assert_arrays_equal(
 // -------------------------------------------------------------------------------------------------
 //
 // Instantiate _assert_arrays_equal() for:
-//  - all pairs of floating-point types
-//  - all pairs of complex<float> types
-//  - all integer types
-//  - complex<integer> types
+//  - all pairs (F1,F2) of floating-point types
+//  - all pairs (complex<F1>, complex<F2>)
+//  - all pairs (T,T).
+//
+// (This is the same scope as array_convert().)
 
 
 // Same signature as _assert_arrays_equal<T1,T2> ()
-using aae_func = double (*)(const Array<void> &, const Array<void> &,
-			    const string &, const string &, const vector<string> &,
-			    double, double, long, bool);
+using assert_func = double (*)(const Array<void> &, const Array<void> &,
+			       const string &, const string &, const vector<string> &,
+			       double, double, long, bool);
 
-
+// Helper for get_assert_func().
 // Matches <T1,T2> or <complex<T1>,complex<T2>>
 template<typename T1, typename T2>
-static aae_func get_aae_func1(Dtype dt1, Dtype dt2)
+static assert_func get_doubly_templated_assert_func(Dtype dt1, Dtype dt2)
 {
     if ((dt1 == Dtype::native<T1>()) && (dt2 == Dtype::native<T2>()))
 	return _assert_arrays_equal<T1, T2>;
@@ -189,36 +190,65 @@ static aae_func get_aae_func1(Dtype dt1, Dtype dt2)
     return nullptr;
 }
 
-
-// Matches <T,F> or <complex<T>,complex<F>>, where F is any floating-point type {double,float,__half}.
-template<typename T>
-static aae_func get_aae_func2(Dtype dt1, Dtype dt2)
+// Helper for get_assert_func().
+// Matches (Tdst,Fsrc) or (complex<Tdst>, complex<Fsrc>), where Fsrc is any floating-point type.
+template<typename T1>
+static assert_func get_singly_templated_assert_func(Dtype dt1, Dtype dt2)
 {
-    aae_func f = get_aae_func1<T,double> (dt1, dt2);
-    if (!f) f = get_aae_func1<T,float> (dt1, dt2);
-    if (!f) f = get_aae_func1<T,__half> (dt1, dt2);
-    return f;
+    Dtype dt = dt2.real();
+
+    if (dt == Dtype::native<__half>())
+	return get_doubly_templated_assert_func<T1, __half> (dt1, dt2);
+    
+    if (dt == Dtype::native<float>())
+	return get_doubly_templated_assert_func<T1, float> (dt1, dt2);
+    
+    if (dt == Dtype::native<double>())
+	return get_doubly_templated_assert_func<T1, double> (dt1, dt2);
+
+    return nullptr;
 }
 
-// Matches <T,T>, where T is either real or complex.
-// Matches <F1,F2>, where F1,F2 are floating-point types {double,float,__half}.
-// Matches <complex<F1>,complex<F2>>, where F1,F2 are floating-point types.
-static aae_func get_aae_func(Dtype dt1, Dtype dt2)
+// Matches (T,T), (F1,F2), or (complex<F1>, complex<F2>),
+// where T denotes an arbitrary type, and F1/F2 denote floating-point types.
+static assert_func get_assert_func(Dtype dt1, Dtype dt2)
 {
-    aae_func f = get_aae_func2<float> (dt1, dt2);
-    if (!f) f = get_aae_func2<double> (dt1, dt2);
-    if (!f) f = get_aae_func2<__half> (dt1, dt2);
+    Dtype dt = dt1.real();
 
-    if (!f) f = get_aae_func1<int,int> (dt1, dt2);
-    if (!f) f = get_aae_func1<uint,uint> (dt1, dt2);
-    if (!f) f = get_aae_func1<long,long> (dt1, dt2);
-    if (!f) f = get_aae_func1<ulong,ulong> (dt1, dt2);
-    if (!f) f = get_aae_func1<short,short> (dt1, dt2);
-    if (!f) f = get_aae_func1<ushort,ushort> (dt1, dt2);
-    if (!f) f = get_aae_func1<char,char> (dt1, dt2);
-    if (!f) f = get_aae_func1<unsigned char, unsigned char> (dt1, dt2);
+    if (dt == Dtype::native<__half>())
+	return get_singly_templated_assert_func<__half> (dt1, dt2);
+    
+    if (dt == Dtype::native<float>())
+	return get_singly_templated_assert_func<float> (dt1, dt2);
+    
+    if (dt == Dtype::native<double>())
+	return get_singly_templated_assert_func<double> (dt1, dt2);
 
-    return f;
+    if (dt == Dtype::native<int>())
+	return get_doubly_templated_assert_func<int,int> (dt1, dt2);
+
+    if (dt == Dtype::native<uint>())
+	return get_doubly_templated_assert_func<uint,uint> (dt1, dt2);
+
+    if (dt == Dtype::native<long>())
+	return get_doubly_templated_assert_func<long,long> (dt1, dt2);
+
+    if (dt == Dtype::native<ulong>())
+	return get_doubly_templated_assert_func<ulong,ulong> (dt1, dt2);
+
+    if (dt == Dtype::native<short>())
+	return get_doubly_templated_assert_func<short,short> (dt1, dt2);
+
+    if (dt == Dtype::native<ushort>())
+	return get_doubly_templated_assert_func<ushort,ushort> (dt1, dt2);
+
+    if (dt == Dtype::native<char>())
+	return get_doubly_templated_assert_func<char,char> (dt1, dt2);
+
+    if (dt == Dtype::native<unsigned char>())
+	return get_doubly_templated_assert_func<unsigned char, unsigned char> (dt1, dt2);
+
+    return nullptr;
 }
 
 
@@ -240,9 +270,9 @@ double assert_arrays_equal(
     xassert(axis_names.size() == uint(arr1.ndim));
     xassert(max_display > 0);
 
-    aae_func aae = get_aae_func(arr1.dtype, arr2.dtype);
+    assert_func afunc = get_assert_func(arr1.dtype, arr2.dtype);
     
-    if (!aae) {
+    if (!afunc) {
 	stringstream ss;
 	ss << "assert_arrays_equal() is not implemented for this dtype pair: (" << arr1.dtype << ", " << arr2.dtype << ")";
 	throw runtime_error(ss.str());
@@ -255,7 +285,7 @@ double assert_arrays_equal(
     Array<void> harr1 = arr1.to_host(false);  // page_locked=false
     Array<void> harr2 = arr2.to_host(false);  // page_locked=false
 
-    return aae(harr1, harr2, name1, name2, axis_names, epsabs, epsrel, max_display, verbose);
+    return afunc(harr1, harr2, name1, name2, axis_names, epsabs, epsrel, max_display, verbose);
 }
 
 
