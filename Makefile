@@ -114,6 +114,7 @@ HFILES := \
   include/ksgpu/Barrier.hpp \
   include/ksgpu/CpuThreadPool.hpp \
   include/ksgpu/CudaStreamPool.hpp \
+  include/ksgpu/Dtype.hpp \
   include/ksgpu/constexpr_functions.hpp \
   include/ksgpu/cuda_utils.hpp \
   include/ksgpu/device_mma.hpp \
