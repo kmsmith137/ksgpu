@@ -86,13 +86,13 @@ struct Array {
     // If (T != void), then these constructors check that the dtype is consistent with T.
     // If (T == void), then constructors _without_ an explicit dtype throw excptions.
     
-    Array(const Dtype &dtype, int ndim, const long *shape, int aflags);
-    Array(const Dtype &dtype, const std::vector<long> &shape, int aflags);
-    Array(const Dtype &dtype, std::initializer_list<long> shape, int aflags);
+    Array(Dtype dtype, int ndim, const long *shape, int aflags);
+    Array(Dtype dtype, const std::vector<long> &shape, int aflags);
+    Array(Dtype dtype, std::initializer_list<long> shape, int aflags);
     
-    Array(const Dtype &dtype, int ndim, const long *shape, const long *strides, int aflags);
-    Array(const Dtype &dtype, const std::vector<long> &shape, const std::vector<long> &strides, int aflags);
-    Array(const Dtype &dtype, std::initializer_list<long> shape, std::initializer_list<long> strides, int aflags);
+    Array(Dtype dtype, int ndim, const long *shape, const long *strides, int aflags);
+    Array(Dtype dtype, const std::vector<long> &shape, const std::vector<long> &strides, int aflags);
+    Array(Dtype dtype, std::initializer_list<long> shape, std::initializer_list<long> strides, int aflags);
     
     // Is array addressable on GPU? On host?
     inline bool on_gpu() const { return !data || af_on_gpu(aflags); }
@@ -204,7 +204,7 @@ struct Array {
     inline void ix_next(std::vector<long> &ix) const;
 
     // Intended as a helper function for constructors.
-    inline void _construct(const Dtype &dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_);
+    inline void _construct(Dtype dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_);
     
     // "Cheat" accessor, which gives a non-const reference to a const Array.
     template<typename U=T, typename=enable_if_non_void<U>> inline U& _at(int ndim, const long *ix) const;
@@ -350,30 +350,30 @@ inline Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int 
 
 
 template<typename T>
-inline Array<T>::Array(const Dtype &dtype_, const std::vector<long> &shape_, int aflags_)
+inline Array<T>::Array(Dtype dtype_, const std::vector<long> &shape_, int aflags_)
     : Array(dtype_, shape_.size(), &shape_[0], aflags_) { }
 
 template<typename T>
-inline Array<T>:: Array(const Dtype &dtype_, std::initializer_list<long> shape_, int aflags_)
+inline Array<T>:: Array(Dtype dtype_, std::initializer_list<long> shape_, int aflags_)
     : Array(dtype_, shape_.size(), shape_.begin(), aflags_) { }
 
 template<typename T>
-inline Array<T>::Array(const Dtype &dtype_, int ndim_, const long *shape_, int aflags_)
+inline Array<T>::Array(Dtype dtype_, int ndim_, const long *shape_, int aflags_)
 {
     this->_construct(dtype_, ndim_, shape_, nullptr, aflags_);
 }
 
 
 template<typename T>
-inline Array<T>::Array(const Dtype &dtype_, const std::vector<long> &shape_, const std::vector<long> &strides_, int aflags_)
+inline Array<T>::Array(Dtype dtype_, const std::vector<long> &shape_, const std::vector<long> &strides_, int aflags_)
     : Array(dtype_, ndim_ss(shape_,strides_), &shape_[0], &strides_[0], aflags_) { }
 
 template<typename T>
-inline Array<T>:: Array(const Dtype &dtype_, std::initializer_list<long> shape_, std::initializer_list<long> strides_, int aflags_)
+inline Array<T>:: Array(Dtype dtype_, std::initializer_list<long> shape_, std::initializer_list<long> strides_, int aflags_)
     : Array(dtype_, ndim_ss(shape_,strides_), shape_.begin(), strides_.begin(), aflags_) { }
 
 template<typename T>
-inline Array<T>::Array(const Dtype &dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
+inline Array<T>::Array(Dtype dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
 {
     xassert(strides_ != nullptr);
     this->_construct(dtype_, ndim_, shape_, nullptr, aflags_);
@@ -382,7 +382,7 @@ inline Array<T>::Array(const Dtype &dtype_, int ndim_, const long *shape_, const
 
 // Helper function for constructors.
 template<typename T>
-inline void Array<T>::_construct(const Dtype &dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
+inline void Array<T>::_construct(Dtype dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
 {
     _check_dtype<T> (dtype_, "Array constructor");
     

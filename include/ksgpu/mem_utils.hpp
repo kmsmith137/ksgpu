@@ -30,7 +30,7 @@ inline std::shared_ptr<T> af_alloc(long nelts, int flags);
 // af_alloc() version 2: dtype is specified at runtime.
 // If (T != void) and dtype is inconsistent with native (C++) type T, then exception is thrown.
 template<typename T> 
-inline std::shared_ptr<T> af_alloc(const Dtype &dtype, long nelts, int flags);
+inline std::shared_ptr<T> af_alloc(Dtype dtype, long nelts, int flags);
 
 
 template<typename T>
@@ -90,7 +90,7 @@ inline bool af_on_host(int flags) { return (flags & af_gpu) == 0; }
 // Implementation.
 
 
-extern std::shared_ptr<void> _af_alloc(const Dtype &dtype, long nelts, int flags);
+extern std::shared_ptr<void> _af_alloc(Dtype dtype, long nelts, int flags);
 
 
 // Uses location flags, but ignores initialization and debug flags.
@@ -109,7 +109,7 @@ inline std::shared_ptr<T> af_alloc(long nelts, int flags)
 
 // Version of af_alloc() with a runtime dtype.
 template<typename T>
-inline std::shared_ptr<T> af_alloc(const Dtype &dtype, long nelts, int flags)
+inline std::shared_ptr<T> af_alloc(Dtype dtype, long nelts, int flags)
 {
     _check_dtype<T> (dtype, "af_alloc");
     return std::reinterpret_pointer_cast<T> (_af_alloc(dtype, nelts, flags));

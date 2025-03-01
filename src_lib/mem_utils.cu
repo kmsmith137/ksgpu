@@ -346,7 +346,7 @@ struct alloc_helper {
 };
 
 
-shared_ptr<void> _af_alloc(const Dtype &dtype, long nelts, int flags)
+shared_ptr<void> _af_alloc(Dtype dtype, long nelts, int flags)
 {
     check_aflags(flags, "af_alloc");
     _check_dtype_valid(dtype, "_af_alloc");

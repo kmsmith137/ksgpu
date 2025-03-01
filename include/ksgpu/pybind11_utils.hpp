@@ -20,7 +20,7 @@ namespace ksgpu {
 // for tracing/debugging array conversion.
 
 extern void convert_array_from_python(
-    Array<void> &dst, PyObject *src, const Dtype &dt_expected,
+    Array<void> &dst, PyObject *src, Dtype dt_expected,
     bool convert, const char *debug_prefix = nullptr);
 
 

@@ -20,7 +20,7 @@ extern std::mt19937 default_rng;
 
 
 // _randomize(): randomizes a buffer whose dtype is specified at runtime.
-extern void _randomize(const Dtype &dtype, void *buf, long nelts, std::mt19937 &rng = default_rng);
+extern void _randomize(Dtype dtype, void *buf, long nelts, std::mt19937 &rng = default_rng);
 
 
 // randomize(): randomize a buffer whose type T is specified at compile time.

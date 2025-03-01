@@ -256,7 +256,7 @@ static int dl_device_type_to_aflags(DLDeviceType d)
 
 
 __attribute__ ((visibility ("default")))
-void convert_array_from_python(Array<void> &dst, PyObject *src, const Dtype &dt_expected, bool convert, const char *debug_prefix)
+void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expected, bool convert, const char *debug_prefix)
 {
     DLManagedTensor *mt = nullptr;    
     pybind11::object capsule;   // must hold reference for entire function

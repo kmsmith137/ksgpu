@@ -71,10 +71,10 @@ struct Dtype
 };
 
 
-extern std::ostream &operator<<(std::ostream &os, const Dtype &dt);
+extern std::ostream &operator<<(std::ostream &os, Dtype dt);
 
 
-inline void _check_dtype_valid(const Dtype &dtype, const char *where)
+inline void _check_dtype_valid(Dtype dtype, const char *where)
 {
     if (!dtype.is_valid()) {
 	std::stringstream ss;
@@ -86,7 +86,7 @@ inline void _check_dtype_valid(const Dtype &dtype, const char *where)
 // Checks for consistency between 'dtype' and native C++ type T.
 // (If T==void, then checks validity of 'dtype'.)
 template<typename T>
-inline void _check_dtype(const Dtype &dtype, const char *where)
+inline void _check_dtype(Dtype dtype, const char *where)
 {
     if constexpr (!std::is_void_v<T>) {
 	Dtype dt_expected = Dtype::native<T>();

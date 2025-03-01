@@ -35,7 +35,7 @@ inline void _randomize_f(__half *buf, long nelts, std::mt19937 &rng)
 }
 
 
-void _randomize(const Dtype &dtype, void *buf, long nelts, std::mt19937 &rng)
+void _randomize(Dtype dtype, void *buf, long nelts, std::mt19937 &rng)
 {
     _check_dtype_valid(dtype, "randomize");
     

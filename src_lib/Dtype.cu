@@ -38,7 +38,7 @@ static string dflag_str(unsigned short f)
 
 
 // Pretty-print a dtype.
-ostream &operator<<(ostream &os, const Dtype &dt)
+ostream &operator<<(ostream &os, Dtype dt)
 {
     if (dt.is_empty()) {
 	os << "empty_dtype";
