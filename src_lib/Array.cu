@@ -652,112 +652,124 @@ void array_transpose(Array<void> &dst, const Array<void> &src, const int *perm)
 //
 // array_convert()
 //
-// Currently, we only implement conversions between { __half, float, double }.
+// Currently, we only implement conversions
+//   T -> T (this case is "implemented" by calling array_fill() instead)
+//   Fsrc -> Fdst, where (Fsrc, Fdst) are 
 //
 // Adding more (dst_dtype, src_dtype) pairs should be strightforward:
-//  - make sure convert_0d<Tdst,Tsrc> is defined
+//  - make sure convert_scalar<Tdst,Tsrc> is defined
 //  - add if-statements in get_1d_converter() and partially_templated_1d_converter().
 //  - add unit test coverage
 
 
-// --- scalar (0-dimensional) converters start here ---
-
 template<typename Tdst, typename Tsrc>
-struct convert_0d { static inline Tdst conv(Tsrc x) { return x; } };
+struct convert_scalar { static inline Tdst conv(Tsrc x) { return x; } };
 
 // Conversions involving __half use CUDA intrinsics.
 // Note that CUDA defines __half2float() but not __half2double().
-template<> struct convert_0d<__half,float>  { static inline __half conv(float x)  { return __float2half(x); } };
-template<> struct convert_0d<__half,double> { static inline __half conv(double x) { return __double2half(x); } };
-template<> struct convert_0d<float,__half>  { static inline float conv(__half x)  { return __half2float(x); } };
-template<> struct convert_0d<double,__half> { static inline double conv(__half x) { return __half2float(x); } };
+template<> struct convert_scalar<__half,float>  { static inline __half conv(float x)  { return __float2half(x); } };
+template<> struct convert_scalar<__half,double> { static inline __half conv(double x) { return __double2half(x); } };
+template<> struct convert_scalar<float,__half>  { static inline float conv(__half x)  { return __half2float(x); } };
+template<> struct convert_scalar<double,__half> { static inline double conv(__half x) { return __half2float(x); } };
 
 // Conversions involving complex<...>
 template<typename Tdst, typename Tsrc>
-struct convert_0d<complex<Tdst>, complex<Tsrc>>
+struct convert_scalar<complex<Tdst>, complex<Tsrc>>
 {
     static inline complex<Tdst> conv(complex<Tsrc> x)
     {
-	using C = convert_0d<Tdst,Tsrc>;
+	using C = convert_scalar<Tdst,Tsrc>;
 	return { C::conv(x.real()), C::conv(x.imag()) };
     }
 };
 
 
-// --- 1-d converters start here ---
-
-using converter_1d = void (*)(void *, const void *, const fill_axis &);
-
+// convert_array2(): types known at compile time, dst/src are bare pointers.
+// Caller has checked that naxes >= 1.
 template<typename Tdst, typename Tsrc>
-static void fully_templated_1d_converter(void *dst_, const void *src_, const fill_axis &axis)
+static void convert_array2(Tdst *dst, const Tsrc *src, int naxes, const fill_axis *axes)
 {
-    Tdst *dst = (Tdst *) dst_;
-    const Tsrc *src = (const Tsrc *) src_;
+    long len = axes[naxes-1].length;
+    long ds = axes[naxes-1].dstride;
+    long ss = axes[naxes-1].sstride;
+
+    // FIXME adding explicit code for a few more values of 'naxes' (say naxes=2,3)
+    // could improve speed in "scattered" cases.
     
-    for (long i = 0; i < axis.length; i++)
-	dst[i * axis.dstride] = convert_0d<Tdst,Tsrc>::conv(src[i * axis.sstride]);
+    if (naxes == 1) {
+	for (long i = 0; i < len; i++)
+	    dst[i*ds] = convert_scalar<Tdst,Tsrc>::conv(src[i*ss]);
+    }
+    else {
+	for (long i = 0; i < axes[naxes-1].length; i++)
+	    convert_array2(dst + i*ds, src + i*ss, naxes-1, axes);
+    }
 }
 
+// convert_array(): types known at compile time, dst/src are Array<void>.
+// Caller has checked that naxes >= 1.
 template<typename Tdst, typename Tsrc>
-static converter_1d doubly_templated_1d_converter(Dtype dst_dtype, Dtype src_dtype)
+static void convert_array(Array<void> &dst_, const Array<void> &src_, int naxes, const fill_axis *axes)
+{
+    Array<Tdst> dst = dst_.template cast<Tdst> ("array_convert");
+    Array<Tsrc> src = src_.template cast<Tsrc> ("array_convert");
+    convert_array2(dst.data, src.data, naxes, axes);
+}
+
+
+// Same signature as convert_array()
+using convert_func = void (*)(Array<void> &, const Array<void> &, int, const fill_axis *);
+
+// Helper for get_converter().
+// Matches (Tdst,Tsrc) or (complex<Tdst>, complex<Tsrc>).
+template<typename Tdst, typename Tsrc>
+static convert_func get_doubly_templated_converter(Dtype dst_dtype, Dtype src_dtype)
 {
     if ((dst_dtype == Dtype::native<Tdst>()) && (src_dtype == Dtype::native<Tsrc>()))
-	return fully_templated_1d_converter<Tdst, Tsrc>;
+	return convert_array<Tdst, Tsrc>;
     
     if ((dst_dtype == Dtype::native<complex<Tdst>>()) && (src_dtype == Dtype::native<complex<Tsrc>>()))
-	return fully_templated_1d_converter<complex<Tdst>, complex<Tsrc>>;
+	return convert_array<complex<Tdst>, complex<Tsrc>>;
 
-    return nullptr;
+    return nullptr;    
 }
 
+// Helper for get_converter().
+// Matches (Tdst,Fsrc) or (complex<Tdst>, complex<Fsrc>), where Fsrc is any floating-point type.
 template<typename Tdst>
-static converter_1d singly_templated_1d_converter(Dtype dst_dtype, Dtype src_dtype)
+static convert_func get_singly_templated_converter(Dtype dst_dtype, Dtype src_dtype)
 {
     Dtype dt = src_dtype.real();
     
     if (dt == Dtype::native<__half>())
-	return doubly_templated_1d_converter<Tdst, __half> (dst_dtype, src_dtype);
+	return get_doubly_templated_converter<Tdst, __half> (dst_dtype, src_dtype);
     
     if (dt == Dtype::native<float>())
-	return doubly_templated_1d_converter<Tdst, float> (dst_dtype, src_dtype);
+	return get_doubly_templated_converter<Tdst, float> (dst_dtype, src_dtype);
     
     if (dt == Dtype::native<double>())
-	return doubly_templated_1d_converter<Tdst, double> (dst_dtype, src_dtype);
+	return get_doubly_templated_converter<Tdst, double> (dst_dtype, src_dtype);
 
     return nullptr;
 }
 
-static converter_1d get_1d_converter(Dtype dst_dtype, Dtype src_dtype)
+// Matches (Fdst,Fsrc) or (complex<Fdst>, complex<Fsrc>), where Fdst/Fsrc are floating-point types.
+// (This is the most general case we need to support, since the case Tdst==Tsrc is "implemented" by
+// having array_convert() call array_fill().)
+static convert_func get_converter(Dtype dst_dtype, Dtype src_dtype)
 {
     Dtype dt = dst_dtype.real();
     
     if (dt == Dtype::native<__half>())
-	return singly_templated_1d_converter<__half> (dst_dtype, src_dtype);
+	return get_singly_templated_converter<__half> (dst_dtype, src_dtype);
     
     if (dt == Dtype::native<float>())
-	return singly_templated_1d_converter<float> (dst_dtype, src_dtype);
+	return get_singly_templated_converter<float> (dst_dtype, src_dtype);
     
     if (dt == Dtype::native<double>())
-	return singly_templated_1d_converter<double> (dst_dtype, src_dtype);
+	return get_singly_templated_converter<double> (dst_dtype, src_dtype);
 
     return nullptr;
-}
-
-// --- generic (N-dimensional) conversion starts here
-
-static void convert_Nd(char *dst, const char *src, int naxes, const fill_axis *axes, converter_1d conv_1d, int dst_nbytes, int src_nbytes)
-{
-    if (naxes == 1) {
-	conv_1d(dst, src, *axes);
-	return;
-    }
-
-    xassert(naxes >= 2);
-    long ds = axes[naxes-1].dstride * dst_nbytes;
-    long ss = axes[naxes-1].sstride * src_nbytes;
-    
-    for (long i = 0; i < axes[naxes-1].length; i++)
-	convert_Nd(dst + i*ds, src + i*ss, naxes-1, axes, conv_1d, dst_nbytes, src_nbytes);
 }
 
 
@@ -767,7 +779,8 @@ void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
 	throw runtime_error("Array::convert(): source array must be on host");
     if (!dst.on_host())
 	throw runtime_error("Array::convert(): destination array must be on host");
-    
+
+    // If src/dst dtypes match, then array_convert() can be "implemented" by calling array_fill().
     if (dst.dtype == src.dtype) {
 	array_fill(dst, src, noisy);
 	return;
@@ -786,10 +799,11 @@ void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
     int nax_c = 0;
     fill_axis axes_c[ArrayMaxDim];
     init_coalesced_axes(nax_c, axes_c, nax_u, axes_u);   // note: permutes 'axes_u' in place.
+    
+    xassert(nax_c >= 1);  // assumed in converter, see comments above.
+    convert_func converter = get_converter(dst.dtype, src.dtype);
 
-    converter_1d conv_1d = get_1d_converter(dst.dtype, src.dtype);
-
-    if (!conv_1d) {
+    if (!converter) {
 	stringstream ss;
 	ss << "Array::convert(): (dst_dtype, src_dtype) = (" << dst.dtype << ", " << src.dtype
 	   << ") is currently unimplemented (implementing new dtypes should be straightforward,"
@@ -802,13 +816,7 @@ void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
 	show_axes(cout, dst, src, nax_c, axes_c);
     }
 
-    xassert((dst.dtype.nbits & 7) == 0);
-    xassert((src.dtype.nbits & 7) == 0);
-    
-    int dst_nbytes = dst.dtype.nbits >> 3;
-    int src_nbytes = src.dtype.nbits >> 3;
-    
-    convert_Nd((char *) dst.data, (const char *) src.data, nax_c, axes_c, conv_1d, dst_nbytes, src_nbytes);
+    converter(dst, src, nax_c, axes_c);
 }
 
 

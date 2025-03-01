@@ -203,7 +203,7 @@ struct Array {
     inline bool ix_valid(const std::vector<long> &ix) const;
     inline void ix_next(std::vector<long> &ix) const;
 
-    // Helper function for constructors.
+    // Intended as a helper function for constructors.
     inline void _construct(const Dtype &dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_);
     
     // "Cheat" accessor, which gives a non-const reference to a const Array.
