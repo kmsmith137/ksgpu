@@ -204,7 +204,7 @@ struct Array {
     inline void ix_next(std::vector<long> &ix) const;
 
     // Intended as a helper function for constructors.
-    inline void _construct(Dtype dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_);
+    inline void allocate(Dtype dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_);
     
     // "Cheat" accessor, which gives a non-const reference to a const Array.
     template<typename U=T, typename=enable_if_non_void<U>> inline U& _at(int ndim, const long *ix) const;
@@ -266,6 +266,7 @@ extern void array_convert(Array<void> &dst, const Array<void> &src, bool noisy=f
 
 // Checks all Array invariants except dtype.
 extern void _check_array_invariants(const Array<void> &arr, const char *where = "ksgpu::check_array_invariants()");
+extern void _array_allocate(Array<void> &arr, Dtype dtype, int ndim, const long *shape, const long *strides, int aflags);
 
 // Misc helpers.
 extern bool _tuples_equal(int ndim1, const long *shape1, int ndim2, const long *shape2);
@@ -313,7 +314,7 @@ template<typename T>
 inline Array<T>::Array(int ndim_, const long *shape_, int aflags_)
 {
     static_assert(!std::is_void_v<T>, "Array<T> constructor: If T=void, then you must call a constructor with a runtime dtype");
-    this->_construct(Dtype::native<T>(), ndim_, shape_, nullptr, aflags_);
+    this->allocate(Dtype::native<T>(), ndim_, shape_, nullptr, aflags_);
 }
 
 
@@ -338,7 +339,7 @@ inline Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int 
 {
     static_assert(!std::is_void_v<T>, "Array<T> constructor: If T=void, then you must call a constructor with a runtime dtype");
     xassert(strides_ != nullptr);    
-    this->_construct(Dtype::native<T>(), ndim_, shape_, strides_, aflags_);
+    this->allocate(Dtype::native<T>(), ndim_, shape_, strides_, aflags_);
 }
 
 
@@ -360,7 +361,7 @@ inline Array<T>:: Array(Dtype dtype_, std::initializer_list<long> shape_, int af
 template<typename T>
 inline Array<T>::Array(Dtype dtype_, int ndim_, const long *shape_, int aflags_)
 {
-    this->_construct(dtype_, ndim_, shape_, nullptr, aflags_);
+    this->allocate(dtype_, ndim_, shape_, nullptr, aflags_);
 }
 
 
@@ -376,47 +377,16 @@ template<typename T>
 inline Array<T>::Array(Dtype dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
 {
     xassert(strides_ != nullptr);
-    this->_construct(dtype_, ndim_, shape_, nullptr, aflags_);
+    this->allocate(dtype_, ndim_, shape_, nullptr, aflags_);
 }
 
 
 // Helper function for constructors.
 template<typename T>
-inline void Array<T>::_construct(Dtype dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
+inline void Array<T>::allocate(Dtype dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
 {
     _check_dtype<T> (dtype_, "Array constructor");
-    
-    xassert(ndim_ >= 0);
-    xassert(ndim_ <= ArrayMaxDim);
-    xassert((ndim_ == 0) || (shape_ != nullptr));  // if strides_ is null, then array is contiguous.
-    // check_aflags() will be called in _af_alloc() below.
-
-    this->ndim = ndim_;
-    this->dtype = dtype_;
-    this->aflags = aflags_;
-    this->size = ndim_ ? 1 : 0;  // updated in loop below
-    long nalloc = size;
-	
-    for (int d = ndim-1; d >= 0; d--) {
-	shape[d] = shape_[d];
-	strides[d] = strides_ ? strides_[d] : size;
-	
-	xassert(shape[d] >= 0);
-	xassert(strides[d] >= 0);
-	
-	size *= shape_[d];
-	nalloc += (shape_[d]-1) * strides[d];
-	// Note that if array is contiguous, then nalloc==size.
-    }
-
-    for (int d = ndim; d < ArrayMaxDim; d++)
-	shape[d] = strides[d] = 0;
-
-    // Note: _af_alloc() calls check_aflags().
-    // Note: if nalloc==0, then _af_alloc() returns an empty pointer.
-    this->base = _af_alloc(dtype, nalloc, aflags);
-    this->data = reinterpret_cast<T *> (base.get());
-    this->check_invariants("array_allocate()");
+    _array_allocate(*this, dtype_, ndim_, shape_, strides_, aflags_);
 }
 
 

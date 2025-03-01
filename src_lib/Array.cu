@@ -59,6 +59,44 @@ int array_get_ncontig(const Array<void> &arr)
 }
 
 
+void _array_allocate(Array<void> &arr, Dtype dtype, int ndim, const long *shape, const long *strides, int aflags)
+{
+    xassert(ndim >= 0);
+    xassert(ndim <= ArrayMaxDim);
+    xassert((ndim == 0) || (shape != nullptr));  // if strides is null, then array is contiguous.
+    // check_aflags() will be called in _af_alloc() below.
+
+    arr.ndim = ndim;
+    arr.dtype = dtype;
+    arr.aflags = aflags;
+    arr.size = ndim ? 1 : 0;  // updated in loop below
+    
+    long nalloc = arr.size;
+    
+    for (int d = ndim-1; d >= 0; d--) {
+	arr.shape[d] = shape[d];
+	arr.strides[d] = strides ? strides[d] : arr.size;
+	
+	xassert(shape[d] >= 0);
+	xassert(arr.strides[d] >= 0);
+	
+	arr.size *= shape[d];
+	nalloc += (shape[d]-1) * arr.strides[d];
+	// Note that if array is contiguous, then nalloc==size.
+    }
+
+    for (int d = ndim; d < ArrayMaxDim; d++)
+	arr.shape[d] = arr.strides[d] = 0;
+
+    // Note: _af_alloc() calls check_aflags().
+    // Note: if nalloc==0, then _af_alloc() returns an empty pointer.
+    arr.base = _af_alloc(dtype, nalloc, aflags);
+    arr.data = arr.base.get();
+    
+    _check_array_invariants(arr, "Array constructor (or _array_allocate())");
+}
+
+
 // -------------------------------------------------------------------------------------------------
 //
 // _check_array_invariants()
