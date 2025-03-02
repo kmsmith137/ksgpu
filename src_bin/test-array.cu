@@ -310,7 +310,6 @@ struct FillTestInstance {
 	rs2.check_for_buffer_overflows();
     }
 };
-
     
 
 // -------------------------------------------------------------------------------------------------
@@ -372,54 +371,108 @@ static void test_reshape(bool noisy=false)
 // -------------------------------------------------------------------------------------------------
 //
 // test_convert()
+//
+// I wrote this unit test after implementing Array<void> and ksgpu::Dtypes.
+//
+// Previous unit tests were written before these features were implemented, and use
+// template<typename T> instead. The previous tests do have some nice features that
+// are missing here, such as RandomlyStridedArray::check_for_buffer_overflows().
+//
+// FIXME: develop a best-of-both-worlds framework. (More generally, should systematically
+// revisit the tests in this file, which are sort of ad-hoc and not 100% complete.)
 
 
-inline double convert_to_double(double x) { return x; }
-inline double convert_to_double(float x)  { return x; }
-inline double convert_to_double(__half x) { return __half2float(x); }  // CUDA doesn't define __half2double()
+// DstSrcPair: pair of arrays 'dst', 'src' with the same shape and aflags.
+// (Dtypes and strides can be different.)
 
-template<typename T> struct dtype_epsilon { };
-template<> struct dtype_epsilon<double> { static constexpr double value = 1.0e-15; };
-template<> struct dtype_epsilon<float>  { static constexpr double value = 1.0e-6; };
-template<> struct dtype_epsilon<__half> { static constexpr double value = 0.005; };
-
-
-template<typename Tdst, typename Tsrc>
-static void test_convert(const vector<long> &shape, const vector<long> &strides, bool noisy=false)
+struct DstSrcPair
 {
-    double epsilon = std::max(dtype_epsilon<Tdst>::value, dtype_epsilon<Tsrc>::value);
+    Array<void> dst;
+    Array<void> src;
+    bool noisy = false;
+
+    // Note that we always add (af_random) to src.aflags!
+    DstSrcPair(Dtype dst_dtype, const vector<long> &dst_strides,
+	       Dtype src_dtype, const vector<long> &src_strides,
+	       const vector<long> &shape, int aflags, bool noisy_)
+	: dst(dst_dtype, shape, dst_strides, aflags),
+	  src(src_dtype, shape, src_strides, aflags | af_random),
+	  noisy(noisy_)
+    { }
+
+    void assert_equal(const string &where)
+    {
+	vector<string> axis_names(dst.ndim);
+	
+	for (int d = 0; d < dst.ndim; d++) {
+	    stringstream ss;
+	    ss << "ax" << d;
+	    axis_names[d] = ss.str();
+	}
+
+	// FIXME the biggest weakness in this unit test is that the test assumes
+	// that ksgpu::assert_arrays_equal() works. One way to address this would
+	// be to add a standalone unit test for assert_arrays_equal().
+	
+	ksgpu::assert_arrays_equal(dst, src, where + " dst", "src", axis_names);
+    }
     
-    if (noisy) {
-	cout << "test_convert(Tdst=" << type_name<Tdst>()
-	     << ", Tsrc=" << type_name<Tsrc>()
-	     << ", shape=" << tuple_str(shape)
-	     << ", strides=" << tuple_str(strides)
-	     << ")" << endl;
+    static DstSrcPair make_random(bool noisy)
+    {
+	vector<long> shape = make_random_shape();
+	vector<long> dst_strides = make_random_strides(shape);
+	vector<long> src_strides = make_random_strides(shape);
+	int aflags = af_uhost;  // for now
+    
+	Dtype dst_dtype;
+	Dtype src_dtype;
+	
+	if (rand_uniform() < 0.2) {
+	    ushort flags = (rand_uniform() < 0.5) ? df_int : df_uint;	
+	    ushort nbits = 1 << rand_int(3,7);
+	    dst_dtype = src_dtype = Dtype(flags, nbits);
+	}
+	else {
+	    ushort nbits1 = 1 << rand_int(4,7);
+	    ushort nbits2 = 1 << rand_int(4,7);
+	    dst_dtype = Dtype(df_float, nbits1);
+	    src_dtype = Dtype(df_float, nbits2);
+	}
+	
+	if (rand_uniform() < 0.5) {
+	    dst_dtype = dst_dtype.complex();
+	    src_dtype = src_dtype.complex();
+	}
+
+	return DstSrcPair(dst_dtype, dst_strides, src_dtype, src_strides, shape, aflags, noisy);
+    }
+};
+
+
+void test_convert(DstSrcPair &ds)
+{
+    Array<void> &dst = ds.dst;
+    Array<void> &src = ds.src;
+    
+    if (ds.noisy) {
+	cout << "test_convert: shape=" << dst.shape_str()
+	     << ", dst_dtype=" << dst.dtype
+	     << ", src_dtype=" << src.dtype
+	     << ", dst_strides=" << dst.stride_str()
+	     << ", src_strides=" << src.stride_str()
+	     << ", aflags=" << aflag_str(dst.aflags)
+	     << endl;
     }
 
-    Array<Tsrc> src(shape, strides, af_uhost | af_random);
-    Array<Tdst> dst = src.template convert<Tdst> ();
-
-    xassert(dst.shape_equals(src));
-
-    for (auto ix = src.ix_start(); src.ix_valid(ix); src.ix_next(ix)) {
-	double fsrc = convert_to_double(src.at(ix));
-	double fdst = convert_to_double(dst.at(ix));
-	xassert_le(abs(fsrc-fdst), epsilon);
-    }
+    array_convert(dst, src, ds.noisy);
+    ds.assert_equal("test convert");
 }
 
 
-template<typename Tdst, typename Tsrc>
-static void test_convert(bool noisy=false)
+void test_convert(bool noisy)
 {
-    vector<long> shape = make_random_shape();
-
-    int ndim = shape.size();
-    int ncontig = rand_int(0, ndim+1);
-    vector<long> strides = make_random_strides(shape, ncontig);
-
-    test_convert<Tdst,Tsrc> (shape, strides, noisy);
+    DstSrcPair ds = DstSrcPair::make_random(noisy);
+    test_convert(ds);
 }
 
 
@@ -448,19 +501,12 @@ int main(int argc, char **argv)
     int niter = 1000;
 	
     for (int i = 0; i < niter; i++) {
-	if (i % 10 == 0)
+	if (i % 100 == 0)
 	    cout << "test-array: iteration " << i << "/" << niter << endl;
 
 	run_all_tests<float> (noisy);
 	run_all_tests<char> (noisy);
-
-	// test_convert() is not included in run_all_tests().
-	test_convert<__half, float> (noisy);
-	test_convert<__half, double> (noisy);
-	test_convert<float, __half> (noisy);
-	test_convert<float, double> (noisy);
-	test_convert<double, __half> (noisy);
-	test_convert<double, float> (noisy);
+	test_convert(noisy);
     }
 
     cout << "test-array passed!" << endl;

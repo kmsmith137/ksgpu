@@ -692,12 +692,8 @@ void array_transpose(Array<void> &dst, const Array<void> &src, const int *perm)
 //
 // Currently, we only implement conversions
 //   T -> T (this case is "implemented" by calling array_fill() instead)
-//   Fsrc -> Fdst, where (Fsrc, Fdst) are 
-//
-// Adding more (dst_dtype, src_dtype) pairs should be strightforward:
-//  - make sure convert_scalar<Tdst,Tsrc> is defined
-//  - add if-statements in get_1d_converter() and partially_templated_1d_converter().
-//  - add unit test coverage
+//   Fsrc -> Fdst, where (Fsrc, Fdst) are floating-point types
+//   complex<Fsrc> -> complex<Fdst>, where (Fsrc, Fdst) are floating-point types
 
 
 template<typename Tdst, typename Tsrc>
