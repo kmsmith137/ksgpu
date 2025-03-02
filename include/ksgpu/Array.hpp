@@ -62,29 +62,24 @@ struct Array {
     // Note that zero-dimensional arrays are empty (unlike numpy,
     // where zero-dimensional arrays have size 1).
 
-    // Default constructor: caller is responsible for initializing all members,
-    // then calling Array::check_invariants(). Useful in non-standard situations
-    // that can't be covered by any of the "stock" constructors.
-    Array();
-    
-    // Allocator flags ('aflags') are defined in mem_utils.hpp
+    // Constructors differ in the following ways:
+    //   - whether dtype is specified at runtime (required if T==void).
+    //   - whether strides are specified (often used in unit tests)
+    //   - how shape/strides are specified (e.g. as vector<long> or initializer_list<long>)
+    // 
+    // The most frequently used constructor specifies the shape as an initializer_list, e.g.
+    //   Array<float> arr({m,n}, af_gpu);   // construct shape (m,n) array on GPU.
+    //
+    // Note that allocator flags ('aflags') such as af_gpu are defined in mem_utils.hpp.
     // Flags can be used to allocate memory on CPU/GPU, zero memory after allocation, etc.
+    
     Array(int ndim, const long *shape, int aflags);
     Array(const std::vector<long> &shape, int aflags);
-    
-    // Syntactic sugar for constructing array with "inline" dimensions, e.g.
-    //    Array<float> arr({m,n}, af_gpu);
     Array(std::initializer_list<long> shape, int aflags);
 
-    // These constructors allow explicit strides.
-    // Often used in unit tests, with make_random_strides() in test_utils.hpp.
     Array(int ndim, const long *shape, const long *strides, int aflags);
     Array(const std::vector<long> &shape, const std::vector<long> &strides, int aflags);
     Array(std::initializer_list<long> shape, std::initializer_list<long> strides, int aflags);
-
-    // These constructors allow an explicit dtype.
-    // If (T != void), then these constructors check that the dtype is consistent with T.
-    // If (T == void), then constructors _without_ an explicit dtype throw excptions.
     
     Array(Dtype dtype, int ndim, const long *shape, int aflags);
     Array(Dtype dtype, const std::vector<long> &shape, int aflags);
@@ -93,6 +88,11 @@ struct Array {
     Array(Dtype dtype, int ndim, const long *shape, const long *strides, int aflags);
     Array(Dtype dtype, const std::vector<long> &shape, const std::vector<long> &strides, int aflags);
     Array(Dtype dtype, std::initializer_list<long> shape, std::initializer_list<long> strides, int aflags);
+        
+    // Default constructor: caller is responsible for initializing all members,
+    // then calling Array::check_invariants(). Useful in non-standard situations
+    // that can't be covered by any of the "stock" constructors.
+    Array();
     
     // Is array addressable on GPU? On host?
     inline bool on_gpu() const { return !data || af_on_gpu(aflags); }
@@ -510,6 +510,72 @@ inline Array<T> Array<T>::reshape(std::initializer_list<long> shape) const
 
 // -------------------------------------------------------------------------------------------------
 //
+// Type casting/conversion:
+//
+//   - implicit conversion Array<void> -> Array<T>.
+//
+//   - cast(): zero-copy conversion of Array types, throws exception if datatypes are incompatible.
+//     (Morally similar to std::dynamic_pointer_cast()).
+//
+//   - convert(): returns copy of Array, with new datatype.
+//     (Example: convert Array<int> -> Array<float>).
+
+
+// Implicit conversions (Array<T> &) -> (Array<void> &) and (const Array<T> &) -> (const Array<void> &).
+// (The weird double-templating avoids instantiating for (T==void), see declaration above.)
+
+template<typename T> template<typename U, typename X>
+inline Array<T>::operator Array<void>& ()
+{
+	return reinterpret_cast<Array<void> &> (*this);
+}
+
+template<typename T> template<typename U, typename X>
+inline Array<T>::operator const Array<void>& () const
+{
+    return reinterpret_cast<const Array<void> &> (*this);
+}
+
+
+// cast(): explicit pointer conversion with runtime type-checking.
+// (Morally similar to std::dynamic_pointer_cast()).
+
+template<typename T> template<typename U>
+inline Array<U>& Array<T>::cast(const char *where)
+{
+    _check_dtype<U> (dtype, where);
+    return reinterpret_cast<Array<U> &> (*this);
+}
+
+template<typename T> template<typename U>
+inline const Array<U>& Array<T>::cast(const char *where) const
+{
+    _check_dtype<U> (dtype, where);
+    return reinterpret_cast<const Array<U> &> (*this);
+}
+
+
+// convert(): returns copy of Array, with new datatype.
+// (Example: convert Array<int> -> Array<float>).
+
+template<typename Tsrc> template<typename Tdst>
+inline Array<Tdst> Array<Tsrc>::convert(int aflags) const
+{
+    Array<Tdst> dst(ndim, shape, aflags);
+    array_convert(dst, *this, false);  // noisy=false
+    return dst;
+}
+
+
+template<typename Tsrc> template<typename Tdst>
+inline Array<Tdst> Array<Tsrc>::convert() const
+{
+    return this->convert<Tdst> (aflags & af_location_flags);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // Member functions intended for debugging/testing:
 //  - ix_start(), ix_valid(), ix_next()
 //  - shape_equals(), shape_str(), stride_str()
@@ -628,72 +694,6 @@ inline U& Array<T>::_at(int nd, const long *ix) const
     }
     
     return data[pos];
-}
-
-
-// -------------------------------------------------------------------------------------------------
-//
-// Type casting/conversion:
-//
-//   - Array<T> can be implicitly converted to Array<void>.
-//
-//   - cast(): zero-copy conversion of Array types, throws exception if datatypes are incompatible.
-//     (Morally similar to std::dynamic_pointer_cast()).
-//
-//   - convert(): returns copy of Array, with new datatype.
-//     (Example: convert Array<int> -> Array<float>).
-
-
-// Implicit conversions (Array<T> &) -> (Array<void> &) and (const Array<T> &) -> (const Array<void> &).
-// (The weird double-templating avoids instantiating for (T==void), see declaration above.)
-
-template<typename T> template<typename U, typename X>
-inline Array<T>::operator Array<void>& ()
-{
-	return reinterpret_cast<Array<void> &> (*this);
-}
-
-template<typename T> template<typename U, typename X>
-inline Array<T>::operator const Array<void>& () const
-{
-    return reinterpret_cast<const Array<void> &> (*this);
-}
-
-
-// cast(): explicit pointer conversion with runtime type-checking.
-// (Morally similar to std::dynamic_pointer_cast()).
-
-template<typename T> template<typename U>
-inline Array<U>& Array<T>::cast(const char *where)
-{
-    _check_dtype<U> (dtype, where);
-    return reinterpret_cast<Array<U> &> (*this);
-}
-
-template<typename T> template<typename U>
-inline const Array<U>& Array<T>::cast(const char *where) const
-{
-    _check_dtype<U> (dtype, where);
-    return reinterpret_cast<const Array<U> &> (*this);
-}
-
-
-// convert(): returns copy of Array, with new datatype.
-// (Example: convert Array<int> -> Array<float>).
-
-template<typename Tsrc> template<typename Tdst>
-inline Array<Tdst> Array<Tsrc>::convert(int aflags) const
-{
-    Array<Tdst> dst(ndim, shape, aflags);
-    array_convert(dst, *this, false);  // noisy=false
-    return dst;
-}
-
-
-template<typename Tsrc> template<typename Tdst>
-inline Array<Tdst> Array<Tsrc>::convert() const
-{
-    return this->convert<Tdst> (aflags & af_location_flags);
 }
 
     
