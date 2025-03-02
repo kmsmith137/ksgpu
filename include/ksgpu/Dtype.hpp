@@ -65,9 +65,8 @@ struct Dtype
     // (all integer types) -> 0
     double precision() const;
 
-    // If 'this' is a complex dtype, returns the dtype of the real part (i.e. "half" of 'this').
-    // Otherwise, returns a copy of 'this'.
-    Dtype real() const;
+    Dtype real() const;     // makes complex type from real type (no-ops if type is already real)
+    Dtype complex() const;  // makes real type from complex type (no-ops if type is already complex)
 };
 
 

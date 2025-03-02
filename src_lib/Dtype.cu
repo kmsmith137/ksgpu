@@ -114,4 +114,13 @@ Dtype Dtype::real() const
 }
 
 
+Dtype Dtype::complex() const
+{
+    if (flags & df_complex)
+	return *this;
+    else
+	return Dtype(flags | df_complex, nbits << 1);
+}
+
+
 } // namespace ksgpu
