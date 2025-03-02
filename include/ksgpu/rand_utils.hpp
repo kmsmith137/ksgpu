@@ -42,9 +42,9 @@ inline long rand_int(long lo, long hi, std::mt19937 &rng = default_rng)
 }
 
 
-inline float rand_uniform(float lo=0.0, float hi=1.0, std::mt19937 &rng = default_rng)
+inline double rand_uniform(double lo=0.0, double hi=1.0, std::mt19937 &rng = default_rng)
 {
-    return std::uniform_real_distribution<float>(lo,hi) (rng);
+    return std::uniform_real_distribution<double>(lo,hi) (rng);
 }
 
 
