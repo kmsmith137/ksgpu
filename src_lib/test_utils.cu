@@ -52,7 +52,6 @@ vector<long> make_random_shape(int ndim, long maxaxis, long maxsize)
 
 vector<long> make_random_strides(int ndim, const long *shape, int ncontig, long nalign)
 {
-    xassert(ndim <= ArrayMaxDim);
     xassert(ncontig >= 0);
     xassert(ncontig <= ndim);
     xassert(nalign >= 1);
