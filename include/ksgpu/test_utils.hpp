@@ -25,12 +25,13 @@ extern std::vector<long> make_random_strides(int ndim, const long *shape, int nc
 extern std::vector<long> make_random_strides(const std::vector<long> &shape, int ncontig=0, long nalign=1);
 
 
-// This specialized function is intended for testing Array<T>::reshape_ref() (see tests/test-array.cu).
-extern void make_random_reshape_compatible_shapes(std::vector<long> &dst_shape,
-						  std::vector<long> &src_shape,
-						  std::vector<long> &src_strides,
-						  int maxaxis = 20,
-						  long maxsize = 10000);
+// This specialized function is intended for testing Array<T>::reshape() (see tests/test-array.cu).
+extern void make_random_reshape_compatible_shapes(
+    std::vector<long> &dst_shape,
+    std::vector<long> &src_shape,
+    std::vector<long> &src_strides
+);
+
 
 
 // -------------------------------------------------------------------------------------------------

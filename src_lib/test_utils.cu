@@ -100,104 +100,140 @@ vector<long> make_random_strides(const vector<long> &shape, int ncontig, long na
 // Helper for make_random_reshape_compatible_shapes()
 struct RcBlock
 {
-    bool dflag;
-    vector<long> bshape;
-    vector<long> bstrides;  // contiguous
-    long bsize;
+    // If dflag==true, then this RcBlock represents a single src axis and multiple dst axes.
+    // If dflag==false, then this RcBlock represents multiple src axes and a single dst axis.
+    bool dflag = false;
+    
+    vector<long> bshape;    // multi-axis ("factored") shape
+    long bstride = 0;       // single-axis stride
+    long bsize = 0;         // single-axis length (= product of 'bshape')
+
+    // Note: the following special case is allowed:
+    //  bshape = empty vector
+    //  bstrides = empty vector
+    //  bsize = 1
 };
 
 
-void make_random_reshape_compatible_shapes(vector<long> &dshape,
-					   vector<long> &sshape,
-					   vector<long> &sstrides,
-					   int maxaxis, long maxsize)
+// Helper for make_random_reshape_compatible_shapes()
+struct RcAxis
 {
-    xassert(maxaxis > 0);
-    xassert(maxsize > 0);
-    
-    vector<long> dstrides;
-    dshape.clear();
-    sshape.clear();
-    sstrides.clear();
+    long len = 0;
+    long stride = 0;
+
+    RcAxis() { }
+    RcAxis(long len_, long stride_) : len(len_), stride(stride_) { }
+};
+
+
+void make_random_reshape_compatible_shapes(vector<long> &dshape, vector<long> &sshape, vector<long> &sstrides)
+{
+    long maxaxis = 10;
+    long maxsize = 100000;
+
+    // Initialize all members of 'blocks' except 'bstrides'.
     
     vector<RcBlock> blocks;
     uint ddims = 0;
     uint sdims = 0;
 
-    while (blocks.size() < ArrayMaxDim) {
+    while ((ddims < ArrayMaxDim) || (sdims < ArrayMaxDim)) {
 	RcBlock block;
 	block.dflag = rand_int(0,2);
 	
 	uint &fdims = block.dflag ? ddims : sdims;   // "factored" dims
 	uint &udims = block.dflag ? sdims : ddims;   // "unfactored" dims
 
+	if ((udims == ArrayMaxDim) && (fdims == 0))
+	    continue;  // corner case
 	if (udims == ArrayMaxDim)
 	    break;
 	
+	uint nb = 0;  // number of factored axes
 	int nb_max = ArrayMaxDim - fdims;
-	int nb = 0;
-	
+
 	if ((nb_max > 0) && (rand_uniform() < 0.95)) {
 	    nb = rand_int(1, nb_max+1);
-	    block.bshape = make_random_shape(nb, maxaxis, maxsize);  // modifies 'maxsize'
+	    block.bshape = make_random_shape(nb, maxaxis, maxsize);
+	    xassert(block.bshape.size() == nb);  // should never fail
 	}
 	
-	block.bstrides.resize(nb);
 	block.bsize = 1;
-
-	for (int i = nb-1; i >= 0; i--) {
-	    block.bstrides[i] = block.bsize;
+	for (uint i = 0; i < nb; i++)
 	    block.bsize *= block.bshape[i];
-	}
 
+	xassert(block.bsize > 0);  // should never fail
+	maxsize /= block.bsize;
+	
 	blocks.push_back(block);
 	fdims += nb;
 	udims += 1;
 
-	if (rand_uniform() < 0.2)
+	if ((ddims > 0) && (sdims > 0) && (rand_uniform() < 0.2))
 	    break;
     }
+    
+    // Should never fail.
+    xassert(ddims > 0);
+    xassert(sdims > 0);
 
     randomly_permute(blocks);
 
-    int nblocks = blocks.size();
-    vector<long> block_sizes(nblocks);
+    // Initialize 'bstride' members of 'blocks'.
     
+    int nblocks = blocks.size();
+    vector<long> block_sizes(nblocks);    
     for (int i = 0; i < nblocks; i++)
 	block_sizes[i] = blocks[i].bsize;
     
-    vector<long> block_strides = make_random_strides(block_sizes);    
+    vector<long> block_strides = make_random_strides(block_sizes);
+    for (int i = 0; i < nblocks; i++)
+	blocks[i].bstride = block_strides[i];
+
+    randomly_permute(blocks);
+
+    // Now 'blocks' has been fully initialized.
+    // Unpack 'blocks' into 'daxes', 'saxes'.
+
+    vector<RcAxis> daxes;
+    vector<RcAxis> saxes;
 
     for (int i = 0; i < nblocks; i++) {
 	const RcBlock &block = blocks[i];
-	long block_stride = block_strides[i];
-	
-	vector<long> &fshape = block.dflag ? dshape : sshape;   // "factored" shape
-	vector<long> &ushape = block.dflag ? sshape : dshape;   // "unfactored" shape
-	vector<long> &fstrides = block.dflag ? dstrides : sstrides;   // "factored" strides
-	vector<long> &ustrides = block.dflag ? sstrides : dstrides;   // "unfactored" strides
+	vector<RcAxis> &faxes = block.dflag ? daxes : saxes;
+	vector<RcAxis> &uaxes = block.dflag ? saxes : daxes;
 
-	ushape.push_back(block.bsize);
-	ustrides.push_back(block_stride);
+	uaxes.push_back({ block.bsize, block.bstride });
 
-	for (uint j = 0; j < block.bshape.size(); j++) {
-	    fshape.push_back(block.bshape[j]);
-	    fstrides.push_back(block.bstrides[j] * block_stride);
+	long nf = faxes.size();
+	faxes.resize(nf + block.bshape.size());
+
+	long stride = block.bstride;
+	for (int j = block.bshape.size()-1; j >= 0; j--) {
+	    faxes[nf+j].len = block.bshape[j];
+	    faxes[nf+j].stride = stride;
+	    stride *= block.bshape[j];
 	}
     }
 
-    xassert(dshape.size() == ddims);
-    xassert(sshape.size() == sdims);
-    xassert(dstrides.size() == ddims);
-    xassert(sstrides.size() == sdims);
+    // Should never fail.
+    xassert(daxes.size() == ddims);
+    xassert(saxes.size() == sdims);
 
-    if (ddims == 0)
-	dshape.push_back(1);
-    if (sdims == 0)
-	sshape.push_back(1);
-    if (sdims == 0)
-	sstrides.push_back(1);
+    // Unpack (daxes,saxes) into (dshape,sshape,sstrides).
+    
+    dshape.resize(ddims);
+    sshape.resize(sdims);
+    sstrides.resize(sdims);
+
+    for (uint i = 0; i < ddims; i++)
+	dshape[i] = daxes[i].len;
+    for (uint i = 0; i < sdims; i++)
+	sshape[i] = saxes[i].len;
+    for (uint i = 0; i < sdims; i++)
+	sstrides[i] = saxes[i].stride;
 }
+
 
 // -------------------------------------------------------------------------------------------------
 
