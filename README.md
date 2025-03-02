@@ -20,7 +20,7 @@ omit some of these conda packages.
       cd ksgpu
       pip install -v -e .
 ```
-   or:
+or:
 ```
      # Install from pypi
      pip install -v ksgpu
