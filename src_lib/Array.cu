@@ -304,14 +304,14 @@ void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const
 
     if (status == 1) {
 	stringstream ss;
-	ss << "Array::reshape_ref(): src_shape=" << src.shape_str()
+	ss << "Array::reshape(): src_shape=" << src.shape_str()
 	   << " is incompatible with dst_shape=" << dst.shape_str();
 	throw runtime_error(ss.str());
 	
     }
     else if (status == 2) {
 	stringstream ss;
-	ss << "Array::reshape_ref(): src_shape=" << src.shape_str()
+	ss << "Array::reshape(): src_shape=" << src.shape_str()
 	   << " and dst_shape=" << dst.shape_str()
 	   << " are compatible, but src_strides=" << src.stride_str()
 	   << " don't allow axes to be combined";

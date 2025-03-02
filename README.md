@@ -9,10 +9,20 @@ conda create -c conda-forge -n heavycuda \
          cuda-nvcc libcublas-dev libcufft-dev libcurand-dev
 ```
 
-2. Install with::
+If you have the cuda toolkit installed outside conda, then you can
+omit some of these conda packages.
 
-    make -j install
 
-to install in python site-packages.
+2. Install with either::
+
+     # Clone github repo and make 'editable' install
+     git clone https://github.com/kmsmith137/ksgpu
+     cd ksgpu
+     pip install -v -e .
+
+   or::
+
+     # Install from pypi
+     pip install -v ksgpu
 
 Contact: Kendrick Smith <kmsmith@perimeterinstitute.ca>

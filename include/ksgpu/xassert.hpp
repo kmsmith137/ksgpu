@@ -5,17 +5,18 @@
 #include <sstream>
 #include <stdexcept>
 
-// Note: xassert_* macros are implemented with #define, and therefore are outside the ksgpu namespace.
+
+// xassert(): like assert(), but throws an exception (rather than calling abort()).
+// This is necessary to work smoothly with python, and sometimes in other situations (e.g. RPC).
+//
+// (When I switch to C++20 in the future, I think it will be possible to implement xasserts using
+// inline functions instead of macros, thanks to std::source_location which was introduced in C++20.)
 
 #ifndef _unlikely
 #define _unlikely(cond)  (__builtin_expect(cond,0))
 #endif
 
 
-// -------------------------------------------------------------------------------------------------
-
-
-// xassert(): like assert(), but throws an exception in order to work smoothly with python.
 #define xassert(cond) _xassert(cond,__LINE__)
 #define _xassert(cond,line) \
     do { \
@@ -44,7 +45,9 @@
 // -------------------------------------------------------------------------------------------------
 //
 // xassert_eq(), xassert_ne(), xassert_lt(), xassert_le(), xassert_ge(), xassert_gt(), xassert_divisible().
-// Compare two arguments, and show their values if the assertion fails.
+//
+// Compare two arguments, and show their values if the assertion fails. (This "value-showing" feature
+// is what distinguishes e.g. xassert_eq(x,y) from xassert(x==y).)
 
 
 #define xassert_eq(lhs,rhs) _xassert_eq(lhs,rhs,__LINE__)
@@ -128,7 +131,9 @@
 // -------------------------------------------------------------------------------------------------
 //
 // xassert_shape_eq(): check that array 'arr' (an object of class ksgpu::Array) has the expected shape.
-// If not, throw an exception which shows the actual/expected shapes.
+//
+// If not, throw an exception which shows the actual/expected shapes. (This "shape-showing" feature
+// is what distinguishes xassert_shape_eq(arr,shape) from xassert(arr.shape_equals(shape)).)
 //
 // Warning: this macro is fragile -- the expected shape must be written with parentheses and curly braces!
 // For example:
@@ -139,7 +144,7 @@
 // If the parentheses are omitted, then you'll get a compiler error such as:
 //   error: macro "xassert_shape_eq" passed N arguments, but takes just 2
 //
-// If the curly bracers are omitted, then you'll get a compiler error such as:
+// If the curly braces are omitted, then you'll get a compiler error such as:
 //   error: no instance of constructor "std::initializer_list<long>" matches the argument list
 
 
