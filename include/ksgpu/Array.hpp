@@ -111,6 +111,10 @@ struct Array {
     inline Array<T> to_gpu() const;
     inline Array<T> to_host(bool registered=true) const;
 
+    // These versions of to_gpu() and to_host() also convert the dtype, making a copy if necessary.
+    inline Array<void> to_gpu(Dtype dtype) const;
+    inline Array<void> to_host(Dtype dtype, bool registered=true) const;
+
     // Returns number of contiguous dimensions, assuming indices are ordered
     // from slowest to fastest varying. Returns 'ndim' for an empty array.
     inline int get_ncontig() const;
@@ -156,8 +160,12 @@ struct Array {
     template<typename U> inline const Array<U>& cast(const char *where = "Array::cast()") const;
 
     // convert(): returns copy of Array, with new datatype.
+    
     template<typename Tdst> inline Array<Tdst> convert() const;
     template<typename Tdst> inline Array<Tdst> convert(int aflags) const;
+    
+    inline Array<void> convert(Dtype dtype) const;
+    inline Array<void> convert(Dtype dtype, int aflags) const;
 
     //
     // Remaining methods are intended for debugging/testing.
@@ -430,6 +438,28 @@ inline Array<T> Array<T>::to_host(bool registered) const
     return this->on_host() ? (*this) : this->clone(dst_flags);
 }
 
+template<typename T>
+inline Array<void> Array<T>::to_gpu(Dtype dtype) const
+{
+    if (dtype == this->dtype)
+	return this->to_gpu();
+    
+    if (this->on_gpu())
+	throw std::runtime_error("Array::to_gpu(): GPU->GPU dtype conversion is not currently implemented");
+
+    Array<void> tmp = this->convert(dtype, af_rhost);
+    return tmp.to_gpu();
+}
+
+template<typename T>
+inline Array<void> Array<T>::to_host(Dtype dtype, bool registered) const
+{
+    Array<void> tmp = this->to_host(registered);
+    
+    int dst_flags = registered ? af_rhost : af_uhost;
+    return (dtype == this->dtype) ? tmp : tmp.convert(dtype, dst_flags);
+}
+
 
 // -------------------------------------------------------------------------------------------------
 //
@@ -566,11 +596,24 @@ inline Array<Tdst> Array<Tsrc>::convert(int aflags) const
     return dst;
 }
 
-
 template<typename Tsrc> template<typename Tdst>
 inline Array<Tdst> Array<Tsrc>::convert() const
 {
     return this->convert<Tdst> (aflags & af_location_flags);
+}
+
+template<typename T>
+inline Array<void> Array<T>::convert(Dtype dtype) const
+{
+    return this->convert(dtype, aflags & af_location_flags);
+}
+
+template<typename T>
+inline Array<void> Array<T>::convert(Dtype dtype, int aflags) const
+{
+    Array<void> dst(dtype, ndim, shape, aflags);
+    array_convert(dst, *this, false);  // noisy=false
+    return dst;
 }
 
 
