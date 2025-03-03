@@ -67,6 +67,9 @@ struct Dtype
 
     Dtype real() const;     // makes complex type from real type (no-ops if type is already real)
     Dtype complex() const;  // makes real type from complex type (no-ops if type is already complex)
+
+    // If 'throw_exception_on_failure' is false, then an empty Dtype is returned on parse failure.
+    static Dtype from_str(const std::string &s, bool throw_exception_on_failure=true);
 };
 
 

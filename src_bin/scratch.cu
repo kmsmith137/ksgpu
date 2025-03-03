@@ -9,17 +9,34 @@
 using namespace std;
 using namespace ksgpu;
 
+template<typename T>
+static void f()
+{
+    Dtype d = Dtype::native<T>();
+    Dtype d2 = Dtype::from_str(d.str(), false);
+    cout << d << " -> " << d2 << endl;
+}
+
+template<typename T>
+static void g()
+{
+    f<T> ();
+    f<complex<T>> ();
+}
+
 int main(int argc, char **argv)
 {
-    vector<long> dst_shape, src_shape, src_strides;
-    
-    for (int i = 0; i < 50; i++) {
-	make_random_reshape_compatible_shapes(dst_shape, src_shape, src_strides);
-	cout << "dst_shape = " << tuple_str(dst_shape)
-	     << ", src_shape = " << tuple_str(src_shape)
-	     << ", src_strides = " << tuple_str(src_strides)
-	     << endl;
-    }
+    g<int> ();
+    g<uint> ();
+    g<long> ();
+    g<ulong> ();
+    g<short> ();
+    g<ushort> ();
+    g<char> ();
+    g<unsigned char> ();
+    g<float> ();
+    g<double> ();
+    g<__half> ();
     
     return 0;
 }

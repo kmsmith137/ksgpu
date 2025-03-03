@@ -17,16 +17,21 @@ static string dflag_str(unsigned short f)
     static const char *bar = " | ";
     stringstream ss;
     
-    if (!f)
+    if (!f) {
 	ss << "0";
-    if (f & df_int)
+    }
+    if (f & df_int) {
 	ss << "df_int"; sep = bar;
-    if (f & df_uint)
+    }
+    if (f & df_uint) {
 	ss << sep << "df_uint"; sep = bar;
-    if (f & df_float)
+    }
+    if (f & df_float) {
 	ss << sep << "df_float"; sep = bar;
-    if (f & df_complex)
+    }
+    if (f & df_complex) {
 	ss << sep << "df_complex"; sep = bar;
+    }
 
     constexpr unsigned short df_all = df_int | df_uint | df_float | df_complex;
     f &= ~df_all;
@@ -120,6 +125,79 @@ Dtype Dtype::complex() const
 	return *this;
     else
 	return Dtype(flags | df_complex, nbits << 1);
+}
+
+
+// Helper for Dtype::from_str()
+static long _scan_digits(const char *s)
+{
+    long n = 0;
+    while (s[n] && isdigit(s[n]))
+	n++;
+    return n;
+}
+
+// Static member function
+Dtype Dtype::from_str(const string &s, bool throw_exception_on_failure)
+{
+    if (throw_exception_on_failure) {
+	Dtype d = Dtype::from_str(s, false);
+	if (!d.is_valid())
+	    throw runtime_error("Dtype::from_str(): invalid argument '" + s + "'");
+	return d;
+    }
+    
+    const char *p = s.c_str();
+    ushort flags = 0;
+    long nbits = 0;
+
+    long n = 0;
+    while (p[n] && !isdigit(p[n]))
+	n++;
+
+    if ((n == 3) && !memcmp(p,"int",3))
+	flags = df_int;
+    else if ((n == 4) && !memcmp(p,"uint",4))
+	flags = df_uint;
+    else if ((n == 5) && !memcmp(p,"float",5))
+	flags = df_float;
+    else if ((n == 7) && !memcmp(p,"complex",7))
+	flags = (df_complex | df_float);
+    else if ((n == 11) && !memcmp(p,"complex_int",11))
+	flags = (df_complex | df_int);
+    else if ((n == 12) && !memcmp(p,"complex_uint",12))
+	flags = (df_complex | df_uint);
+    else
+	return Dtype();
+
+    p += n;
+
+    if (flags & df_complex) {
+	const char *p0 = p;
+	long n0 = _scan_digits(p0);
+	if ((n0 == 0) || (p0[n0] != '+'))
+	    return Dtype();
+
+	p += (n0+1);
+	n = _scan_digits(p);
+	    
+	if ((n0 != n) || memcmp(p,p0,n))
+	    return Dtype();
+    }
+    else
+	n = _scan_digits(p);
+
+    if ((n == 0) || p[n])
+	return Dtype();
+
+    nbits = atol(p);
+    if (flags & df_complex)
+	nbits *= 2;
+
+    if ((nbits <= 0) || (nbits >= 65536L))
+	return Dtype();
+    
+    return Dtype(flags, nbits);
 }
 
 
