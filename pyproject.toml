@@ -1,7 +1,7 @@
 [project]
 name = 'ksgpu'
 version = '1.1.0'
-dependencies = [ 'pybind11', 'numpy' ]
+dependencies = [ 'pybind11', 'numpy', 'editables' ]
 description = 'A library of low-level utilities for cuda/cupy'
 requires-python = '>=3.8'
 # readme = 'README.md'
