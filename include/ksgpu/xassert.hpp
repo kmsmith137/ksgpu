@@ -121,7 +121,7 @@
     do { \
 	if (_unlikely((lhs) % (rhs))) { \
 	    std::stringstream ss; \
-	    ss << ("C++ assertion (" __STRING(lhs) ") % (" __STRING(rhs) ") == 0failed (" __FILE__ ":" __STRING(line) "): lhs=") \
+	    ss << ("C++ assertion (" __STRING(lhs) ") % (" __STRING(rhs) ") == 0 failed (" __FILE__ ":" __STRING(line) "): lhs=") \
 	       << lhs << ", rhs=" << rhs; \
 	    throw std::runtime_error(ss.str()); \
 	} \
