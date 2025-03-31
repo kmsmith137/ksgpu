@@ -15,7 +15,43 @@ using namespace ksgpu;
 namespace py = pybind11;
 
 
+// -----------------------------------  ksgpu toplevel -----------------------------------------
+
+
+int get_cuda_num_devices()
+{
+    int count = 0;
+    CUDA_CALL(cudaGetDeviceCount(&count));
+    return count;
+}
+
+
+int get_cuda_device()
+{
+    int device = -1;
+    CUDA_CALL(cudaGetDevice(&device));
+    return device;
+}
+
+
+string get_cuda_pcie_bus_id(int cuda_device)
+{
+    // CUDA guarantees the buffer size is at least 16 bytes
+    constexpr int buflen = 16;
+    
+    char pcieBusId[buflen+1];
+    memset(pcieBusId, 0, buflen+1);
+
+    CUDA_CALL(cudaDeviceGetPCIBusId(pcieBusId, buflen, cuda_device));
+    return string(pcieBusId);
+}
+
+
 // -------------------------------------------------------------------------------------------------
+//
+// Some ad hoc functions from when I was testing C++ <-> python array conversion.
+// I decided to put these in the 'ksgpu.tests' submodule.
+// These are not particularly well thought out!
 
 
 static double _sum(Array<double> &arr)
@@ -80,14 +116,6 @@ static void _convert_array_from_python(py::object &obj)
 }
 
 
-int get_cuda_device()
-{
-    int device = -1;
-    CUDA_CALL(cudaGetDevice(&device));
-    return device;
-}
-
-
 void _launch_busy_wait_kernel(Array<uint> &arr, double a40_sec, long stream_ptr)
 {
     cudaStream_t s = reinterpret_cast<cudaStream_t> (stream_ptr);
@@ -105,6 +133,9 @@ struct Stash
     Array<void> get() { return x; }
     void clear() { x = Array<void> (); }
 };
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_pybind11.so
@@ -142,26 +173,36 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
 	return;
     }
 
-    // ------------------------------  Classes  ------------------------------
+    // -----------------------------------  ksgpu toplevel -----------------------------------------
     
     const char *baseptr_doc =
 	"This helper class is a hack, used interally for converting C++ arrays to python\n"
 	"It can't be instantiated or used from python.";
 
+    // Reminder: struct PybindBasePtr is in pybind11_utils.{hpp,cu}.
+    py::class_<PybindBasePtr>(m, "BasePtr", baseptr_doc);
+
+    m.def("get_cuda_num_devices", &get_cuda_num_devices, "Returns number of cuda devices");
+    
+    m.def("get_cuda_device", &get_cuda_device, "Returns current cuda device");
+    
+    m.def("get_cuda_pcie_bus_id", &get_cuda_pcie_bus_id,
+	  "Returns PCIe bus ID of specified cuda device, as string e.g. '0000:E1:00.0'",
+	  py::arg("device"));
+    
+    // ------------------------------  ksgpu.tests submodule  --------------------------------------
+     
     const char *stash_doc =
 	"Helper class intended for testing C++ <-> python array conversion.\n"
 	"   s = Stash(numpy_or_cupy_array)     # converts array to C++ and saves it\n"
 	"   arr = Stash.get()                  # converts array to python and returns it";
 
-    py::class_<PybindBasePtr>(m, "BasePtr", baseptr_doc);
 
     py::class_<Stash>(m, "Stash", stash_doc)
 	.def(py::init<const Array<void> &>(), py::arg("arr"))
 	.def("get", &Stash::get)
         .def("clear", &Stash::clear)
     ;
-
-    // ------------------------------  Functions  ------------------------------
     
     m.def("sum", &_sum,	  
 	  "Equivalent to {numpy,cupy}.sum(arr), but uses the python -> C++ converter",
@@ -180,8 +221,6 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
 	  "Converts array from python to C++, but with a lot of debug output."
 	  " This is intended as a mechanism for tracing/debugging array conversion.",
 	  py::arg("arr"));
-
-    m.def("get_cuda_device", &get_cuda_device, "Wraps cudaGetDevice()");
 
     m.def("_launch_busy_wait_kernel", &_launch_busy_wait_kernel,
 	  py::arg("arr"), py::arg("a40_sec"), py::arg("stream_ptr"));

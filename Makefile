@@ -105,7 +105,8 @@ BIN_SRCFILES := \
 # Must list all python source files here.
 # (Otherwise they won't show up in 'pip install' or pypi.)
 PYFILES := \
-  ksgpu/__init__.py
+  ksgpu/__init__.py \
+  ksgpu/tests.py
 
 # Must list all header files here.
 # (Otherwise they won't show up in 'pip install' or pypi.)
