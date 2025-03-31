@@ -14,7 +14,7 @@ namespace ksgpu {
 
 Barrier::Barrier(int nthreads_)
 {
-    xassert_msg(nthreads_ > 0, "Barrier constructor: expected nthreads > 0");
+    xassert_msg(nthreads_ >= 0, "Barrier constructor: expected nthreads >= 0");
     this->nthreads = nthreads_;
 }
 
