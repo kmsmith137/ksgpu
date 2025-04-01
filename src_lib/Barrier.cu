@@ -30,6 +30,13 @@ void Barrier::initialize(int nthreads_)
 }
 
 
+bool Barrier::is_initialized()
+{
+    std::unique_lock ul(lock);
+    return nthreads > 0;
+}
+
+
 void Barrier::wait()
 {
     std::unique_lock ul(lock);

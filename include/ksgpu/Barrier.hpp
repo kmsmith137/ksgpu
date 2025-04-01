@@ -33,6 +33,7 @@ struct Barrier
     void wait();
     void abort(const std::string &msg);
     void initialize(int nthreads);
+    bool is_initialized();
     
     // Noncopyable
     Barrier(const Barrier &) = delete;
