@@ -34,6 +34,12 @@ int get_cuda_device()
 }
 
 
+void set_cuda_device(int device)
+{
+    CUDA_CALL(cudaSetDevice(device));
+}
+
+
 string get_cuda_pcie_bus_id(int cuda_device)
 {
     // CUDA guarantees the buffer size is at least 16 bytes
@@ -185,6 +191,8 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
     m.def("get_cuda_num_devices", &get_cuda_num_devices, "Returns number of cuda devices");
     
     m.def("get_cuda_device", &get_cuda_device, "Returns current cuda device");
+    
+    m.def("set_cuda_device", &set_cuda_device, "Sets current cuda device");
     
     m.def("get_cuda_pcie_bus_id", &get_cuda_pcie_bus_id,
 	  "Returns PCIe bus ID of specified cuda device, as string e.g. '0000:E1:00.0'",

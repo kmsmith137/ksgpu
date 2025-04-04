@@ -32,6 +32,7 @@ _import_pybind11()
 from .ksgpu_pybind11 import \
     get_cuda_num_devices, \
     get_cuda_device, \
+    set_cuda_device, \
     get_cuda_pcie_bus_id
 
 from . import tests
