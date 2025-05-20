@@ -47,6 +47,13 @@ struct Dtype
     Dtype() { }
     
     // This constructor throws an exception if arguments are invalid.
+    // Example usage:
+    //
+    //    Dtype dt(df_int, 32)     // int32
+    //    Dtype dt(df_uint, 16)    // uint16
+    //    Dtype dt(df_float, 64)   // float64
+    //    Dtype dt(df_complex | df_float, 64)    // float32+32
+    
     Dtype(unsigned short flags, unsigned short nbits);
 
     // Returns Dtype object corresponding to given native C++ type.

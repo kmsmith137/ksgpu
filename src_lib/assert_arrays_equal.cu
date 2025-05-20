@@ -136,7 +136,7 @@ double _assert_arrays_equal(
 	if (failed)
 	    nfail++;
 	
-	if (nfail >= max_display)
+	if (nfail > max_display)
 	    continue;
 	
 	cout << "   ";
@@ -152,6 +152,9 @@ double _assert_arrays_equal(
 	cout << "\n";
     }
 
+    if ((nfail > max_display) && (max_display > 0))
+	cout << "        (+ " << (nfail-max_display) << " more failures)\n";
+    
     cout.flush();
     
     if (nfail > 0)
