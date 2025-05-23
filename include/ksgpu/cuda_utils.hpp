@@ -13,9 +13,6 @@ namespace ksgpu {
 }   // pacify editor auto-indent
 #endif
 
-// For __shfl_sync(FULL_MASK, val, src_lane)
-constexpr uint FULL_MASK = 0xffffffff;
-
 
 // -------------------------------------------   Macros   ------------------------------------------
 //
