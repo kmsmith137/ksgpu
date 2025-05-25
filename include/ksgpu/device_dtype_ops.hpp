@@ -19,7 +19,7 @@ template<> struct dtype_ops<float>
 };
 
 
-template struct dtype_ops<__half2>
+template<> struct dtype_ops<__half2>
 {
     static constexpr int simd_width = 2;
 };
