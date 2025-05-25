@@ -29,7 +29,7 @@
 #include "ksgpu/cuda_utils.hpp"
 
 // __device__ inline functions.
-#include "ksgpu/device_dtype_ops.hpp"    // for writing generic code for float/double/__half/etc.
+#include "ksgpu/device_basics.hpp"
 #include "ksgpu/device_mma.hpp"          // C++ wrappers for mma.* PTX instructions
 #include "ksgpu/device_transposes.hpp"   // warp_transpose(), etc.
 
