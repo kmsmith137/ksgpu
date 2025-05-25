@@ -20,9 +20,10 @@ static constexpr uint FULL_MASK = 0xffffffffU;
 //   ksgpu::RegisterArray<float,N> x;   // valid cuda for N >= 0
 
 
-template<typename T, int N>
+template<typename T, int N_>
 struct RegisterArray
 {
+    static constexpr int N = N_;
     static_assert(N >= 0);
     
     T data[N];
@@ -32,7 +33,10 @@ struct RegisterArray
 
 
 template<typename T>
-struct RegisterArray<T,0> { };
+struct RegisterArray<T,0>
+{
+    static constexpr int N = 0;
+};
 
 
 // -------------------------------------------------------------------------------------------------
