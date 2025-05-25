@@ -10,12 +10,6 @@ namespace ksgpu {
 #endif
 
 
-// Decided to put this here, for lack of a better place.
-// Usage: __shfl_sync(FULL_MASK, val, src_lane)
-
-static constexpr uint FULL_MASK = 0xffffffffU;
-
-
 // Usage: to transpose thread bit t_3 with a register bit, do
 //   warp_transpose(x,y,8);  // not warp_transpose(x,y,3)!
 //
