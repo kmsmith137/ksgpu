@@ -1,5 +1,6 @@
 #include "../include/ksgpu/device_transposes.hpp"
 
+#include <cassert>
 #include <iostream>
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
@@ -9,25 +10,27 @@ using namespace ksgpu;
 
 
 // Operates on an array of shape __half[n][32][2];
-__global__ void single_warp_half2_kernel(__half2 *p, int n, uint thread_stride)
+__global__ void single_warp_half2_kernel(__half *p, int n, uint thread_stride)
 {
     int i = (blockIdx.x * blockDim.x) + threadIdx.x;
-    __half2 x = p[i];
+    __half2 *p2 = reinterpret_cast<__half2 *> (p);
+    __half2 x = p2[i];
     warp_and_half2_transpose(x, thread_stride);
-    p[i] = x;
+    p2[i] = x;
 }
 
 
 // Operates on an array of shape __half[n][32][2];
-__global__ void double_warp_half2_kernel(__half2 *p, int n, uint thread_stride)
+__global__ void double_warp_half2_kernel(__half *p, int n, uint thread_stride)
 {
     int i = (blockIdx.x * blockDim.x) + threadIdx.x;
     i = ((i >> 5) << 6) + (i & 0x1f);
-    __half2 x = p[i];
-    __half2 y = p[i+32];
+    __half2 *p2 = reinterpret_cast<__half2 *> (p);
+    __half2 x = p2[i];
+    __half2 y = p2[i+32];
     warp_and_half2_transpose(x, y, thread_stride);
-    p[i] = x;
-    p[i+32] = y;
+    p2[i] = x;
+    p2[i+32] = y;
 }
 
 
@@ -53,8 +56,8 @@ static void test_warp_half2_kernels(int n, uint thread_stride)
 	}
     }
 
-    Array<float> garr1 = src.template convert<__half>().to_gpu();
-    Array<float> garr2 = garr1.clone();
+    Array<__half> garr1 = src.template convert<__half>().to_gpu();
+    Array<__half> garr2 = garr1.clone();
 
     int nblocks = n/8;
     single_warp_half2_kernel<<<nblocks,256>>> (garr1.data, n, thread_stride);

@@ -143,12 +143,30 @@ __device__ inline void multi_half2_transpose(__half2 x[NumRegisters])
 // "Warp and half2" transpose
 
 
+__device__ __forceinline__
+__half2 f16_perm(__half2 a, __half2 b, unsigned int s)
+{
+    // This is just __byte_perm(), but hacked up with casts so that the inputs/outputs have dtype __half2.    
+    __half2 d;
+
+    // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-prmt
+    asm("prmt.b32 %0, %1, %2, %3;" :
+	"=r" (*(unsigned int *) &d) :
+	"r" (*(const unsigned int *) &a),
+	"r" (*(const unsigned int *) &b),
+	"r" (s)
+    );
+
+    return d;
+}
+
+
 __device__ inline void warp_and_half2_transpose(__half2 &x, uint thread_stride)
 {
     bool upper = (threadIdx.x & thread_stride);
+    uint s = upper ? 0x3276 : 0x5410;
     __half2 y = __shfl_sync(FULL_MASK, x, threadIdx.x ^ thread_stride);
-    // FIXME can this be done with a single call to __byte_perm() or PTX prmt.*?
-    x = upper ? __highs2half2(y,x) : __lows2half2(x,y);
+    x = f16_perm(x,y,s);   // upper ? [y1,x1] : [x0,y0]
 }
 
 
@@ -162,11 +180,14 @@ __device__ inline void warp_and_half2_transpose(__half2 &x, uint thread_stride)
 __device__ inline void warp_and_half2_transpose(__half2 &x, __half2 &y, uint thread_stride)
 {
     bool upper = (threadIdx.x & thread_stride);
-    __half2 z = upper ? __lows2half2(x,y) : __highs2half2(x,y);
+    uint s1 = upper ? 0x5410 : 0x7632;
+    uint s2 = upper ? 0x3254 : 0x5410;
+    uint s3 = upper ? 0x3276 : 0x7610;
+    
+    __half2 z = f16_perm(x,y,s1);  // upper ? [x0,y0] : [x1,y1]
     z = __shfl_sync(FULL_MASK, z, threadIdx.x ^ thread_stride);
-    // FIXME can this be done with a single call to __byte_perm() or PTX prmt.*?
-    x = upper ? f16_blend(z,x) : __lows2half2(x,z);   // upper ? [z0,x1] : [x0,z0]
-    y = upper ? __highs2half2(z,y) : f16_blend(y,z);  // upper ? [z1,y1] : [y0,z1]
+    x = f16_perm(x,z,s2);          // upper ? [z0,x1] : [x0,z0]
+    y = f16_perm(y,z,s3);          // upper ? [z1,y1] : [y0,z1]
 }
 
 
