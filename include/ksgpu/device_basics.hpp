@@ -14,26 +14,27 @@ static constexpr uint FULL_MASK = 0xffffffffU;
 
 // -------------------------------------------------------------------------------------------------
 //
-// RegisterArray: workaround for the nvcc error "zero-sized variable is not allowed in device code".
+// device_array: workaround for the nvcc error "zero-sized variable is not allowed in device code".
 //
-//   float x[N];                        // valid cuda for N > 0
-//   ksgpu::RegisterArray<float,N> x;   // valid cuda for N >= 0
+//   float x[N];                       // valid cuda for N > 0
+//   ksgpu::device_array<float,N> x;   // valid cuda for N >= 0
 
 
 template<typename T, int N_>
-struct RegisterArray
+struct device_array
 {
     static constexpr int N = N_;
     static_assert(N >= 0);
     
     T data[N];
-    T &operator[](int i) { return data[i]; }
-    const T &operator[](int i) const { return data[i]; }
+    
+    __device__ __forceinline__ T &operator[](int i) { return data[i]; }
+    __device__ __forceinline__ const T &operator[](int i) const { return data[i]; }
 };
 
 
 template<typename T>
-struct RegisterArray<T,0>
+struct device_array<T,0>
 {
     static constexpr int N = 0;
 };
