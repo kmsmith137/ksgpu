@@ -49,13 +49,13 @@ template<typename T> struct dtype_ops { };
 
 template<> struct dtype_ops<float>
 {
-    static constexpr int simd_width = 1;
+    static constexpr int simd_lanes = 1;
 };
 
 
 template<> struct dtype_ops<__half2>
 {
-    static constexpr int simd_width = 2;
+    static constexpr int simd_lanes = 2;
 };
 
 
