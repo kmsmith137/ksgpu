@@ -98,6 +98,7 @@ BIN_SRCFILES := \
   src_bin/scratch.cu \
   src_bin/reverse-engineer-mma.cu \
   src_bin/test-array.cu \
+  src_bin/test-device-transpose-kernels.cu \
   src_bin/test-memcpy-kernels.cu \
   src_bin/test-sparse-mma.cu \
   src_bin/show-devices.cu
