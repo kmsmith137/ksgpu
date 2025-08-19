@@ -93,6 +93,28 @@ vector<long> make_random_strides(const vector<long> &shape, int ncontig, long na
 }
 
 
+vector<long> make_contiguous_strides(int ndim, const long *shape)
+{
+    vector<long> strides(ndim);
+    long curr_stride = 1;
+
+    // These strides are contiguous
+    for (int d = ndim-1; d >= 0; d--) {
+	xassert(shape[d] > 0);
+	strides[d] = curr_stride;
+	curr_stride += (shape[d]-1) * strides[d];
+    }
+
+    return strides;
+}
+
+
+vector<long> make_contiguous_strides(const vector<long> &shape)
+{
+    return make_contiguous_strides(shape.size(), &shape[0]);
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
