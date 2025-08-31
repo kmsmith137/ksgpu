@@ -120,12 +120,15 @@ void assign_kernel_dims(dim3 &nblocks, dim3 &nthreads, long nx, long ny, long nz
 
 double get_sm_cycles_per_second(int device)
 {
-    // https://docs.nvidia.com/cuda/cuda-runtime-api/structcudaDeviceProp.html
-    cudaDeviceProp prop;
-    CUDA_CALL(cudaGetDeviceProperties(&prop, device));
+    int sm_count = 0;
+    int clock_rate_kHz = 0;
 
-    // prop.clockRate is in kHz
-    return 1.0e3 * double(prop.multiProcessorCount) * double(prop.clockRate);
+    // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__DEVICE.html#group__CUDART__DEVICE_1gb22e8256592b836df9a9cc36c9db7151
+    // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html#group__CUDART__TYPES_1g49e2f8c2c0bd6fe264f2fc970912e5cd
+    CUDA_CALL(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, device));
+    CUDA_CALL(cudaDeviceGetAttribute(&clock_rate_kHz, cudaDevAttrClockRate, device));
+    
+    return 1.0e3 * double(sm_count) * double(clock_rate_kHz);
 }
 
 
