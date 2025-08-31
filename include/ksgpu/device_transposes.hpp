@@ -147,11 +147,17 @@ __device__ __forceinline__
 __half2 f16_perm(__half2 a, __half2 b, unsigned int s)
 {
     // This is just __byte_perm(), but hacked up with casts so that the inputs/outputs have dtype __half2.
-    // The "control word" s should have the form 0xHILO, where 'HI' and 'LO' are one of:
-    //   - 10: low 16 bits of 'a'
-    //   - 32: high 16 bits of 'a'
-    //   - 54: low 16 bits of 'b'
-    //   - 76: high 16 bits of 'b'
+    //
+    // The "selector" s should have the form 0xMMNN, where:
+    //   - NN corresponds to the low 16 bits of the output __half2.
+    //   - MM corresponds to the high 16 bits of the output __half2.
+    //   - Each of MM, NN is {10, 32, 54, 76} for {a0, a1, b0, b1} respectively.
+    //
+    // Examples:
+    //   - [a0,b0] can be returned with either __lows2half2() or f16_perm(0x5410).
+    //   - [a1,b1] can be returned with either __highs2half2() or f16_perm(0x7632).
+    //   - [a1,b0] can be returned with either f16_align() or f16_perm(0x5432).
+    //   - [a0,b1] can be returned with either f16_blend() or f16_perm(0x7610).
     
     __half2 d;
 

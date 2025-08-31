@@ -25,6 +25,10 @@ extern std::vector<long> make_random_strides(int ndim, const long *shape, int nc
 extern std::vector<long> make_random_strides(const std::vector<long> &shape, int ncontig=0, long nalign=1);
 
 
+extern std::vector<long> make_contiguous_strides(int ndim, const long *shape);
+extern std::vector<long> make_contiguous_strides(const std::vector<long> &shape);
+
+
 // This specialized function is intended for testing Array<T>::reshape() (see tests/test-array.cu).
 extern void make_random_reshape_compatible_shapes(
     std::vector<long> &dst_shape,
