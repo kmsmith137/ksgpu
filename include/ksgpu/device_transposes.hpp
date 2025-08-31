@@ -146,7 +146,13 @@ __device__ inline void multi_half2_transpose(__half2 x[NumRegisters])
 __device__ __forceinline__
 __half2 f16_perm(__half2 a, __half2 b, unsigned int s)
 {
-    // This is just __byte_perm(), but hacked up with casts so that the inputs/outputs have dtype __half2.    
+    // This is just __byte_perm(), but hacked up with casts so that the inputs/outputs have dtype __half2.
+    // The "control word" s should have the form 0xHILO, where 'HI' and 'LO' are one of:
+    //   - 10: low 16 bits of 'a'
+    //   - 32: high 16 bits of 'a'
+    //   - 54: low 16 bits of 'b'
+    //   - 76: high 16 bits of 'b'
+    
     __half2 d;
 
     // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-prmt
