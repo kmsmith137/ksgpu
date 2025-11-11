@@ -17,13 +17,13 @@ static void time_memcpy(long nbytes, int ninner, int nouter, int nstreams=1)
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
     {
-	char *d = adst.data + istream*nbytes;
-	char *s = asrc.data + istream*nbytes;
+        char *d = adst.data + istream*nbytes;
+        char *s = asrc.data + istream*nbytes;
 
-	for (int i = 0; i < ninner; i++)
-	    launch_memcpy_kernel(d, s, nbytes, stream);
-	
-	CUDA_PEEK("launch_memcpy_kernel");
+        for (int i = 0; i < ninner; i++)
+            launch_memcpy_kernel(d, s, nbytes, stream);
+        
+        CUDA_PEEK("launch_memcpy_kernel");
     };
 
     stringstream ss;
@@ -46,13 +46,13 @@ static void time_memcpy_2d(long dpitch, long spitch, long width, long height, in
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
     {
-	char *d = adst.data + istream * dst_nbytes;
-	char *s = asrc.data + istream * src_nbytes;
+        char *d = adst.data + istream * dst_nbytes;
+        char *s = asrc.data + istream * src_nbytes;
 
-	for (int i = 0; i < ninner; i++)
-	    launch_memcpy_2d_kernel(d, dpitch, s, spitch, width, height, stream);
-	
-	CUDA_PEEK("launch_memcpy_2d_kernel");
+        for (int i = 0; i < ninner; i++)
+            launch_memcpy_2d_kernel(d, dpitch, s, spitch, width, height, stream);
+        
+        CUDA_PEEK("launch_memcpy_2d_kernel");
     };
 
     stringstream ss;

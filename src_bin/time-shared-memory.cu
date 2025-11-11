@@ -27,13 +27,13 @@ __global__ void shmem_read_write_kernel(int *p, int niter)
     shmem[s] = x;
     
     for (int i = 2; i < niter; i += N) {
-	int y = Read ? shmem[s] : (x >> 1);
-	x ^= y;
-	
-	if (Write)
-	    shmem[s] = x;
-	
-	s ^= x;
+        int y = Read ? shmem[s] : (x >> 1);
+        x ^= y;
+        
+        if (Write)
+            shmem[s] = x;
+        
+        s ^= x;
     }
 
     *p = shmem[s];
@@ -58,13 +58,13 @@ static void time_kernel(const char *name)
     
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
     {
-	int *gmem = arr.data + (istream * arr.shape[1]);
-	
-	shmem_read_write_kernel<Read, Write>
-	    <<< blocks_per_kernel, threads_per_block, shmem_nbytes, stream >>>
-	    (gmem, niter);
-	
-	CUDA_PEEK(name);
+        int *gmem = arr.data + (istream * arr.shape[1]);
+        
+        shmem_read_write_kernel<Read, Write>
+            <<< blocks_per_kernel, threads_per_block, shmem_nbytes, stream >>>
+            (gmem, niter);
+        
+        CUDA_PEEK(name);
     };
 
     CudaStreamPool sp(callback, nkernels, nstreams, name);

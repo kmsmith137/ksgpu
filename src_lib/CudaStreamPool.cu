@@ -28,9 +28,9 @@ CudaStreamPool::CudaStreamPool(const callback_t &callback_, int max_callbacks_, 
     this->sstate.resize(nstreams);
     
     for (int i = 0; i < nstreams; i++) {
-	this->sstate[i].pool = this;
-	this->sstate[i].state = 0;
-	this->sstate[i].istream = i;
+        this->sstate[i].pool = this;
+        this->sstate[i].state = 0;
+        this->sstate[i].istream = i;
     }
 }
 
@@ -39,9 +39,9 @@ void CudaStreamPool::run()
     unique_lock ulock(lock);
     
     if (is_started)
-	throw runtime_error("CudaStreamPool::run() called twice");
+        throw runtime_error("CudaStreamPool::run() called twice");
     if (timing_monitors.size() == 0)
-	throw runtime_error("CudaStreamPool: run() was called without adding any timing monitors first");
+        throw runtime_error("CudaStreamPool: run() was called without adding any timing monitors first");
     
     is_started = true;
     ulock.unlock();
@@ -77,23 +77,23 @@ void CudaStreamPool::show_timings()
     const TimingMonitor *tm = &timing_monitors[0];
 
     if (ntm == 0) {
-	ntm = 1;
-	tm = &tm_default;
+        ntm = 1;
+        tm = &tm_default;
     }
 
     if (!is_done)
-	cout << "    ";
+        cout << "    ";
 
     cout << name << " [" << num_callbacks;
 
     if (max_callbacks > 0)
-	cout << "/" << max_callbacks;
+        cout << "/" << max_callbacks;
 
     cout << "]";
 
     for (int i = 0; i < ntm; i++) {
-	double x = tm[i].thrflag ? (tm[i].coeff * trec) : (t / tm[i].coeff);
-	cout << ((i > 0) ? ", " : ": ") << tm[i].label << " = " << x;
+        double x = tm[i].thrflag ? (tm[i].coeff * trec) : (t / tm[i].coeff);
+        cout << ((i > 0) ? ", " : ": ") << tm[i].label << " = " << x;
     }
 
     cout << "\n";
@@ -121,54 +121,54 @@ void CudaStreamPool::manager_thread_body(CudaStreamPool *pool)
     CUDA_CALL(cudaSetDevice(pool->cuda_device));
     
     for (;;) {
-	bool dropped_lock = false;
+        bool dropped_lock = false;
 
-	for (int istream = 0; istream < pool->nstreams; istream++) {
-	    // At top of loop, lock is held.
-	    StreamState &ss = pool->sstate[istream];
+        for (int istream = 0; istream < pool->nstreams; istream++) {
+            // At top of loop, lock is held.
+            StreamState &ss = pool->sstate[istream];
 
-	    if (ss.state == 1)  // kernel running on stream
-		continue;
+            if (ss.state == 1)  // kernel running on stream
+                continue;
 
-	    if (ss.state == 2) {  // kernel finished
-		pool->num_callbacks++;
-		pool->elapsed_time = time_since(start_time);
-		pool->time_per_callback = pool->elapsed_time / pool->num_callbacks;
-		pool->is_done = (pool->max_callbacks > 0) && (pool->num_callbacks >= pool->max_callbacks);
+            if (ss.state == 2) {  // kernel finished
+                pool->num_callbacks++;
+                pool->elapsed_time = time_since(start_time);
+                pool->time_per_callback = pool->elapsed_time / pool->num_callbacks;
+                pool->is_done = (pool->max_callbacks > 0) && (pool->num_callbacks >= pool->max_callbacks);
 
-		if (pool->is_done || (pool->timing_monitors.size() > 0)) {
-		    dropped_lock = true;
-		    ulock.unlock();
-		    pool->show_timings();
-		    ulock.lock();
-		}
-		
-		if (pool->is_done) {
-		    ulock.unlock();
-		    pool->synchronize();
-		    return;   // this is where the manager thread exits!
-		}
-	    }
+                if (pool->is_done || (pool->timing_monitors.size() > 0)) {
+                    dropped_lock = true;
+                    ulock.unlock();
+                    pool->show_timings();
+                    ulock.lock();
+                }
+                
+                if (pool->is_done) {
+                    ulock.unlock();
+                    pool->synchronize();
+                    return;   // this is where the manager thread exits!
+                }
+            }
 
-	    // Call callback function without holding lock.
-	    ulock.unlock();
-	    pool->callback(*pool, pool->streams[istream], istream);
-	    dropped_lock = true;
+            // Call callback function without holding lock.
+            ulock.unlock();
+            pool->callback(*pool, pool->streams[istream], istream);
+            dropped_lock = true;
 
-	    // Reacquire lock to set state, before queueing cuda_callback.
-	    ulock.lock();
-	    ss.state = 1;
-	    
-	    // Queue cuda_callback without holding lock.
-	    ulock.unlock();
-	    CUDA_CALL(cudaLaunchHostFunc(pool->streams[istream], cuda_callback, &pool->sstate[istream]));
+            // Reacquire lock to set state, before queueing cuda_callback.
+            ulock.lock();
+            ss.state = 1;
+            
+            // Queue cuda_callback without holding lock.
+            ulock.unlock();
+            CUDA_CALL(cudaLaunchHostFunc(pool->streams[istream], cuda_callback, &pool->sstate[istream]));
 
-	    // Reacquire lock before proceeding with loop.
-	    ulock.lock();
-	}
+            // Reacquire lock before proceeding with loop.
+            ulock.lock();
+        }
 
-	if (!dropped_lock)
-	    pool->cv.wait(ulock);
+        if (!dropped_lock)
+            pool->cv.wait(ulock);
     }
 }
 
@@ -189,7 +189,7 @@ void CudaStreamPool::cuda_callback(void *up)
 void CudaStreamPool::synchronize()
 {
     for (int istream = 0; istream < nstreams; istream++)
-	CUDA_CALL(cudaStreamSynchronize(streams[istream]));
+        CUDA_CALL(cudaStreamSynchronize(streams[istream]));
 }
 
 

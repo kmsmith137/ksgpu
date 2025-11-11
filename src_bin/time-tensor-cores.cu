@@ -48,7 +48,7 @@ __global__ void mma_f16_kernel(float *cdst, const float *asrc, const float *bsrc
 {
     int warpId = threadIdx.x >> 5;
     if (warpId >= num_active_warps)
-	return;
+        return;
     
     __half2 a[Areg];
     __half2 b[Breg];
@@ -59,22 +59,22 @@ __global__ void mma_f16_kernel(float *cdst, const float *asrc, const float *bsrc
 
     #pragma unroll
     for (int r = 0; r < Areg; r++)
-	a[r] = load_half2(asrc + r*nth*2 + ith*2);
+        a[r] = load_half2(asrc + r*nth*2 + ith*2);
     
     #pragma unroll
     for (int r = 0; r < Breg; r++)
-	b[r] = load_half2(bsrc + r*nth*2 + ith*2);
+        b[r] = load_half2(bsrc + r*nth*2 + ith*2);
     
     #pragma unroll
     for (int r = 0; r < Creg; r++)
-	c[r] = __half2half2(0);
+        c[r] = __half2half2(0);
     
     for (int i = 0; i < niter; i++)
-	F(c, a, b, c);
+        F(c, a, b, c);
     
     #pragma unroll
     for (int r = 0; r < Creg; r++)
-	store_half2(cdst + r*nth*2 + ith*2, c[r]);
+        store_half2(cdst + r*nth*2 + ith*2, c[r]);
 }
 
 
@@ -99,23 +99,23 @@ static void time_f16_mma(int niter, int num_active_warps=32)
     double tflops_per_kernel = double(niter) * nblocks * num_active_warps * flops_per_mma / pow(2,40.);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-	{
-	    float *a = asrc.data + istream*Areg*nth*2;
-	    float *b = bsrc.data + istream*Breg*nth*2;
-	    float *c = csrc.data + istream*Creg*nth*2;
+        {
+            float *a = asrc.data + istream*Areg*nth*2;
+            float *b = bsrc.data + istream*Breg*nth*2;
+            float *c = csrc.data + istream*Creg*nth*2;
 
-	    mma_f16_kernel<F,Areg,Breg,Creg>
-		<<< nblocks, nthreads_per_block, 0, stream >>>
-		(c, a, b, niter, num_active_warps);
+            mma_f16_kernel<F,Areg,Breg,Creg>
+                <<< nblocks, nthreads_per_block, 0, stream >>>
+                (c, a, b, niter, num_active_warps);
 
-	    CUDA_PEEK("mma_f16_kernel");
-	};
+            CUDA_PEEK("mma_f16_kernel");
+        };
 
     stringstream ss;
     ss << "f16 (m=" << M << ", n=" << N << ", k=" << K << ")";
     
     if (num_active_warps < 32)
-	ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
+        ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
     
     CudaStreamPool pool(callback, ncallbacks, nstreams, ss.str());
     pool.monitor_throughput("Tflops", tflops_per_kernel);
@@ -143,7 +143,7 @@ __global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc, int 
 {
     int warpId = threadIdx.x >> 5;
     if (warpId >= num_active_warps)
-	return;
+        return;
     
     int a[Areg];
     int b[Breg];
@@ -154,22 +154,22 @@ __global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc, int 
 
     #pragma unroll
     for (int r = 0; r < Areg; r++)
-	a[r] = asrc[r*nth + ith];
+        a[r] = asrc[r*nth + ith];
     
     #pragma unroll
     for (int r = 0; r < Breg; r++)
-	a[r] = bsrc[r*nth + ith];
+        a[r] = bsrc[r*nth + ith];
 
     #pragma unroll
     for (int r = 0; r < Creg; r++)
-	c[r] = 0;
+        c[r] = 0;
 
     for (int i = 0; i < niter; i++)
-	F(c, a, b, c);
+        F(c, a, b, c);
     
     #pragma unroll
     for (int r = 0; r < Creg; r++)
-	cdst[r*nth + ith] = c[r];
+        cdst[r*nth + ith] = c[r];
 }
 
 
@@ -194,23 +194,23 @@ static void time_int_mma(int niter, int num_active_warps=32)
     double tflops_per_kernel = double(niter) * nblocks * num_active_warps * flops_per_mma / pow(2,40.);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-	{
-	    int *a = asrc.data + istream*Areg*nth;
-	    int *b = bsrc.data + istream*Breg*nth;
-	    int *c = cdst.data + istream*Creg*nth;
+        {
+            int *a = asrc.data + istream*Areg*nth;
+            int *b = bsrc.data + istream*Breg*nth;
+            int *c = cdst.data + istream*Creg*nth;
 
-	    mma_int_kernel<F,Areg,Breg,Creg>
-		<<< nblocks, nthreads_per_block, 0, stream >>>
-		(c, a, b, niter, num_active_warps);
+            mma_int_kernel<F,Areg,Breg,Creg>
+                <<< nblocks, nthreads_per_block, 0, stream >>>
+                (c, a, b, niter, num_active_warps);
 
-	    CUDA_PEEK("mma_int_kernel");
-	};
+            CUDA_PEEK("mma_int_kernel");
+        };
 
     stringstream ss;
     ss << "int" << BitDepth << " (m=" << M << ", n=" << N << ", k=" << K << ")";
 
     if (num_active_warps < 32)
-	ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
+        ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
     
     CudaStreamPool pool(callback, ncallbacks, nstreams, ss.str());
     pool.monitor_throughput("Tflops", tflops_per_kernel);
@@ -236,7 +236,7 @@ __global__ void mma_sparse_f16_kernel(float *cdst, const float *asrc, const floa
 {
     int warpId = threadIdx.x >> 5;
     if (warpId >= num_active_warps)
-	return;
+        return;
     
     __half2 a[Areg];
     __half2 b[Breg];
@@ -247,22 +247,22 @@ __global__ void mma_sparse_f16_kernel(float *cdst, const float *asrc, const floa
 
     #pragma unroll
     for (int r = 0; r < Areg; r++)
-	a[r] = load_half2(asrc + r*nth*2 + ith*2);
+        a[r] = load_half2(asrc + r*nth*2 + ith*2);
     
     #pragma unroll
     for (int r = 0; r < Breg; r++)
-	b[r] = load_half2(bsrc + r*nth*2 + ith*2);
+        b[r] = load_half2(bsrc + r*nth*2 + ith*2);
     
     #pragma unroll
     for (int r = 0; r < Creg; r++)
-	c[r] = __half2half2(0);
+        c[r] = __half2half2(0);
     
     for (int i = 0; i < niter; i++)
-	F(c, a, b, c, 0);  // Note 0 here for sparse arg
+        F(c, a, b, c, 0);  // Note 0 here for sparse arg
     
     #pragma unroll
     for (int r = 0; r < Creg; r++)
-	store_half2(cdst + r*nth*2 + ith*2, c[r]);
+        store_half2(cdst + r*nth*2 + ith*2, c[r]);
 }
 
 
@@ -287,23 +287,23 @@ static void time_sparse_f16_mma(int niter, int num_active_warps=32)
     double tflops_per_kernel = double(niter) * nblocks * num_active_warps * flops_per_mma / pow(2,40.);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-	{
-	    float *a = asrc.data + istream*Areg*nth*2;
-	    float *b = bsrc.data + istream*Breg*nth*2;
-	    float *c = csrc.data + istream*Creg*nth*2;
+        {
+            float *a = asrc.data + istream*Areg*nth*2;
+            float *b = bsrc.data + istream*Breg*nth*2;
+            float *c = csrc.data + istream*Creg*nth*2;
 
-	    mma_sparse_f16_kernel<F,Areg,Breg,Creg>
-		<<< nblocks, nthreads_per_block, 0, stream >>>
-		(c, a, b, niter, num_active_warps);
+            mma_sparse_f16_kernel<F,Areg,Breg,Creg>
+                <<< nblocks, nthreads_per_block, 0, stream >>>
+                (c, a, b, niter, num_active_warps);
 
-	    CUDA_PEEK("sparse_mma_f16_kernel");
-	};
+            CUDA_PEEK("sparse_mma_f16_kernel");
+        };
 
     stringstream ss;
     ss << "sparse f16 (m=" << M << ", n=" << N << ", k=" << K << ")";
     
     if (num_active_warps < 32)
-	ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
+        ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
     
     CudaStreamPool pool(callback, ncallbacks, nstreams, ss.str());
     pool.monitor_throughput("Tflops", tflops_per_kernel);
@@ -328,7 +328,7 @@ __global__ void cpp_int4_kernel(int *cdst, const int *asrc, const int *bsrc, int
     int iwarp = (blockIdx.x * blockDim.x + threadIdx.x) >> 5;
 
     if (warpId >= num_active_warps)
-	return;
+        return;
 
     wmma::fragment<wmma::matrix_a, 8, 8, 32, wmma::experimental::precision::s4, wmma::row_major> a_frag;
     wmma::fragment<wmma::matrix_b, 8, 8, 32, wmma::experimental::precision::s4, wmma::col_major> b_frag;
@@ -339,7 +339,7 @@ __global__ void cpp_int4_kernel(int *cdst, const int *asrc, const int *bsrc, int
     wmma::fill_fragment(c_frag, 0);
 
     for (int i = 0; i < niter; i++)
-	wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
+        wmma::mma_sync(c_frag, a_frag, b_frag, c_frag);
 
    wmma::store_matrix_sync(cdst + 64*iwarp, c_frag, 8, wmma::mem_row_major);
 }
@@ -364,23 +364,23 @@ static void time_cpp_int4_mma(int niter, int num_active_warps=32)
     double tflops_per_kernel = double(niter) * nblocks * num_active_warps * flops_per_mma / pow(2,40.);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-	{
-	    int *a = asrc.data + istream*32*nwarps;
-	    int *b = bsrc.data + istream*32*nwarps;
-	    int *c = cdst.data + istream*64*nwarps;
+        {
+            int *a = asrc.data + istream*32*nwarps;
+            int *b = bsrc.data + istream*32*nwarps;
+            int *c = cdst.data + istream*64*nwarps;
 
-	    cpp_int4_kernel
-		<<< nblocks, nthreads_per_block, 0, stream >>>
-		(c, a, b, niter, num_active_warps);
+            cpp_int4_kernel
+                <<< nblocks, nthreads_per_block, 0, stream >>>
+                (c, a, b, niter, num_active_warps);
 
-	    CUDA_PEEK("mma_cpp_int4_kernel");
-	};
+            CUDA_PEEK("mma_cpp_int4_kernel");
+        };
 
     stringstream ss;
     ss << "C++ int4 (m=8, n=8, k=32)";
 
     if (num_active_warps < 32)
-	ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
+        ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
     
     CudaStreamPool pool(callback, ncallbacks, nstreams, ss.str());
     pool.monitor_throughput("Tflops", tflops_per_kernel);

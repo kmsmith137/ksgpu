@@ -229,8 +229,8 @@ struct Array {
 // FIXME currently one line per array element -- could be improved!
 
 extern void print_array(const Array<void> &arr, 
-			const std::vector<std::string> &axis_names = {},
-			std::ostream &os = std::cout);
+                        const std::vector<std::string> &axis_names = {},
+                        std::ostream &os = std::cout);
 
 
 // assert_arrays_equal(): I use this function extensively in unit tests.
@@ -295,10 +295,10 @@ template<typename T>
 inline Array<T>::Array()
 {
     if constexpr (!std::is_void_v<T>)
-	dtype = Dtype::native<T>();
+        dtype = Dtype::native<T>();
     
     for (int i = ndim; i < ArrayMaxDim; i++)
-	shape[i] = strides[i] = 0;
+        shape[i] = strides[i] = 0;
 
     // No call to this->check_invariants() here.
 }
@@ -330,7 +330,7 @@ inline Array<T>::Array(int ndim_, const long *shape_, int aflags_)
 template<class C> inline int ndim_ss(const C &shape, const C &strides)
 {
     if (shape.size() != strides.size())
-	throw std::runtime_error("shape/strides length mismatch in Array constructor");
+        throw std::runtime_error("shape/strides length mismatch in Array constructor");
     return shape.size();
 }
 
@@ -442,10 +442,10 @@ template<typename T>
 inline Array<void> Array<T>::to_gpu(Dtype dtype) const
 {
     if (dtype == this->dtype)
-	return this->to_gpu();
+        return this->to_gpu();
     
     if (this->on_gpu())
-	throw std::runtime_error("Array::to_gpu(): GPU->GPU dtype conversion is not currently implemented");
+        throw std::runtime_error("Array::to_gpu(): GPU->GPU dtype conversion is not currently implemented");
 
     Array<void> tmp = this->convert(dtype, af_rhost);
     return tmp.to_gpu();
@@ -557,7 +557,7 @@ inline Array<T> Array<T>::reshape(std::initializer_list<long> shape) const
 template<typename T> template<typename U, typename X>
 inline Array<T>::operator Array<void>& ()
 {
-	return reinterpret_cast<Array<void> &> (*this);
+        return reinterpret_cast<Array<void> &> (*this);
 }
 
 template<typename T> template<typename U, typename X>
@@ -644,15 +644,15 @@ template<typename T>
 inline void Array<T>::ix_next(std::vector<long> &ix) const
 {
     for (int d = ndim-1; d >= 1; d--) {
-	if (ix[d] < shape[d]-1) {
-	    ix[d]++;
-	    return;
-	}
-	ix[d] = 0;
+        if (ix[d] < shape[d]-1) {
+            ix[d]++;
+            return;
+        }
+        ix[d] = 0;
     }
     
     if (ndim > 0)
-	ix[0]++;
+        ix[0]++;
 }
 
 
@@ -732,8 +732,8 @@ inline U& Array<T>::_at(int nd, const long *ix) const
     
     long pos = 0;
     for (int d = 0; d < nd; d++) {
-	xassert(ix[d] >= 0 && ix[d] < shape[d]);
-	pos += ix[d] * strides[d];
+        xassert(ix[d] >= 0 && ix[d] < shape[d]);
+        pos += ix[d] * strides[d];
     }
     
     return data[pos];

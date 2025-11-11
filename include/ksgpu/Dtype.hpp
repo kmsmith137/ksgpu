@@ -86,9 +86,9 @@ extern std::ostream &operator<<(std::ostream &os, Dtype dt);
 inline void _check_dtype_valid(Dtype dtype, const char *where)
 {
     if (!dtype.is_valid()) {
-	std::stringstream ss;
-	ss << where << ": got " << dtype;
-	throw std::runtime_error(ss.str());
+        std::stringstream ss;
+        ss << where << ": got " << dtype;
+        throw std::runtime_error(ss.str());
     }
 }
 
@@ -98,15 +98,15 @@ template<typename T>
 inline void _check_dtype(Dtype dtype, const char *where)
 {
     if constexpr (!std::is_void_v<T>) {
-	Dtype dt_expected = Dtype::native<T>();
-	if (dtype != dt_expected) {
-	    std::stringstream ss;
-	    ss << where << ": got dtype " << dtype << ", expected dtype " << dt_expected;
-	    throw std::runtime_error(ss.str());
-	}
+        Dtype dt_expected = Dtype::native<T>();
+        if (dtype != dt_expected) {
+            std::stringstream ss;
+            ss << where << ": got dtype " << dtype << ", expected dtype " << dt_expected;
+            throw std::runtime_error(ss.str());
+        }
     }
     else  // T==void
-	_check_dtype_valid(dtype, where);
+        _check_dtype_valid(dtype, where);
 }
 
 
@@ -117,7 +117,7 @@ inline Dtype::Dtype(unsigned short flags_, unsigned short nbits_) :
     flags(flags_), nbits(nbits_)
 {
     if (!is_valid())
-	throw std::runtime_error("Dtype constructor: " + str());
+        throw std::runtime_error("Dtype constructor: " + str());
 }
 
 inline bool Dtype::is_valid() const
@@ -125,11 +125,11 @@ inline bool Dtype::is_valid() const
     unsigned short f = flags & ~df_complex;
 
     if ((f != df_int) && (f != df_uint) && (f != df_float))
-	return false;
+        return false;
     if (nbits == 0)
-	return false;
+        return false;
     if ((flags & df_complex) && (nbits & 1))
-	return false;
+        return false;
 
     return true;
 }

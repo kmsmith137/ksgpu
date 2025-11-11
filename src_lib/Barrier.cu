@@ -45,20 +45,20 @@ void Barrier::wait()
     xassert_msg(!aborted, abort_msg);
 
     if (nthreads_waiting == nthreads-1) {
-	this->nthreads_waiting = 0;
-	this->wait_count++;
-	ul.unlock();
-	cv.notify_all();
-	return;
+        this->nthreads_waiting = 0;
+        this->wait_count++;
+        ul.unlock();
+        cv.notify_all();
+        return;
     }
-	
+        
     this->nthreads_waiting++;
     
     int wc = this->wait_count;
     cv.wait(ul, [this,wc] { return (this->aborted || (this->wait_count > wc)); });
     
     if (_unlikely(aborted))
-	throw runtime_error(abort_msg);
+        throw runtime_error(abort_msg);
 }
 
 
@@ -67,7 +67,7 @@ void Barrier::abort(const string &msg)
     std::unique_lock ul(lock);
     
     if (_unlikely(aborted))
-	return;
+        return;
     
     this->aborted = true;
     this->abort_msg = msg;

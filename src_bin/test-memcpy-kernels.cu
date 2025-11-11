@@ -38,8 +38,8 @@ static void test_memcpy_kernel(long nbytes)
 static void test_memcpy_kernel_2d(long dpitch, long spitch, long width, long height)
 {
     cout << "test_memcpy_kernel_2d(dpitch=" << dpitch << ", spitch=" << spitch
-	 << ", width=" << width << ", height=" << height << ")" << endl;
-    	
+         << ", width=" << width << ", height=" << height << ")" << endl;
+        
     long nguard = 4*(dpitch+spitch) + 128;
     Array<int> hsrc({height*spitch}, af_rhost | af_random);
     Array<int> hdst({height*dpitch + 2*nguard}, af_rhost | af_random);
@@ -51,9 +51,9 @@ static void test_memcpy_kernel_2d(long dpitch, long spitch, long width, long hei
     CUDA_PEEK("launch_memcpy_kernel_2d");
 
     for (long r = 0; r < height; r++) {
-	memcpy(hdst.data + nguard + r * (dpitch >> 2),
-	       hsrc.data + r * (spitch >> 2),
-	       width);
+        memcpy(hdst.data + nguard + r * (dpitch >> 2),
+               hsrc.data + r * (spitch >> 2),
+               width);
     }
     
     assert_arrays_equal(hdst, gdst.to_host(), "hdst", "gdst", {"i"});
@@ -85,14 +85,14 @@ static void test_random_memcpy_kernel_2d(long nb_max)
 int main(int argc, char **argv)
 {
     for (long nb = 128; nb < 64*1024; nb += 128)
-	test_memcpy_kernel(nb);
+        test_memcpy_kernel(nb);
 
     for (long nb_max = 128*1024; nb_max <= 4L * 1024L * 1024L * 1024L; nb_max *= 2) {
-	cout << "\nnb_max = " << nb_max << " (" << nbytes_to_str(nb_max) << ")" << endl;
-	
-	test_random_memcpy_kernel(nb_max);
-	for (int i = 0; i < 4; i++)
-	    test_random_memcpy_kernel_2d(nb_max);
+        cout << "\nnb_max = " << nb_max << " (" << nbytes_to_str(nb_max) << ")" << endl;
+        
+        test_random_memcpy_kernel(nb_max);
+        for (int i = 0; i < 4; i++)
+            test_random_memcpy_kernel_2d(nb_max);
     }
     
     return 0;

@@ -45,16 +45,16 @@ __global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc)
     int cfrag[Creg];
 
     for (int r = 0; r < Areg; r++)
-	afrag[r] = asrc[32*r + laneId];
+        afrag[r] = asrc[32*r + laneId];
     for (int r = 0; r < Breg; r++)
-	bfrag[r] = bsrc[32*r + laneId];    
+        bfrag[r] = bsrc[32*r + laneId];    
     for (int r = 0; r < Creg; r++)
-	cfrag[r] = 0;
+        cfrag[r] = 0;
 
     F(cfrag, afrag, bfrag, cfrag);
     
     for (int r = 0; r < Creg; r++)
-	cdst[32*r + laneId] = cfrag[r];
+        cdst[32*r + laneId] = cfrag[r];
 }
 
 
@@ -105,16 +105,16 @@ __global__ void mma_float16_kernel(float *cdst, const float *asrc, const float *
     __half2 cfrag[Creg];
 
     for (int r = 0; r < Areg; r++)
-	afrag[r] = load_half2(asrc + 64*r + 2*laneId);
+        afrag[r] = load_half2(asrc + 64*r + 2*laneId);
     for (int r = 0; r < Breg; r++)
-	bfrag[r] = load_half2(bsrc + 64*r + 2*laneId);
+        bfrag[r] = load_half2(bsrc + 64*r + 2*laneId);
     for (int r = 0; r < Creg; r++)
-	cfrag[r] = __half2half2(0);
+        cfrag[r] = __half2half2(0);
 
     F(cfrag, afrag, bfrag, cfrag);
 
     for (int r = 0; r < Creg; r++)
-	store_half2(cdst + 64*r + 2*laneId, cfrag[r]);
+        store_half2(cdst + 64*r + 2*laneId, cfrag[r]);
 }
 
 
@@ -147,12 +147,12 @@ __host__ Array<T> slow_matmul(const Array<T> &a_, const Array<T> &b_)
     Array<T> c({m,n}, af_rhost);
 
     for (int i = 0; i < m; i++) {
-	for (int j = 0; j < n; j++) {
-	    T t = 0;
-	    for (int k = 0; k < p; k++)
-		t += a.at({i,k}) * b.at({k,j});
-	    c.at({i,j}) = t;
-	}
+        for (int j = 0; j < n; j++) {
+            T t = 0;
+            for (int k = 0; k < p; k++)
+                t += a.at({i,k}) * b.at({k,j});
+            c.at({i,j}) = t;
+        }
     }
 
     return c;
@@ -233,59 +233,59 @@ struct MatParamsBase
 
     
     MatParamsBase() :
-	pbit_isrow(num_state_bits, false),
-	pbit_lindex(num_state_bits, -1)
+        pbit_isrow(num_state_bits, false),
+        pbit_lindex(num_state_bits, -1)
     { }
 
     
     void assign_state_bit(int b, bool isrow, int index)
     {
-	xassert(!finalized);
-	xassert((b >= 0) && (b < num_state_bits));
-	xassert(this->pbit_lindex[b] < 0);
+        xassert(!finalized);
+        xassert((b >= 0) && (b < num_state_bits));
+        xassert(this->pbit_lindex[b] < 0);
 
-	xassert(index >= 0);
-	xassert(index < (isrow ? num_rowstate_bits : num_colstate_bits));
-	
-	this->pbit_isrow[b] = isrow;
-	this->pbit_lindex[b] = index;
+        xassert(index >= 0);
+        xassert(index < (isrow ? num_rowstate_bits : num_colstate_bits));
+        
+        this->pbit_isrow[b] = isrow;
+        this->pbit_lindex[b] = index;
     }
 
 
     void finalize()
     {
-	for (int pb = 0; pb < num_state_bits; pb++)
-	    xassert(pbit_lindex[pb] >= 0);
-	
-	this->finalized = true;
+        for (int pb = 0; pb < num_state_bits; pb++)
+            xassert(pbit_lindex[pb] >= 0);
+        
+        this->finalized = true;
     }
     
     
     // Helper for show_layout()
     void _show_state_bit(int b, const char *phys_prefix, int phys_index, const char *row_prefix, const char *col_prefix) const
     {
-	xassert((b >= 0) && (b < num_state_bits));
-	cout << "        " << phys_prefix << phys_index << " <-> ";
+        xassert((b >= 0) && (b < num_state_bits));
+        cout << "        " << phys_prefix << phys_index << " <-> ";
 
-	if (this->pbit_lindex[b] < 0)
-	    cout << "[unassigned]\n";
-	else if (this->pbit_isrow[b])
-	    cout << row_prefix << this->pbit_lindex[b] << "\n";
-	else
-	    cout << col_prefix << this->pbit_lindex[b] << "\n";
+        if (this->pbit_lindex[b] < 0)
+            cout << "[unassigned]\n";
+        else if (this->pbit_isrow[b])
+            cout << row_prefix << this->pbit_lindex[b] << "\n";
+        else
+            cout << col_prefix << this->pbit_lindex[b] << "\n";
     }
 
     
     void show_layout(const char *row_prefix, const char *col_prefix) const
     {
-	for (int b = 0; b < num_bstate_bits; b++)
-	    _show_state_bit(b, "b", b, row_prefix, col_prefix);
-	
-	for (int t = 0; t < 5; t++)
-	    _show_state_bit(num_bstate_bits + t, "t", t, row_prefix, col_prefix);
+        for (int b = 0; b < num_bstate_bits; b++)
+            _show_state_bit(b, "b", b, row_prefix, col_prefix);
+        
+        for (int t = 0; t < 5; t++)
+            _show_state_bit(num_bstate_bits + t, "t", t, row_prefix, col_prefix);
 
-	for (int r = 0; r < num_regstate_bits; r++)
-	    _show_state_bit(num_bstate_bits + 5 + r, "r", r, row_prefix, col_prefix);
+        for (int r = 0; r < num_regstate_bits; r++)
+            _show_state_bit(num_bstate_bits + 5 + r, "r", r, row_prefix, col_prefix);
     }
 
 
@@ -294,15 +294,15 @@ struct MatParamsBase
     
     __host__ void pindex_to_rc(int pindex, int &rindex, int &cindex) const
     {
-	xassert(finalized);
-	xassert((pindex >= 0) && (pindex < nrows * ncols));
+        xassert(finalized);
+        xassert((pindex >= 0) && (pindex < nrows * ncols));
 
-	rindex = 0;
-	cindex = 0;
-	
-	for (int b = 0; b < num_state_bits; b++)
-	    if (pindex & (1 << b))
-		(pbit_isrow[b] ? rindex : cindex) += (1 << pbit_lindex[b]);
+        rindex = 0;
+        cindex = 0;
+        
+        for (int b = 0; b < num_state_bits; b++)
+            if (pindex & (1 << b))
+                (pbit_isrow[b] ? rindex : cindex) += (1 << pbit_lindex[b]);
     }
     
 
@@ -311,17 +311,17 @@ struct MatParamsBase
     
     __host__ int rc_to_pindex(int rindex, int cindex) const
     {
-	xassert(finalized);
-	xassert((rindex >= 0) && (rindex < nrows));
-	xassert((cindex >= 0) && (cindex < ncols));
+        xassert(finalized);
+        xassert((rindex >= 0) && (rindex < nrows));
+        xassert((cindex >= 0) && (cindex < ncols));
 
-	int pindex = 0;
+        int pindex = 0;
 
-	for (int b = 0; b < num_state_bits; b++)
-	    if ((pbit_isrow[b] ? rindex : cindex) & (1 << pbit_lindex[b]))
-		pindex += (1 << b);
+        for (int b = 0; b < num_state_bits; b++)
+            if ((pbit_isrow[b] ? rindex : cindex) & (1 << pbit_lindex[b]))
+                pindex += (1 << b);
 
-	return pindex;
+        return pindex;
     }
 };
 
@@ -348,90 +348,90 @@ struct MatParamsInt : public MatParamsBase<Nrows, Ncols, BitDepth>
     // Returns 1-d array of length fragment_length.
     __host__ Array<int> make_fragment(int aflags) const
     {
-	return Array<int> ({fragment_length}, aflags);
+        return Array<int> ({fragment_length}, aflags);
     }
 
     
     // Returns 2-d array of shape (num_state_bits+1, fragment_length).
     static __host__ Array<int> make_basis_fragments()
     {
-	Array<int> ret({num_state_bits+1, fragment_length}, af_rhost | af_zero);
-	ret.at({0,0}) = 1;
+        Array<int> ret({num_state_bits+1, fragment_length}, af_rhost | af_zero);
+        ret.at({0,0}) = 1;
 
-	for (int b = 0; b < num_state_bits; b++) {
-	    int bit_index = bit_depth * (1 << b);
-	    int int32_index = bit_index / 32;
-	    ret.at({b+1,int32_index}) = (1 << (bit_index % 32));
-	}
+        for (int b = 0; b < num_state_bits; b++) {
+            int bit_index = bit_depth * (1 << b);
+            int int32_index = bit_index / 32;
+            ret.at({b+1,int32_index}) = (1 << (bit_index % 32));
+        }
     
-	return ret.to_gpu();
+        return ret.to_gpu();
     }
 
 
     // Converts (fragment_length,) -> (nrows, ncols)
     __host__ Array<int> unpack_fragment(const Array<int> &src_) const
     {
-	Array<int> src = src_.to_host();
-	xassert(src.shape_equals({fragment_length}));
-	
-	Array<int> dst({nrows, ncols}, af_rhost);
+        Array<int> src = src_.to_host();
+        xassert(src.shape_equals({fragment_length}));
+        
+        Array<int> dst({nrows, ncols}, af_rhost);
 
-	for (int ir = 0; ir < nrows; ir++) {
-	    for (int ic = 0; ic < ncols; ic++) {
-		int p = Base::rc_to_pindex(ir, ic);
-		int j = p / (32/bit_depth);
-		int b = (p*bit_depth) - (32*j);
+        for (int ir = 0; ir < nrows; ir++) {
+            for (int ic = 0; ic < ncols; ic++) {
+                int p = Base::rc_to_pindex(ir, ic);
+                int j = p / (32/bit_depth);
+                int b = (p*bit_depth) - (32*j);
 
-		dst.at({ir,ic}) = (src.data[j] << (32-bit_depth-b)) >> (32-bit_depth);
-	    }
-	}
+                dst.at({ir,ic}) = (src.data[j] << (32-bit_depth-b)) >> (32-bit_depth);
+            }
+        }
 
-	return dst;
+        return dst;
     }
 
 
     // Converts (nrows, ncols) -> (fragment_length,)
     __host__ Array<int> pack_fragment(const Array<int> &src_) const
     {
-	int smax = (1U << (bit_depth-1)) - 1U;
-	int smin = -smax - 1;
+        int smax = (1U << (bit_depth-1)) - 1U;
+        int smin = -smax - 1;
     
-	Array<int> src = src_.to_host();
-	xassert(src.shape_equals({nrows, ncols}));
+        Array<int> src = src_.to_host();
+        xassert(src.shape_equals({nrows, ncols}));
 
-	Array<int> dst({fragment_length}, af_rhost | af_zero);
+        Array<int> dst({fragment_length}, af_rhost | af_zero);
 
-	for (int ir = 0; ir < nrows; ir++) {
-	    for (int ic = 0; ic < ncols; ic++) {
-		int p = Base::rc_to_pindex(ir, ic);
-		int j = p / (32/bit_depth);
-		int b = (p*bit_depth) - (32*j);
-		
-		int s = src.at({ir,ic});
-		xassert((s >= smin) && (s <= smax));
+        for (int ir = 0; ir < nrows; ir++) {
+            for (int ic = 0; ic < ncols; ic++) {
+                int p = Base::rc_to_pindex(ir, ic);
+                int j = p / (32/bit_depth);
+                int b = (p*bit_depth) - (32*j);
+                
+                int s = src.at({ir,ic});
+                xassert((s >= smin) && (s <= smax));
 
-		uint us = (s << (32-bit_depth));
-		s = (us >> (32-bit_depth-b));
-		dst.at({j}) |= s;
-	    }
-	}
+                uint us = (s << (32-bit_depth));
+                s = (us >> (32-bit_depth-b));
+                dst.at({j}) |= s;
+            }
+        }
 
-	return dst;
+        return dst;
     }
 
     
     __host__ void test_pack_unpack() const
     {
-	for (int iouter = 0; iouter < 10; iouter++) {
-	    Array<int> a = make_fragment(af_rhost | af_random);
-	    Array<int> b = pack_fragment(unpack_fragment(a));
+        for (int iouter = 0; iouter < 10; iouter++) {
+            Array<int> a = make_fragment(af_rhost | af_random);
+            Array<int> b = pack_fragment(unpack_fragment(a));
 
-	    xassert(a.shape_equals({fragment_length}));
-	    xassert(b.shape_equals({fragment_length}));
-	    
-	    for (int i = 0; i < fragment_length; i++)
-		xassert(a.data[i] == b.data[i]);
-	}
+            xassert(a.shape_equals({fragment_length}));
+            xassert(b.shape_equals({fragment_length}));
+            
+            for (int i = 0; i < fragment_length; i++)
+                xassert(a.data[i] == b.data[i]);
+        }
     }    
 };
 
@@ -458,58 +458,58 @@ struct MatParamsFloat16 : MatParamsBase<Nrows, Ncols, 16>
     // Returns 1-d array of length fragment_length.
     __host__ Array<float> make_fragment(int aflags) const
     {
-	return Array<float> ({fragment_length}, aflags);
+        return Array<float> ({fragment_length}, aflags);
     }
 
     
     // Returns 2-d array of shape (num_state_bits+1, fragment_length).
     static __host__ Array<float> make_basis_fragments()
     {
-	Array<float> ret({num_state_bits+1, fragment_length}, af_rhost | af_zero);
-	ret.at({0,0}) = 1.0;
+        Array<float> ret({num_state_bits+1, fragment_length}, af_rhost | af_zero);
+        ret.at({0,0}) = 1.0;
 
-	for (int b = 0; b < num_state_bits; b++)
-	    ret.at({b+1,1<<b}) = 1.0;
+        for (int b = 0; b < num_state_bits; b++)
+            ret.at({b+1,1<<b}) = 1.0;
     
-	return ret.to_gpu();
+        return ret.to_gpu();
     }
 
 
     // Converts (fragment_length,) -> (nrows, ncols)
     __host__ Array<float> unpack_fragment(const Array<float> &src_) const
     {
-	Array<float> src = src_.to_host();
-	xassert(src.shape_equals({fragment_length}));
-	
-	Array<float> dst({nrows,ncols}, af_rhost);
+        Array<float> src = src_.to_host();
+        xassert(src.shape_equals({fragment_length}));
+        
+        Array<float> dst({nrows,ncols}, af_rhost);
 
-	for (int ir = 0; ir < nrows; ir++) {
-	    for (int ic = 0; ic < ncols; ic++) {
-		int p = Base::rc_to_pindex(ir, ic);
-		dst.at({ir,ic}) = src.at({p});
-	    }
-	}
+        for (int ir = 0; ir < nrows; ir++) {
+            for (int ic = 0; ic < ncols; ic++) {
+                int p = Base::rc_to_pindex(ir, ic);
+                dst.at({ir,ic}) = src.at({p});
+            }
+        }
 
-	return dst;
+        return dst;
     }
 
 
     // Converts (nrows, ncols) -> (fragment_length,)
     __host__ Array<float> pack_fragment(const Array<float> &src_) const
     {
-	Array<float> src = src_.to_host();
-	xassert(src.shape_equals({nrows, ncols}));
+        Array<float> src = src_.to_host();
+        xassert(src.shape_equals({nrows, ncols}));
 
-	Array<float> dst({fragment_length}, af_rhost | af_zero);
+        Array<float> dst({fragment_length}, af_rhost | af_zero);
 
-	for (int ir = 0; ir < nrows; ir++) {
-	    for (int ic = 0; ic < ncols; ic++) {
-		int p = Base::rc_to_pindex(ir, ic);
-		dst.at({p}) = src.at({ir,ic});
-	    }
-	}
+        for (int ir = 0; ir < nrows; ir++) {
+            for (int ic = 0; ic < ncols; ic++) {
+                int p = Base::rc_to_pindex(ir, ic);
+                dst.at({p}) = src.at({ir,ic});
+            }
+        }
 
-	return dst;
+        return dst;
     }
 };
 
@@ -525,15 +525,15 @@ void test_pack_unpack(const MatParams &params)
     constexpr int fragment_length = MatParams::fragment_length;
     
     for (int iouter = 0; iouter < 10; iouter++) {
-	// Declared 'auto' since Array<MatParams::Dtype> gave an incomprehensible compiler error.
-	auto a = params.make_fragment(af_rhost | af_random);
-	auto b = params.pack_fragment(params.unpack_fragment(a));
-	
-	xassert(a.shape_equals({fragment_length}));
-	xassert(b.shape_equals({fragment_length}));
-	
-	for (int i = 0; i < fragment_length; i++)
-	    xassert(a.data[i] == b.data[i]);
+        // Declared 'auto' since Array<MatParams::Dtype> gave an incomprehensible compiler error.
+        auto a = params.make_fragment(af_rhost | af_random);
+        auto b = params.pack_fragment(params.unpack_fragment(a));
+        
+        xassert(a.shape_equals({fragment_length}));
+        xassert(b.shape_equals({fragment_length}));
+        
+        for (int i = 0; i < fragment_length; i++)
+            xassert(a.data[i] == b.data[i]);
     }
 }
 
@@ -542,10 +542,10 @@ void test_pack_unpack(const MatParams &params)
 
 
 template<typename Dtype,   // either int or float
-	 void (*Kernel)(Dtype *, const Dtype *, const Dtype *),  // __global__ kernel
-	 typename AParams,    // MatParams for A-factor
-	 typename BParams,    // MatParams for B-factor
-	 typename CParams>    // MatParams for C-factor
+         void (*Kernel)(Dtype *, const Dtype *, const Dtype *),  // __global__ kernel
+         typename AParams,    // MatParams for A-factor
+         typename BParams,    // MatParams for B-factor
+         typename CParams>    // MatParams for C-factor
 struct MmaParams
 {
     const string name;
@@ -565,179 +565,179 @@ struct MmaParams
 
     
     MmaParams(const string &name_, int verbosity_=0)
-	: name(name_), verbosity(verbosity_)
+        : name(name_), verbosity(verbosity_)
     { }
 
     
     Array<Dtype> run_kernel(const Array<Dtype> &asrc, const Array<Dtype> &bsrc) const
     {
-	xassert((asrc.ndim >= 1) && (asrc.ndim <= 2));
-	xassert((bsrc.ndim >= 1) && (bsrc.ndim <= 2));
-	xassert(asrc.shape[asrc.ndim-1] == AParams::fragment_length);
-	xassert(bsrc.shape[bsrc.ndim-1] == BParams::fragment_length);
-	
-	int na = (asrc.ndim > 1) ? asrc.shape[0] : 1;
-	int nb = (bsrc.ndim > 1) ? bsrc.shape[0] : 1;
+        xassert((asrc.ndim >= 1) && (asrc.ndim <= 2));
+        xassert((bsrc.ndim >= 1) && (bsrc.ndim <= 2));
+        xassert(asrc.shape[asrc.ndim-1] == AParams::fragment_length);
+        xassert(bsrc.shape[bsrc.ndim-1] == BParams::fragment_length);
+        
+        int na = (asrc.ndim > 1) ? asrc.shape[0] : 1;
+        int nb = (bsrc.ndim > 1) ? bsrc.shape[0] : 1;
 
-	vector<long> cshape;
-	if (asrc.ndim > 1)
-	    cshape.push_back(na);
-	if (bsrc.ndim > 1)
-	    cshape.push_back(nb);
-	cshape.push_back(CParams::fragment_length);
-	
-	Array<Dtype> agpu = asrc.to_gpu();
-	Array<Dtype> bgpu = bsrc.to_gpu();
-	Array<Dtype> cdst(cshape, af_gpu);
-	
-	dim3 nblocks;
-	nblocks.x = na;
-	nblocks.y = nb;
-	nblocks.z = 1;
-	
-	Kernel <<<nblocks, 32>>> (cdst.data, agpu.data, bgpu.data);
-	CUDA_PEEK(name.c_str());
+        vector<long> cshape;
+        if (asrc.ndim > 1)
+            cshape.push_back(na);
+        if (bsrc.ndim > 1)
+            cshape.push_back(nb);
+        cshape.push_back(CParams::fragment_length);
+        
+        Array<Dtype> agpu = asrc.to_gpu();
+        Array<Dtype> bgpu = bsrc.to_gpu();
+        Array<Dtype> cdst(cshape, af_gpu);
+        
+        dim3 nblocks;
+        nblocks.x = na;
+        nblocks.y = nb;
+        nblocks.z = 1;
+        
+        Kernel <<<nblocks, 32>>> (cdst.data, agpu.data, bgpu.data);
+        CUDA_PEEK(name.c_str());
 
-	return cdst.to_host();
+        return cdst.to_host();
     }
 
 
     void reverse_engineer()
     {
-	constexpr int na = AParams::num_state_bits;
-	constexpr int nb = BParams::num_state_bits;
+        constexpr int na = AParams::num_state_bits;
+        constexpr int nb = BParams::num_state_bits;
 
-	Array<Dtype> asrc = AParams::make_basis_fragments();
-	Array<Dtype> bsrc = BParams::make_basis_fragments();
-	
-	Array<Dtype> cdst = this->run_kernel(asrc, bsrc);
-	xassert(cdst.shape_equals({na+1, nb+1, CParams::fragment_length}));
+        Array<Dtype> asrc = AParams::make_basis_fragments();
+        Array<Dtype> bsrc = BParams::make_basis_fragments();
+        
+        Array<Dtype> cdst = this->run_kernel(asrc, bsrc);
+        xassert(cdst.shape_equals({na+1, nb+1, CParams::fragment_length}));
 
-	Array<int> coupling({na+1,nb+1}, af_rhost);
-	for (int i = 0; i < na+1; i++) {
-	    for (int j = 0; j < nb+1; j++) {
-		coupling.at({i,j}) = -1;
-		for (int k = 0; k < cdst.shape[2]; k++) {
-		    if (cdst.at({i,j,k}) != 0) {
-			xassert(cdst.at({i,j,k}) == Dtype(1));
-			xassert(coupling.at({i,j}) < 0);
-			coupling.at({i,j}) = k;
-		    }
-		}
-	    }
-	}
-	
-	if (verbosity >= 1) {
-	    cout << "Coupling matrix: " << name << endl;
-	    for (int i = 0; i < na+1; i++) {
-		for (int j = 0; j < nb+1; j++)
-		    cout << "  " << coupling.at({i,j});
-		cout << endl;
-	    }
-	}
-	    
-	xassert(coupling.at({0,0}) == 0);
-	
-	int curr_i = 0;
-	int curr_j = 0;
-	int curr_k = 0;
+        Array<int> coupling({na+1,nb+1}, af_rhost);
+        for (int i = 0; i < na+1; i++) {
+            for (int j = 0; j < nb+1; j++) {
+                coupling.at({i,j}) = -1;
+                for (int k = 0; k < cdst.shape[2]; k++) {
+                    if (cdst.at({i,j,k}) != 0) {
+                        xassert(cdst.at({i,j,k}) == Dtype(1));
+                        xassert(coupling.at({i,j}) < 0);
+                        coupling.at({i,j}) = k;
+                    }
+                }
+            }
+        }
+        
+        if (verbosity >= 1) {
+            cout << "Coupling matrix: " << name << endl;
+            for (int i = 0; i < na+1; i++) {
+                for (int j = 0; j < nb+1; j++)
+                    cout << "  " << coupling.at({i,j});
+                cout << endl;
+            }
+        }
+            
+        xassert(coupling.at({0,0}) == 0);
+        
+        int curr_i = 0;
+        int curr_j = 0;
+        int curr_k = 0;
     
-	for (int ia = 0; ia < na; ia++) {
-	    int d = coupling.at({ia+1,0});
-	    
-	    if (d >= 0) {  // index rows in A, C
-		aparams.assign_state_bit(ia, true, curr_i);
-		cparams.assign_state_bit(slow_ilog2(d), true, curr_i);
-		curr_i++;
-		continue;
-	    }
+        for (int ia = 0; ia < na; ia++) {
+            int d = coupling.at({ia+1,0});
+            
+            if (d >= 0) {  // index rows in A, C
+                aparams.assign_state_bit(ia, true, curr_i);
+                cparams.assign_state_bit(slow_ilog2(d), true, curr_i);
+                curr_i++;
+                continue;
+            }
 
-	    bool flag = false;
-	    
-	    for (int ib = 0; ib < nb; ib++) {
-		d = coupling.at({ia+1,ib+1});
-		if (d < 0)
-		    continue;
+            bool flag = false;
+            
+            for (int ib = 0; ib < nb; ib++) {
+                d = coupling.at({ia+1,ib+1});
+                if (d < 0)
+                    continue;
 
-		// index col in A, row in B
-		xassert(d == 0);
-		xassert(!flag);
-		aparams.assign_state_bit(ia, false, curr_j);
-		bparams.assign_state_bit(ib, true, curr_j);
-		flag = true;
-		curr_j++;
-	    }
+                // index col in A, row in B
+                xassert(d == 0);
+                xassert(!flag);
+                aparams.assign_state_bit(ia, false, curr_j);
+                bparams.assign_state_bit(ib, true, curr_j);
+                flag = true;
+                curr_j++;
+            }
 
-	    xassert(flag);
-	}
+            xassert(flag);
+        }
 
-	for (int ib = 0; ib < nb; ib++) {
-	    int d = coupling.at({0,ib+1});
-	    if (d >= 0) {  // index cols in B, C
-		bparams.assign_state_bit(ib, false, curr_k);
-		cparams.assign_state_bit(slow_ilog2(d), false, curr_k);
-		curr_k++;
-	    }
-	}
+        for (int ib = 0; ib < nb; ib++) {
+            int d = coupling.at({0,ib+1});
+            if (d >= 0) {  // index cols in B, C
+                bparams.assign_state_bit(ib, false, curr_k);
+                cparams.assign_state_bit(slow_ilog2(d), false, curr_k);
+                curr_k++;
+            }
+        }
 
-	aparams.finalize();
-	bparams.finalize();
-	cparams.finalize();
-	
-	for (int ir = 0; ir < na+1; ir++) {
-	    int i, ja;
-	    int pindex_a = (ir > 0) ? (1 << (ir-1)) : 0;
-	    aparams.pindex_to_rc(pindex_a, i, ja);
-	    
-	    for (int ic = 0; ic < nb+1; ic++) {
-		int jb, k;
-		int pindex_b = (ic > 0) ? (1 << (ic-1)) : 0;
-		bparams.pindex_to_rc(pindex_b, jb, k);
+        aparams.finalize();
+        bparams.finalize();
+        cparams.finalize();
+        
+        for (int ir = 0; ir < na+1; ir++) {
+            int i, ja;
+            int pindex_a = (ir > 0) ? (1 << (ir-1)) : 0;
+            aparams.pindex_to_rc(pindex_a, i, ja);
+            
+            for (int ic = 0; ic < nb+1; ic++) {
+                int jb, k;
+                int pindex_b = (ic > 0) ? (1 << (ic-1)) : 0;
+                bparams.pindex_to_rc(pindex_b, jb, k);
 
-		int d = (ja == jb) ? cparams.rc_to_pindex(i,k) : -1;
-		xassert(coupling.at({ir,ic}) == d);
-	    }
-	}
+                int d = (ja == jb) ? cparams.rc_to_pindex(i,k) : -1;
+                xassert(coupling.at({ir,ic}) == d);
+            }
+        }
     }
 
     
     void show_layout() const
     {
-	cout << "\n[" << name << "]" << endl;
+        cout << "\n[" << name << "]" << endl;
 
-	cout << "    A-matrix\n";
-	aparams.show_layout("i", "j");
-	
-	cout << "    B-matrix\n";
-	bparams.show_layout("j", "k");
-	
-	cout << "    C-matrix\n";
-	cparams.show_layout("i", "k");
+        cout << "    A-matrix\n";
+        aparams.show_layout("i", "j");
+        
+        cout << "    B-matrix\n";
+        bparams.show_layout("j", "k");
+        
+        cout << "    C-matrix\n";
+        cparams.show_layout("i", "k");
     }
 
 
     void end_to_end_test() const
     {
-	test_pack_unpack(aparams);
-	test_pack_unpack(bparams);
-	test_pack_unpack(cparams);
+        test_pack_unpack(aparams);
+        test_pack_unpack(bparams);
+        test_pack_unpack(cparams);
 
-	for (int iouter = 0; iouter < 10; iouter++) {
-	    Array<Dtype> asrc({AParams::fragment_length}, af_rhost | af_random);
-	    Array<Dtype> bsrc({BParams::fragment_length}, af_rhost | af_random);
-	    
-	    Array<Dtype> cgpu = run_kernel(asrc, bsrc);
-	    cgpu = cparams.unpack_fragment(cgpu);
+        for (int iouter = 0; iouter < 10; iouter++) {
+            Array<Dtype> asrc({AParams::fragment_length}, af_rhost | af_random);
+            Array<Dtype> bsrc({BParams::fragment_length}, af_rhost | af_random);
+            
+            Array<Dtype> cgpu = run_kernel(asrc, bsrc);
+            cgpu = cparams.unpack_fragment(cgpu);
 
-	    Array<Dtype> au = aparams.unpack_fragment(asrc);
-	    Array<Dtype> bu = bparams.unpack_fragment(bsrc);
-	    Array<Dtype> cu = slow_matmul(au, bu);
+            Array<Dtype> au = aparams.unpack_fragment(asrc);
+            Array<Dtype> bu = bparams.unpack_fragment(bsrc);
+            Array<Dtype> cu = slow_matmul(au, bu);
 
-	    // Use 'epsabs', 'epsrel' values appropriate for float16.
-	    assert_arrays_equal(cu, cgpu, "cpu", "gpu", {"row","col"}, 0.01, 0.01, 15, (verbosity >= 2));
-	}
+            // Use 'epsabs', 'epsrel' values appropriate for float16.
+            assert_arrays_equal(cu, cgpu, "cpu", "gpu", {"row","col"}, 0.01, 0.01, 15, (verbosity >= 2));
+        }
 
-	cout << "end_to_end_test: pass" << endl;
+        cout << "end_to_end_test: pass" << endl;
     }
 };
 
@@ -791,7 +791,7 @@ int main(int argc, char **argv)
 {
     reverse_engineer_float16_mma <mma_f16_m16_n8_k8, 16, 8, 8> ();
     reverse_engineer_float16_mma <mma_f16_m16_n8_k16, 16, 8, 16> ();
-	
+        
     reverse_engineer_int_mma <mma_s4_m8_n8_k32, 4, 8, 8, 32> ();
     reverse_engineer_int_mma <mma_s4_m16_n8_k32, 4, 16, 8, 32> ();
     reverse_engineer_int_mma <mma_s4_m16_n8_k64, 4, 16, 8, 64> ();

@@ -44,18 +44,18 @@ namespace ksgpu {
 
 #define _CUDA_CALL(x, xstr, file, line) \
     do { \
-	cudaError_t xerr = (x); \
-	if (_unlikely(xerr != cudaSuccess)) \
-	    throw ::ksgpu::make_cuda_exception(xerr, xstr, file, line); \
+        cudaError_t xerr = (x); \
+        if (_unlikely(xerr != cudaSuccess)) \
+            throw ::ksgpu::make_cuda_exception(xerr, xstr, file, line); \
     } while (0)
 
 #define _CUDA_CALL_ABORT(x, xstr, file, line) \
     do { \
-	cudaError_t xerr = (x); \
-	if (_unlikely(xerr != cudaSuccess)) { \
-	    fprintf(stderr, "CUDA call '%s' failed at %s:%d\n", xstr, file, line); \
-	    exit(1); \
-	} \
+        cudaError_t xerr = (x); \
+        if (_unlikely(xerr != cudaSuccess)) { \
+            fprintf(stderr, "CUDA call '%s' failed at %s:%d\n", xstr, file, line); \
+            exit(1); \
+        } \
     } while (0)
 
 // Helper for CUDA_CALL().
@@ -74,9 +74,9 @@ struct CudaStreamWrapper {
 
     CudaStreamWrapper()
     {
-	cudaStream_t s;
-	CUDA_CALL(cudaStreamCreate(&s));
-	this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
+        cudaStream_t s;
+        CUDA_CALL(cudaStreamCreate(&s));
+        this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
     }
 
     // Create cudaStream with priority. CUDA priorities follow a convention where lower numbers represent
@@ -85,9 +85,9 @@ struct CudaStreamWrapper {
     
     CudaStreamWrapper(int priority)
     {
-	cudaStream_t s;
-	CUDA_CALL(cudaStreamCreateWithPriority(&s, cudaStreamDefault, priority));
-	this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
+        cudaStream_t s;
+        CUDA_CALL(cudaStreamCreateWithPriority(&s, cudaStreamDefault, priority));
+        this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
     }
 
     // A CudaStreamWrapper can be used anywhere a cudaStream_t can be used
@@ -120,9 +120,9 @@ struct CudaEventWrapper {
     
     CudaEventWrapper(uint flags = cudaEventDefault)
     {
-	cudaEvent_t e;
-	CUDA_CALL(cudaEventCreateWithFlags(&e, flags));
-	this->p = std::shared_ptr<CUevent_st> (e, cudaEventDestroy);
+        cudaEvent_t e;
+        CUDA_CALL(cudaEventCreateWithFlags(&e, flags));
+        this->p = std::shared_ptr<CUevent_st> (e, cudaEventDestroy);
     }
 
     // A CudaEventWrapper can be used anywhere a cudaEvent_t can be used
@@ -160,22 +160,22 @@ protected:
 public:
     CudaTimer(cudaStream_t stream_ = nullptr)
     {
-	stream = stream_;
-	CUDA_CALL(cudaEventRecord(start, stream));
+        stream = stream_;
+        CUDA_CALL(cudaEventRecord(start, stream));
     }
 
     float stop()
     {
-	if (!running)
-	    throw std::runtime_error("double call to CudaTimer::stop()");
+        if (!running)
+            throw std::runtime_error("double call to CudaTimer::stop()");
 
-	running = false;
-	CUDA_CALL(cudaEventRecord(end, stream));
-	CUDA_CALL(cudaEventSynchronize(end));
+        running = false;
+        CUDA_CALL(cudaEventRecord(end, stream));
+        CUDA_CALL(cudaEventSynchronize(end));
 
-	float milliseconds = 0.0;
-	CUDA_CALL(cudaEventElapsedTime(&milliseconds, start, end));
-	return milliseconds / 1000.;
+        float milliseconds = 0.0;
+        CUDA_CALL(cudaEventElapsedTime(&milliseconds, start, end));
+        return milliseconds / 1000.;
     }
 };
 

@@ -36,18 +36,18 @@ void assign_kernel_dims(dim3 &nblocks, dim3 &nthreads, long nx, long ny, long nz
     static constexpr long max_zthreads = 64;
 
     if (threads_per_block < 32)
-	throw runtime_error("assign_kernel_dims(): threads_per_block must be >= 32");
+        throw runtime_error("assign_kernel_dims(): threads_per_block must be >= 32");
     if (threads_per_block > 1024)
-	throw runtime_error("assign_kernel_dims(): threads_per_block must be <= 1024");
+        throw runtime_error("assign_kernel_dims(): threads_per_block must be <= 1024");
     if (threads_per_block & (threads_per_block-1))
-	throw runtime_error("assign_kernel_dims(): threads_per_block must be a power of two");
+        throw runtime_error("assign_kernel_dims(): threads_per_block must be a power of two");
 
     if (nx <= 0)
-	throw runtime_error("assign_kernel_dims(): nx must be > 0");
+        throw runtime_error("assign_kernel_dims(): nx must be > 0");
     if (ny <= 0)
-	throw runtime_error("assign_kernel_dims(): ny must be > 0");
+        throw runtime_error("assign_kernel_dims(): ny must be > 0");
     if (nz <= 0)
-	throw runtime_error("assign_kernel_dims(): nz must be > 0");
+        throw runtime_error("assign_kernel_dims(): nz must be > 0");
 
     // Throughout this function, 'x' denotes log2(nthreads.x), and analogously for y.
     int xbest = 0;
@@ -58,45 +58,45 @@ void assign_kernel_dims(dim3 &nblocks, dim3 &nthreads, long nx, long ny, long nz
     // for a fast algorithm since the number of possible choices is small.
     
     for (int x = 5; (1<<x) <= threads_per_block; x++) {
-	long tx = 1 << x;  // nthreads.x
-	long nx_pad = (nx+tx-1) & ~(tx-1);
-	
-	if (nx > (max_xblocks << x))
-	    continue;
-	
-	for (int y = 0; (1<<(x+y)) <= threads_per_block; y++) {
-	    long ty = 1 << y;                      // nthreads.y
-	    long tz = threads_per_block >> (x+y);  // nthreads.z
+        long tx = 1 << x;  // nthreads.x
+        long nx_pad = (nx+tx-1) & ~(tx-1);
+        
+        if (nx > (max_xblocks << x))
+            continue;
+        
+        for (int y = 0; (1<<(x+y)) <= threads_per_block; y++) {
+            long ty = 1 << y;                      // nthreads.y
+            long tz = threads_per_block >> (x+y);  // nthreads.z
 
-	    if (tz > max_zthreads)
-		continue;
-	    if (ny > (max_yblocks << y))
-		continue;
-	    if (nz > ((max_zblocks * threads_per_block) >> (x+y)))
-		continue;
-	    
-	    // A caller which sets ny=1 should always get nblocks.y == nthreads.y == 1 (and likewise for z).
-	    if ((ny == 1) && (ty != 1))
-		continue;
-	    if ((nz == 1) && (tz != 1))
-		continue;
-				 
-	    long ny_pad = (ny+ty-1) & ~(ty-1);
-	    long nz_pad = (nz+tz-1) & ~(tz-1);
-	    long npad = nx_pad * ny_pad * nz_pad;
+            if (tz > max_zthreads)
+                continue;
+            if (ny > (max_yblocks << y))
+                continue;
+            if (nz > ((max_zblocks * threads_per_block) >> (x+y)))
+                continue;
+            
+            // A caller which sets ny=1 should always get nblocks.y == nthreads.y == 1 (and likewise for z).
+            if ((ny == 1) && (ty != 1))
+                continue;
+            if ((nz == 1) && (tz != 1))
+                continue;
+                                 
+            long ny_pad = (ny+ty-1) & ~(ty-1);
+            long nz_pad = (nz+tz-1) & ~(tz-1);
+            long npad = nx_pad * ny_pad * nz_pad;
 
-	    if ((npad <= nbest) || (nbest == 0)) {
-		xbest = x;
-		ybest = y;
-		nbest = npad;
-	    }
-	}
+            if ((npad <= nbest) || (nbest == 0)) {
+                xbest = x;
+                ybest = y;
+                nbest = npad;
+            }
+        }
     }
 
     if (nbest == 0) {
-	stringstream ss;
-	ss << "assign_kernel_dims() failed: (ny,nz,nz)=(" << nx << "," << ny << "," << nz << ") is too large";
-	throw runtime_error(ss.str());
+        stringstream ss;
+        ss << "assign_kernel_dims() failed: (ny,nz,nz)=(" << nx << "," << ny << "," << nz << ") is too large";
+        throw runtime_error(ss.str());
     }
 
     nthreads.x = (1 << xbest);
@@ -108,12 +108,12 @@ void assign_kernel_dims(dim3 &nblocks, dim3 &nthreads, long nx, long ny, long nz
     nblocks.z = (nz + nthreads.z - 1) / nthreads.z;
 
     if (noisy) {
-	long n = nx * ny * nz;
-	long npad = threads_per_block * nblocks.x * nblocks.y * nblocks.z;
-	double overhead = double(npad-n) / double(n);
-	
-	cout << "assign_kernel_dims: (nx,ny,nz,T)=(" << nx << "," << ny << "," << nz << "," << threads_per_block
-	     << "): nblocks=" << dim3_str(nblocks) << ", nthreads=" << dim3_str(nthreads) << ", overhead=" << overhead << endl;
+        long n = nx * ny * nz;
+        long npad = threads_per_block * nblocks.x * nblocks.y * nblocks.z;
+        double overhead = double(npad-n) / double(n);
+        
+        cout << "assign_kernel_dims: (nx,ny,nz,T)=(" << nx << "," << ny << "," << nz << "," << threads_per_block
+             << "): nblocks=" << dim3_str(nblocks) << ", nthreads=" << dim3_str(nthreads) << ", overhead=" << overhead << endl;
     }
 }
 

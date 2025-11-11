@@ -15,10 +15,10 @@ __global__ void shfl_xor_kernel(float *dst, const float *src, int niter)
     float x = src[s];
     
     for (int i = 0; i < niter; i++) {
-	x += __shfl_xor_sync(0xffffffff, x, 0x1);
-	x += __shfl_xor_sync(0xffffffff, x, 0x2);
-	x += __shfl_xor_sync(0xffffffff, x, 0x4);
-	x += __shfl_xor_sync(0xffffffff, x, 0x8);
+        x += __shfl_xor_sync(0xffffffff, x, 0x1);
+        x += __shfl_xor_sync(0xffffffff, x, 0x2);
+        x += __shfl_xor_sync(0xffffffff, x, 0x4);
+        x += __shfl_xor_sync(0xffffffff, x, 0x8);
     }
 
     dst[s] = x;
@@ -35,15 +35,15 @@ static void time_shfl_xor(int nblocks, int nthreads, int nstreams, int ncallback
     double shuffles_per_kernel = 4. * double(s) * double(niter);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-	{
-	    float *dst = dst_arr.data + istream * s;
-	    float *src = src_arr.data + istream * s;
-	    
-	    shfl_xor_kernel <<< nblocks, nthreads, 0, stream >>>
-		(dst, src, niter);
+        {
+            float *dst = dst_arr.data + istream * s;
+            float *src = src_arr.data + istream * s;
+            
+            shfl_xor_kernel <<< nblocks, nthreads, 0, stream >>>
+                (dst, src, niter);
 
-	    CUDA_PEEK("shfl_xor_kernel launch");
-	};
+            CUDA_PEEK("shfl_xor_kernel launch");
+        };
 
     CudaStreamPool pool(callback, ncallbacks, nstreams, "warp shuffle");
     pool.monitor_time("Clock cycles", shuffles_per_kernel / thread_cycles_per_second);
@@ -60,7 +60,7 @@ __global__ void reduce_add_kernel(int *dst, const int *src, int niter)
     int x = src[s];
     
     for (int i = 0; i < niter; i++)
-	x ^= __reduce_add_sync(0xffffffff, x);
+        x ^= __reduce_add_sync(0xffffffff, x);
 
     dst[s] = x;
 }
@@ -77,15 +77,15 @@ static void time_reduce_add(int nblocks, int nthreads, int nstreams, int ncallba
     double reduces_per_kernel = double(s) * double(niter);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-	{
-	    int *dst = dst_arr.data + istream * s;
-	    int *src = src_arr.data + istream * s;
-	    
-	    reduce_add_kernel <<< nblocks, nthreads, 0, stream >>>
-		(dst, src, niter);
+        {
+            int *dst = dst_arr.data + istream * s;
+            int *src = src_arr.data + istream * s;
+            
+            reduce_add_kernel <<< nblocks, nthreads, 0, stream >>>
+                (dst, src, niter);
 
-	    CUDA_PEEK("reduce_add_kernel");
-	};
+            CUDA_PEEK("reduce_add_kernel");
+        };
 
     CudaStreamPool pool(callback, ncallbacks, nstreams, "reduce_add<int>");
     pool.monitor_time("Clock cycles", reduces_per_kernel / thread_cycles_per_second);

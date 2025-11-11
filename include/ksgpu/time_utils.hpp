@@ -22,7 +22,7 @@ inline struct timeval get_time()
     
     int err = gettimeofday(&t, NULL);
     if (_unlikely(err != 0))
-	throw std::runtime_error("gettimeofday() failed?!");
+        throw std::runtime_error("gettimeofday() failed?!");
 
     return t;
 }

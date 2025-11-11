@@ -32,7 +32,7 @@ inline long make_random_axis(long maxaxis, long &maxsize)
 vector<long> make_random_shape(int ndim, long maxaxis, long maxsize)
 {
     if (ndim == 0)
-	ndim = rand_int(1, ArrayMaxDim+1);
+        ndim = rand_int(1, ArrayMaxDim+1);
     
     xassert(ndim > 0);
     xassert(ndim <= ArrayMaxDim);
@@ -40,7 +40,7 @@ vector<long> make_random_shape(int ndim, long maxaxis, long maxsize)
 
     vector<long> shape(ndim);
     for (int d = 0; d < ndim; d++)
-	shape[d] = make_random_axis(maxaxis, maxsize);  // modifies 'maxsize'
+        shape[d] = make_random_axis(maxaxis, maxsize);  // modifies 'maxsize'
 
     randomly_permute(shape);
     return shape;
@@ -64,23 +64,23 @@ vector<long> make_random_strides(int ndim, const long *shape, int ncontig, long 
 
     // These strides are contiguous
     for (int d = ndim-1; d >= nd_strided; d--) {
-	xassert(shape[d] > 0);
-	strides[d] = min_stride;
-	min_stride += (shape[d]-1) * strides[d];
+        xassert(shape[d] > 0);
+        strides[d] = min_stride;
+        min_stride += (shape[d]-1) * strides[d];
     }
 
     // These strides are not necessarily contiguous
     for (int i = 0; i < nd_strided; i++) {
-	int d = axis_ordering[i];
-	xassert(shape[d] > 0);
+        int d = axis_ordering[i];
+        xassert(shape[d] > 0);
 
-	// Assign stride (as multiple of nalign)
-	long smin = (min_stride + nalign - 1) / nalign;
-	long smax = std::max(smin+1, (2*min_stride)/nalign);
-	long s = (rand_uniform() < 0.33) ? smin : rand_int(smin,smax+1);
-	
-	strides[d] = s * nalign;
-	min_stride += (shape[d]-1) * strides[d];
+        // Assign stride (as multiple of nalign)
+        long smin = (min_stride + nalign - 1) / nalign;
+        long smax = std::max(smin+1, (2*min_stride)/nalign);
+        long s = (rand_uniform() < 0.33) ? smin : rand_int(smin,smax+1);
+        
+        strides[d] = s * nalign;
+        min_stride += (shape[d]-1) * strides[d];
     }
 
     return strides;
@@ -100,9 +100,9 @@ vector<long> make_contiguous_strides(int ndim, const long *shape)
 
     // These strides are contiguous
     for (int d = ndim-1; d >= 0; d--) {
-	xassert(shape[d] > 0);
-	strides[d] = curr_stride;
-	curr_stride += (shape[d]-1) * strides[d];
+        xassert(shape[d] > 0);
+        strides[d] = curr_stride;
+        curr_stride += (shape[d]-1) * strides[d];
     }
 
     return strides;
@@ -159,39 +159,39 @@ void make_random_reshape_compatible_shapes(vector<long> &dshape, vector<long> &s
     uint sdims = 0;
 
     while ((ddims < ArrayMaxDim) || (sdims < ArrayMaxDim)) {
-	RcBlock block;
-	block.dflag = rand_int(0,2);
-	
-	uint &fdims = block.dflag ? ddims : sdims;   // "factored" dims
-	uint &udims = block.dflag ? sdims : ddims;   // "unfactored" dims
+        RcBlock block;
+        block.dflag = rand_int(0,2);
+        
+        uint &fdims = block.dflag ? ddims : sdims;   // "factored" dims
+        uint &udims = block.dflag ? sdims : ddims;   // "unfactored" dims
 
-	if ((udims == ArrayMaxDim) && (fdims == 0))
-	    continue;  // corner case
-	if (udims == ArrayMaxDim)
-	    break;
-	
-	uint nb = 0;  // number of factored axes
-	int nb_max = ArrayMaxDim - fdims;
+        if ((udims == ArrayMaxDim) && (fdims == 0))
+            continue;  // corner case
+        if (udims == ArrayMaxDim)
+            break;
+        
+        uint nb = 0;  // number of factored axes
+        int nb_max = ArrayMaxDim - fdims;
 
-	if ((nb_max > 0) && (rand_uniform() < 0.95)) {
-	    nb = rand_int(1, nb_max+1);
-	    block.bshape = make_random_shape(nb, maxaxis, maxsize);
-	    xassert(block.bshape.size() == nb);  // should never fail
-	}
-	
-	block.bsize = 1;
-	for (uint i = 0; i < nb; i++)
-	    block.bsize *= block.bshape[i];
+        if ((nb_max > 0) && (rand_uniform() < 0.95)) {
+            nb = rand_int(1, nb_max+1);
+            block.bshape = make_random_shape(nb, maxaxis, maxsize);
+            xassert(block.bshape.size() == nb);  // should never fail
+        }
+        
+        block.bsize = 1;
+        for (uint i = 0; i < nb; i++)
+            block.bsize *= block.bshape[i];
 
-	xassert(block.bsize > 0);  // should never fail
-	maxsize /= block.bsize;
-	
-	blocks.push_back(block);
-	fdims += nb;
-	udims += 1;
+        xassert(block.bsize > 0);  // should never fail
+        maxsize /= block.bsize;
+        
+        blocks.push_back(block);
+        fdims += nb;
+        udims += 1;
 
-	if ((ddims > 0) && (sdims > 0) && (rand_uniform() < 0.2))
-	    break;
+        if ((ddims > 0) && (sdims > 0) && (rand_uniform() < 0.2))
+            break;
     }
     
     // Should never fail.
@@ -205,11 +205,11 @@ void make_random_reshape_compatible_shapes(vector<long> &dshape, vector<long> &s
     int nblocks = blocks.size();
     vector<long> block_sizes(nblocks);    
     for (int i = 0; i < nblocks; i++)
-	block_sizes[i] = blocks[i].bsize;
+        block_sizes[i] = blocks[i].bsize;
     
     vector<long> block_strides = make_random_strides(block_sizes);
     for (int i = 0; i < nblocks; i++)
-	blocks[i].bstride = block_strides[i];
+        blocks[i].bstride = block_strides[i];
 
     randomly_permute(blocks);
 
@@ -220,21 +220,21 @@ void make_random_reshape_compatible_shapes(vector<long> &dshape, vector<long> &s
     vector<RcAxis> saxes;
 
     for (int i = 0; i < nblocks; i++) {
-	const RcBlock &block = blocks[i];
-	vector<RcAxis> &faxes = block.dflag ? daxes : saxes;
-	vector<RcAxis> &uaxes = block.dflag ? saxes : daxes;
+        const RcBlock &block = blocks[i];
+        vector<RcAxis> &faxes = block.dflag ? daxes : saxes;
+        vector<RcAxis> &uaxes = block.dflag ? saxes : daxes;
 
-	uaxes.push_back({ block.bsize, block.bstride });
+        uaxes.push_back({ block.bsize, block.bstride });
 
-	long nf = faxes.size();
-	faxes.resize(nf + block.bshape.size());
+        long nf = faxes.size();
+        faxes.resize(nf + block.bshape.size());
 
-	long stride = block.bstride;
-	for (int j = block.bshape.size()-1; j >= 0; j--) {
-	    faxes[nf+j].len = block.bshape[j];
-	    faxes[nf+j].stride = stride;
-	    stride *= block.bshape[j];
-	}
+        long stride = block.bstride;
+        for (int j = block.bshape.size()-1; j >= 0; j--) {
+            faxes[nf+j].len = block.bshape[j];
+            faxes[nf+j].stride = stride;
+            stride *= block.bshape[j];
+        }
     }
 
     // Should never fail.
@@ -248,11 +248,11 @@ void make_random_reshape_compatible_shapes(vector<long> &dshape, vector<long> &s
     sstrides.resize(sdims);
 
     for (uint i = 0; i < ddims; i++)
-	dshape[i] = daxes[i].len;
+        dshape[i] = daxes[i].len;
     for (uint i = 0; i < sdims; i++)
-	sshape[i] = saxes[i].len;
+        sshape[i] = saxes[i].len;
     for (uint i = 0; i < sdims; i++)
-	sstrides[i] = saxes[i].stride;
+        sstrides[i] = saxes[i].stride;
 }
 
 
@@ -263,8 +263,8 @@ __global__ void busy_wait_kernel(uint *arr, long niter)
 {
     uint x = arr[threadIdx.x];
     for (long i = 0; i < niter; i++) {
-	x = (x ^ 0x12345678U);
-	x = (x << 5) ^ (x >> 10);
+        x = (x ^ 0x12345678U);
+        x = (x << 5) ^ (x >> 10);
     }
     arr[threadIdx.x] = x;
 }
@@ -279,7 +279,7 @@ void launch_busy_wait_kernel(Array<uint> &arr, double a40_seconds, cudaStream_t 
     long niter = 1.4e8 * a40_seconds;
     
     busy_wait_kernel <<< 1, 32, 0, s >>>
-	(arr.data, niter);
+        (arr.data, niter);
 }
 
 }  // namespace ksgpu

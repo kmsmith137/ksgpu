@@ -21,10 +21,10 @@ struct local_transpose_f16
     
     static __device__ __forceinline__ void do_transpose(__half2 &x, __half2 &y)
     {
-	__half2 xnew = __lows2half2(x, y);
-	__half2 ynew = __highs2half2(x, y);
-	x = xnew;
-	y = ynew;
+        __half2 xnew = __lows2half2(x, y);
+        __half2 ynew = __highs2half2(x, y);
+        x = xnew;
+        y = ynew;
     }
 };
 
@@ -36,10 +36,10 @@ struct local_transpose_i16
     
     static __device__ __forceinline__ void do_transpose(uint &x, uint &y)
     {
-	uint xnew = __byte_perm(x, y, 0x5410);
-	uint ynew = __byte_perm(x, y, 0x7632);
-	x = xnew;
-	y = ynew;
+        uint xnew = __byte_perm(x, y, 0x5410);
+        uint ynew = __byte_perm(x, y, 0x7632);
+        x = xnew;
+        y = ynew;
     }
 };
 
@@ -64,22 +64,22 @@ __global__ void local_transpose_kernel(D *dst, const D *src, int niter)
     D x5 = src[it + 5*nt];
     D x6 = src[it + 6*nt];
     D x7 = src[it + 7*nt];
-	
+        
     for (int i = 0; i < niter; i++) {
-	T::do_transpose(x0, x1);
-	T::do_transpose(x2, x3);
-	T::do_transpose(x4, x5);
-	T::do_transpose(x6, x7);
-	
-	T::do_transpose(x0, x2);
-	T::do_transpose(x1, x3);
-	T::do_transpose(x4, x6);
-	T::do_transpose(x5, x7);
-	
-	T::do_transpose(x0, x4);
-	T::do_transpose(x1, x5);
-	T::do_transpose(x2, x6);
-	T::do_transpose(x3, x7);
+        T::do_transpose(x0, x1);
+        T::do_transpose(x2, x3);
+        T::do_transpose(x4, x5);
+        T::do_transpose(x6, x7);
+        
+        T::do_transpose(x0, x2);
+        T::do_transpose(x1, x3);
+        T::do_transpose(x4, x6);
+        T::do_transpose(x5, x7);
+        
+        T::do_transpose(x0, x4);
+        T::do_transpose(x1, x5);
+        T::do_transpose(x2, x6);
+        T::do_transpose(x3, x7);
     }
 
     dst[it] = x0;
@@ -114,13 +114,13 @@ void time_local_transpose_kernel(const char *name)
     Array<D16> src({nstreams,ninner}, af_zero | af_gpu);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-	{
-	    D16 *d = dst.data + istream*ninner;
-	    D16 *s = src.data + istream*ninner;
+        {
+            D16 *d = dst.data + istream*ninner;
+            D16 *s = src.data + istream*ninner;
 
-	    local_transpose_kernel<T> <<< nblocks, nthreads_per_block, 0, stream >>> ((D32 *)d, (D32 *)s, niter);
-	    CUDA_PEEK(name);
-	};
+            local_transpose_kernel<T> <<< nblocks, nthreads_per_block, 0, stream >>> ((D32 *)d, (D32 *)s, niter);
+            CUDA_PEEK(name);
+        };
 
     CudaStreamPool pool(callback, ncallbacks, nstreams, name);
     pool.monitor_throughput("teratransposes / sec", tera_transposes_per_kernel);

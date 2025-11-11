@@ -59,15 +59,15 @@ __global__ void mma_sp_kernel(float *dp, const float *ap, const float *bp, const
 static void launch_mma_sp_kernel(float *dp, const float *ap, const float *bp, const float *cp, uint *ep, int f)
 {
     if (f == 0)
-	mma_sp_kernel<0> <<<1,32>>> (dp, ap, bp, cp, ep);
+        mma_sp_kernel<0> <<<1,32>>> (dp, ap, bp, cp, ep);
     else if (f == 1)
-	mma_sp_kernel<1> <<<1,32>>> (dp, ap, bp, cp, ep);
+        mma_sp_kernel<1> <<<1,32>>> (dp, ap, bp, cp, ep);
     else if (f == 2)
-	mma_sp_kernel<2> <<<1,32>>> (dp, ap, bp, cp, ep);
+        mma_sp_kernel<2> <<<1,32>>> (dp, ap, bp, cp, ep);
     else if (f == 3)
-	mma_sp_kernel<3> <<<1,32>>> (dp, ap, bp, cp, ep);
+        mma_sp_kernel<3> <<<1,32>>> (dp, ap, bp, cp, ep);
     else
-	throw runtime_error("bad value of f");
+        throw runtime_error("bad value of f");
 
     CUDA_PEEK("launch mma_sp_kernel");
 }
@@ -86,12 +86,12 @@ static Array<float> unpack_bmat(const Array<float> &b_arr)
     Array<float> b_mat({16,8}, af_rhost);
     
     for (int j = 0; j < 16; j++) {
-	for (int k = 0; k < 8; k++) {
-	    int b = j & 0x1;
-	    int r = j >> 3;
-	    int t = ((j>>1) & 0x3) + (k<<2);
-	    b_mat.at({j,k}) = b_arr.at({r,t,b});
-	}
+        for (int k = 0; k < 8; k++) {
+            int b = j & 0x1;
+            int r = j >> 3;
+            int t = ((j>>1) & 0x3) + (k<<2);
+            b_mat.at({j,k}) = b_arr.at({r,t,b});
+        }
     }
 
     return b_mat;
@@ -108,12 +108,12 @@ static Array<float> unpack_cmat(const Array<float> &c_arr)
     Array<float> c_mat({16,8}, af_rhost);
 
     for (int i = 0; i < 16; i++) {
-	for (int k = 0; k < 8; k++) {
-	    int b = k & 0x1;
-	    int r = i >> 3;
-	    int t = (k>>1) + ((i & 0x7) << 2);
-	    c_mat.at({i,k}) = c_arr.at({r,t,b});
-	}
+        for (int k = 0; k < 8; k++) {
+            int b = k & 0x1;
+            int r = i >> 3;
+            int t = (k>>1) + ((i & 0x7) << 2);
+            c_mat.at({i,k}) = c_arr.at({r,t,b});
+        }
     }
 
     return c_mat;
@@ -131,21 +131,21 @@ static Array<float> unpack_amat(const Array<float> &a_arr, const Array<uint> &e_
     xassert((f >= 0) && (f < 4));
 
     Array<float> a_mat({16,16}, af_rhost | af_zero);
-	
+        
     for (int i = 0; i < 16; i++) {
-	for (int j23 = 0; j23 < 4; j23++) {
-	    for (int b = 0; b < 2; b++) {
-		int ra = i >> 3;
-		int ta = ((i & 0x7) << 2) + j23;
-		int te = ((i & 0x7) << 2) + f;
-		int be = ((i & 0x8) >> 1) + j23;
-		
-		for (int ba = 0; ba < 2; ba++) {
-		    int j01 = (e_arr.at({te}) >> (4*be + 2*ba)) & 0x3;
-		    a_mat.at({i,4*j23+j01}) = a_arr.at({ra,ta,ba});
-		}
-	    }
-	}
+        for (int j23 = 0; j23 < 4; j23++) {
+            for (int b = 0; b < 2; b++) {
+                int ra = i >> 3;
+                int ta = ((i & 0x7) << 2) + j23;
+                int te = ((i & 0x7) << 2) + f;
+                int be = ((i & 0x8) >> 1) + j23;
+                
+                for (int ba = 0; ba < 2; ba++) {
+                    int j01 = (e_arr.at({te}) >> (4*be + 2*ba)) & 0x3;
+                    a_mat.at({i,4*j23+j01}) = a_arr.at({ra,ta,ba});
+                }
+            }
+        }
     }
 
     return a_mat;
@@ -157,16 +157,16 @@ static Array<uint> make_random_e_array()
     Array<uint> e_arr({32}, af_rhost | af_zero);
 
     for (int i = 0; i < 32; i++) {
-	for (int j = 0; j < 8; j++) {
-	    // Random 4-bit selector
-	    uint lo = rand_int(0,4);  // low 2 bits
-	    uint hi = rand_int(0,3);  // high 2 bits
-	    if (hi >= lo)
-		hi++;
+        for (int j = 0; j < 8; j++) {
+            // Random 4-bit selector
+            uint lo = rand_int(0,4);  // low 2 bits
+            uint hi = rand_int(0,3);  // high 2 bits
+            if (hi >= lo)
+                hi++;
 
-	    e_arr.at({i}) |= (lo << (4*j));
-	    e_arr.at({i}) |= (hi << (4*j+2));
-	}
+            e_arr.at({i}) |= (lo << (4*j));
+            e_arr.at({i}) |= (hi << (4*j+2));
+        }
     }
 
     return e_arr;
@@ -189,21 +189,21 @@ static void test_sparse_mma()
     Array<float> c_mat = unpack_cmat(c_arr);
 
     for (int f = 0; f < 4; f++) {
-	Array<float> d_gpu({2,32,2}, af_gpu);
-	launch_mma_sp_kernel(d_gpu.data, a_gpu.data, b_gpu.data, c_gpu.data, e_gpu.data, f);
+        Array<float> d_gpu({2,32,2}, af_gpu);
+        launch_mma_sp_kernel(d_gpu.data, a_gpu.data, b_gpu.data, c_gpu.data, e_gpu.data, f);
 
-	Array<float> a_mat = unpack_amat(a_arr, e_arr, f);
-	Array<float> d_mat = unpack_cmat(d_gpu.to_host());
+        Array<float> a_mat = unpack_amat(a_arr, e_arr, f);
+        Array<float> d_mat = unpack_cmat(d_gpu.to_host());
 
-	// "Expected" D-matrix (C + A*B)
-	Array<float> d_exp = c_mat.clone();
-	for (int i = 0; i < 16; i++)
-	    for (int j = 0; j < 16; j++)
-		for (int k = 0; k < 8; k++)
-		    d_exp.at({i,k}) += a_mat.at({i,j}) * b_mat.at({j,k});
+        // "Expected" D-matrix (C + A*B)
+        Array<float> d_exp = c_mat.clone();
+        for (int i = 0; i < 16; i++)
+            for (int j = 0; j < 16; j++)
+                for (int k = 0; k < 8; k++)
+                    d_exp.at({i,k}) += a_mat.at({i,j}) * b_mat.at({j,k});
 
-	// cout << "test_sparse_mma(f=" << f << ")" << endl;
-	assert_arrays_equal(d_mat, d_exp, "D_gpu", "D_exp", {"i","k"}, 0.01);
+        // cout << "test_sparse_mma(f=" << f << ")" << endl;
+        assert_arrays_equal(d_mat, d_exp, "D_gpu", "D_exp", {"i","k"}, 0.01);
     }
 }
 
@@ -211,7 +211,7 @@ static void test_sparse_mma()
 int main(int argc, char **argv)
 {
     for (int i = 0; i < 100; i++)
-	test_sparse_mma();
+        test_sparse_mma();
 
     cout << "test-sparse-mma: pass\n";
     return 0;

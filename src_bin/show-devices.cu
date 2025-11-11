@@ -23,15 +23,15 @@ static void show_device(int device)
     CUDA_CALL(cudaDeviceGetAttribute(&mem_clock_rate_kHz, cudaDevAttrMemoryClockRate, device));
 
     cout << "    name = " << prop.name << "\n"
-	 << "    compute capability = " << prop.major << "." << prop.minor << "\n"
-	 << "    multiProcessorCount = " << prop.multiProcessorCount << "\n"
-	 << "    clockRate = " << clock_rate_kHz << " kHZ  = " << (clock_rate_kHz / 1.0e6) << " GHz\n"
-	 << "    l2CacheSize = " << prop.l2CacheSize << " bytes = " << (prop.l2CacheSize / pow(2,20.)) << " MB\n"
-	 << "    totalGlobalMem = " << prop.totalGlobalMem << " bytes = " << (prop.totalGlobalMem / pow(2,30.)) << " GB\n"
-	 << "    memoryClockRate = " << mem_clock_rate_kHz << " kHZ\n"
-	 << "    memoryBusWidth = " << prop.memoryBusWidth << " bits\n"
-	 << "    implied global memory bandwidth = " << (mem_clock_rate_kHz * double(prop.memoryBusWidth) / 1.0e6 / 4.) << " GB/s\n"   // empirical!
-	 << endl;
+         << "    compute capability = " << prop.major << "." << prop.minor << "\n"
+         << "    multiProcessorCount = " << prop.multiProcessorCount << "\n"
+         << "    clockRate = " << clock_rate_kHz << " kHZ  = " << (clock_rate_kHz / 1.0e6) << " GHz\n"
+         << "    l2CacheSize = " << prop.l2CacheSize << " bytes = " << (prop.l2CacheSize / pow(2,20.)) << " MB\n"
+         << "    totalGlobalMem = " << prop.totalGlobalMem << " bytes = " << (prop.totalGlobalMem / pow(2,30.)) << " GB\n"
+         << "    memoryClockRate = " << mem_clock_rate_kHz << " kHZ\n"
+         << "    memoryBusWidth = " << prop.memoryBusWidth << " bits\n"
+         << "    implied global memory bandwidth = " << (mem_clock_rate_kHz * double(prop.memoryBusWidth) / 1.0e6 / 4.) << " GB/s\n"   // empirical!
+         << endl;
 }
 
 
@@ -43,7 +43,7 @@ int main(int argc, char **argv)
     cout << "Number of devices: " << ndevices << endl;
 
     for (int device = 0; device < ndevices; device++)
-	show_device(device);
+        show_device(device);
     
     return 0;
 }

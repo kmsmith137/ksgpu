@@ -52,8 +52,8 @@ template<typename T>
 inline void randomly_permute(std::vector<T> &v, std::mt19937 &rng = default_rng)
 {
     for (ulong i = 1; i < v.size(); i++) {
-	long j = rand_int(0, i+1, rng);
-	std::swap(v[i], v[j]);
+        long j = rand_int(0, i+1, rng);
+        std::swap(v[i], v[j]);
     }
 }
 
@@ -65,7 +65,7 @@ inline std::vector<long> rand_permutation(long nelts, std::mt19937 &rng = defaul
     
     std::vector<long> v(nelts);
     for (long i = 0; i < nelts; i++)
-	v[i] = i;
+        v[i] = i;
 
     randomly_permute(v, rng);
     return v;

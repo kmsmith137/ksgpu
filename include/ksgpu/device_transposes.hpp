@@ -54,9 +54,9 @@ __device__ inline void multi_warp_transpose(T x[NumRegisters], uint thread_strid
 
     #pragma unroll
     for (int s = 0; s < S; s++) {
-	#pragma unroll
-	for (int r = 0; r < R; r++)
-	    warp_transpose(x[(2*s)*R + r], x[(2*s+1)*R + r], thread_stride);
+        #pragma unroll
+        for (int r = 0; r < R; r++)
+            warp_transpose(x[(2*s)*R + r], x[(2*s+1)*R + r], thread_stride);
     }
 }
 
@@ -83,10 +83,10 @@ __half2 f16_align(__half2 a, __half2 b)
     // Note: I chose to use prmt.b32.f4e(d,a,b,2) but I think prmt.b32(d,a,b,0x5432) is equivalent.
     
     asm("prmt.b32.f4e %0, %1, %2, %3;" :
-	"=r" (*(unsigned int *) &d) :
-	"r" (*(const unsigned int *) &a),
-	"r" (*(const unsigned int *) &b),
-	"n"(2)
+        "=r" (*(unsigned int *) &d) :
+        "r" (*(const unsigned int *) &a),
+        "r" (*(const unsigned int *) &b),
+        "n"(2)
     );
 
     return d;
@@ -99,10 +99,10 @@ __half2 f16_blend(__half2 a, __half2 b)
         
     // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-prmt
     asm("prmt.b32 %0, %1, %2, %3;" :
-	"=r" (*(unsigned int *) &d) :
-	"r" (*(const unsigned int *) &a),
-	"r" (*(const unsigned int *) &b),
-	"n"(0x7610)
+        "=r" (*(unsigned int *) &d) :
+        "r" (*(const unsigned int *) &a),
+        "r" (*(const unsigned int *) &b),
+        "n"(0x7610)
     );
 
     return d;
@@ -131,9 +131,9 @@ __device__ inline void multi_half2_transpose(__half2 x[NumRegisters])
 
     #pragma unroll
     for (int s = 0; s < S; s++) {
-	#pragma unroll
-	for (int r = 0; r < R; r++)
-	    half2_transpose(x[(2*s)*R + r], x[(2*s+1)*R + r]);
+        #pragma unroll
+        for (int r = 0; r < R; r++)
+            half2_transpose(x[(2*s)*R + r], x[(2*s+1)*R + r]);
     }    
 }
 
@@ -163,10 +163,10 @@ __half2 f16_perm(__half2 a, __half2 b, unsigned int s)
 
     // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-prmt
     asm("prmt.b32 %0, %1, %2, %3;" :
-	"=r" (*(unsigned int *) &d) :
-	"r" (*(const unsigned int *) &a),
-	"r" (*(const unsigned int *) &b),
-	"r" (s)
+        "=r" (*(unsigned int *) &d) :
+        "r" (*(const unsigned int *) &a),
+        "r" (*(const unsigned int *) &b),
+        "r" (s)
     );
 
     return d;
