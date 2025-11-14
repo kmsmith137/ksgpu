@@ -101,7 +101,9 @@ struct alloc_helper {
     char *base = nullptr;    
     char *data = nullptr;
     char *gcopy = nullptr;
-    
+
+    // When memory is freed, which cuda device must be current?
+    int free_device = -1;   // negative value means "no constraint".
 
     string mmap_error_message(long nbytes, bool hugepage_flag)
     {
@@ -193,8 +195,13 @@ struct alloc_helper {
             if (flags & af_rhost)
                 CUDA_CALL(cudaHostRegister(base, nbytes_allocated, cudaHostRegisterDefault));
         }
-        else if (flags & af_gpu)
+        else if (flags & af_gpu) {
+            // Set this->free_device, to create a constraint that the current cuda device must
+            // be the same in cudaMalloc() ... cudaFree(). For the other allocators in this
+            // function (including cudaMallocManage()), there is no constraint.
             CUDA_CALL(cudaMalloc((void **) &this->base, this->nbytes_allocated));
+            CUDA_CALL(cudaGetDevice(&this->free_device));
+        }
         else if (flags & af_unified)
             CUDA_CALL(cudaMallocManaged((void **) &this->base, this->nbytes_allocated, cudaMemAttachGlobal));
         else if (flags & af_rhost)
@@ -237,8 +244,10 @@ struct alloc_helper {
             if (base != data)
                 ss << " [data=" << ((void *) data) << "]";
 
-            ss << "\n";
-            cout << ss.str() << flush;
+            if (free_device >= 0)
+                ss << ", device=" << free_device;
+            
+            cout << ss.str() << endl;
         }
 
         // Step 3: handle af_zero, af_guard.
@@ -300,6 +309,12 @@ struct alloc_helper {
     
     void operator()(void *ptr)
     {
+        // The CudaSetDevice RAII wrapper sets the current_device to (this->free_device),
+        // and restores the original current_device when the destructor is called. (Otherwise,
+        // the shared_ptr deleter could trigger an unexpected persistent change in the current
+        // cuda device, which sounds like a recipe for bugs that are hard to track down!)
+        CudaSetDevice set_dev(this->free_device);
+        
         if (flags & af_guard) {
             check_guard();
             free(gcopy);
@@ -321,8 +336,16 @@ struct alloc_helper {
             else
                 ss << "free";
 
-            ss << "(" << ((void *) base) << ")\n";
-            cout << ss.str() << flush;
+            ss << "(" << ((void *) base) << ")";
+
+            if (free_device >= 0) {
+                if (set_dev.old_dev == free_device)
+                    ss << ", device=" << free_device << ", no switch needed";
+                else
+                    ss << ", temporarily switch device " << set_dev.old_dev << " -> " << free_device;
+            }
+            
+            cout << ss.str() << endl;
         }
 
         // Deallocate memory. Keep this part in sync with "Step 1: allocate memory..." in constructor.
@@ -367,15 +390,20 @@ shared_ptr<void> _af_alloc(Dtype dtype, long nelts, int flags)
     // in 'struct alloc_helper' above (by hand).
 
     shared_ptr<void> ret;
-    
-    if (flags & (af_guard | af_verbose | af_mmap_flags)) {      
+
+    if ((flags & (af_guard | af_verbose | af_mmap_flags)) || (h.free_device >= 0)) {
         // In these cases, shared_ptr deletion logic is complicated enough that
         // we need alloc_helper::operator(). In remaining cases, we can use a
         // simple deleter (cudaFree(), cudaFreeHost(), or free()).
         ret = shared_ptr<void> (h.data, h);
     }
-    else if (flags & (af_gpu | af_unified))
+    else if (flags & (af_gpu | af_unified)) {
+        // Currently, a simple (af_gpu) alloc does not take this code path.
+        // Instead, alloc_helper::free_device gets initialized, and we take
+        // the "alloc_helper::operator()" path above. This may change when we
+        // implement more "refined" af_gpu flags (see FIXME in mem_utils.hpp).
         ret = shared_ptr<void> (h.data, cudaFree);
+    }
     else if (flags & af_rhost)
         ret = shared_ptr<void> (h.data, cudaFreeHost);
     else
@@ -404,6 +432,10 @@ shared_ptr<void> _af_alloc(Dtype dtype, long nelts, int flags)
 
 void _af_copy(void *dst, int dst_flags, const void *src, int src_flags, long nbytes)
 {
+    // FIXME there is a big problem here: af_copy() just fails if the current cuda
+    // device is set incorrectly. This can be fixed after the af_gpu flag is "refined"
+    // (see comment in mem_utils.hpp)
+     
     if (nbytes == 0)
         return;
 

@@ -44,8 +44,41 @@ inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, long nelts);
 // -------------------------------------------------------------------------------------------------
 //
 // Flags for use in af_alloc().
-// Note: anticipate refining 'af_unified', to toggle cudaMemAttachHost vs cudaMemAttachGlobal.
-// Note: anticipate refining 'af_rhost' (e.g. cudaHostAllocWriteCombined).
+//
+// FIXME in hindsight, I should have "refined" the af_gpu flag, to indicate which GPU the
+// memory "lives" on. Here is one scheme:
+//
+//   - Instead of indicating GPU ownership with:
+//       aflags |= af_gpu;   // where af_gpu = 0x01
+//
+//     do this:
+//       assert(0 <= current_cuda_device <= 253);
+//       aflags |= (current_cuda_device+1);
+//
+//     Note that other flags need to be moved, e.g. af_uhost 0x2 -> 0x100, etc.
+//
+//   - The 'af_gpu' global is still defined, and equal to 255. This special value
+//     means "current gpu", and is allowed in af_alloc() (maybe other places too?)
+//
+//   - The af_on_gpu() function (and Array<T:::on_gpu(), which is closely related)
+//     becomes two functions, af_on_current_gpu(), and af_on_any_gpu().
+//
+//   - Direct flag bit-manipulations will need to be revisited, e.g.
+//
+//       // Test for memory being on a GPU.
+//       // This still works if the caller intended "any GPU", but was "current GPU" intended?
+//       if ((flags & af_gpu) != 0) ...;
+//
+//       // Never backwards-compatible (test always fails now).
+//       if ((flags & af_gpu) == af_gpu) ... ;
+//
+//    - Can finally fix the issue where af_copy() just fails if the current device
+//      is set incorrectly! (By setting the current device based on the flags, which
+//      are already passed to af_copy().) Are there other places in ksgpu where a
+//      similar issue exists, and can now be fixed?
+//
+// Note: could refine 'af_unified', to toggle cudaMemAttachHost vs cudaMemAttachGlobal.
+// Note: could refine 'af_rhost' (e.g. cudaHostAllocWriteCombined).
 
 
 // Location flags: where is memory allocated?

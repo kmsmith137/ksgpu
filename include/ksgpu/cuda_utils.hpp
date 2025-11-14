@@ -53,13 +53,52 @@ namespace ksgpu {
     do { \
         cudaError_t xerr = (x); \
         if (_unlikely(xerr != cudaSuccess)) { \
-            fprintf(stderr, "CUDA call '%s' failed at %s:%d\n", xstr, file, line); \
+            fprintf(stderr, "CUDA call '%s' returned %d (%s) [%s:%d]\n", \
+                    xstr, int(xerr), cudaGetErrorString(xerr), file, line); \
             exit(1); \
         } \
     } while (0)
 
 // Helper for CUDA_CALL().
 std::runtime_error make_cuda_exception(cudaError_t xerr, const char *xstr, const char *file, int line);
+
+
+// -----------------------------  RAII wrapper for cudaSetDevice()  --------------------------------
+//
+// Constructor sets current cuda device to 'new_dev'.
+// Destructor restores the original cuda_device (at the time the constructor was called).
+// If new_dev < 0, then the constructor/destructor will no-op.
+
+
+struct CudaSetDevice {
+    const int new_dev;
+    int old_dev = -1;
+
+    // Noncopyable.
+    CudaSetDevice() = delete;
+    CudaSetDevice(const CudaSetDevice &) = delete;
+    CudaSetDevice& operator=(const CudaSetDevice &) = delete;
+
+    CudaSetDevice(int new_dev_) : new_dev(new_dev_)
+    {
+        if (new_dev < 0)
+            return;
+
+        // Save current device in 'old_dev'.
+        // Note: we use CUDA_CALL_ABORT() instead of CUDA_CALL(), since CudaSetDevice is
+        // used in a context (shared_ptr deleter) where it is not safe to throw an exception.
+        CUDA_CALL_ABORT(cudaGetDevice(&old_dev));
+        
+        if (old_dev != new_dev)
+            CUDA_CALL_ABORT(cudaSetDevice(new_dev));
+    }
+
+    ~CudaSetDevice()
+    {
+        if ((old_dev >= 0) && (new_dev >= 0) && (old_dev != new_dev))
+            CUDA_CALL_ABORT(cudaSetDevice(old_dev));
+    }
+};
 
 
 // ------------------------------  RAII wrapper for cudaStream_t  ----------------------------------
