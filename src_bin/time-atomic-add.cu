@@ -39,7 +39,7 @@ __global__ void curand_init_kernel(curand_state_t *sp, ulong seed, long nelts)
     ulong t = ulong(blockIdx.x) * ulong(blockDim.x) + threadIdx.x;
     
     if (t < nelts)
-	curand_init(seed, t, 0, sp+t);
+        curand_init(seed, t, 0, sp+t);
 }
 
 
@@ -70,7 +70,7 @@ __global__ void time_curand_kernel(uint *out, curand_state_t *state, int iterati
     
     uint x = 0;
     for (int i = 0; i < iterations_per_thread; i++)
-	x ^= curand(&st);   // curand() produces a random uint32
+        x ^= curand(&st);   // curand() produces a random uint32
 
     out[t] = x;
     state[t] = st;
@@ -94,12 +94,12 @@ static void time_curand()
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
     {
-	time_curand_kernel<<< nblocks, threads_per_block, 0, stream >>>
-	    (out.data + istream * threads_per_stream,
-	     state.data + istream * threads_per_stream,
-	     iterations_per_thread);
-	
-	CUDA_PEEK("time_curand_kernel launch");
+        time_curand_kernel<<< nblocks, threads_per_block, 0, stream >>>
+            (out.data + istream * threads_per_stream,
+             state.data + istream * threads_per_stream,
+             iterations_per_thread);
+        
+        CUDA_PEEK("time_curand_kernel launch");
     };
 
     CudaStreamPool sp(callback, ncallbacks, nstreams, "time_curand");
@@ -127,22 +127,22 @@ __global__ void global_atomic_add_kernel(T *p, curand_state_t *state, int iterat
     curand_state_t st = state[t];
 
     if (sep_flag)
-	p += blockIdx.x * long(nelts);
+        p += blockIdx.x * long(nelts);
     
     uint r = 0;
-	
+        
     for (int i = 0; i < iterations_per_thread; i++) {
-	int il = (i & 31);
-	
-	if (il == 0) {
-	    // Set r to a random number between 0 and nelts, divisible by 32.
-	    r = curand(&st);   // curand() produces a random uint32
-	    r = (r % nelts) & ~31;
-	}
+        int il = (i & 31);
+        
+        if (il == 0) {
+            // Set r to a random number between 0 and nelts, divisible by 32.
+            r = curand(&st);   // curand() produces a random uint32
+            r = (r % nelts) & ~31;
+        }
 
-	// Index in 'p' array.
-	int k = __shfl_sync(ALL_LANES,r,il) + (threadIdx.x & 31);
-	atomicAdd(p+k, one);
+        // Index in 'p' array.
+        int k = __shfl_sync(ALL_LANES,r,il) + (threadIdx.x & 31);
+        atomicAdd(p+k, one);
     }
 
     state[t] = st;
@@ -165,20 +165,20 @@ static void time_global_atomic_add(const string &name, int iterations_per_thread
     long nelts_per_stream = nb * nelts;
     long nelts_tot = nstreams * nelts_per_stream;
     xassert(nelts_tot <= 1024L * 1024L * 1024L);
-	
+        
     Array<T> p({nelts_tot}, af_gpu | af_zero);
     CurandStateArray state(total_threads, seed);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
     {
-	global_atomic_add_kernel<<< nblocks, threads_per_block, 0, stream >>>
-	    (p.data + istream * nelts_per_stream,
-	     state.data + istream * threads_per_stream,
-	     iterations_per_thread,
-	     nelts,
-	     sep_flag);
-	
-	CUDA_PEEK("time_curand_kernel launch");
+        global_atomic_add_kernel<<< nblocks, threads_per_block, 0, stream >>>
+            (p.data + istream * nelts_per_stream,
+             state.data + istream * threads_per_stream,
+             iterations_per_thread,
+             nelts,
+             sep_flag);
+        
+        CUDA_PEEK("time_curand_kernel launch");
     };
 
     CudaStreamPool sp(callback, ncallbacks, nstreams, name);

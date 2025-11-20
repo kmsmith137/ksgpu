@@ -43,9 +43,9 @@ template<typename T>
 inline double l1_norm(T x)
 {
     if constexpr (std::is_integral_v<T> && std::is_unsigned_v<T>)
-	return x;
+        return x;
     else
-	return std::abs(x);
+        return std::abs(x);
 }
 
 template<>
@@ -89,8 +89,8 @@ struct absdiff<complex<T1>, complex<T2>>
 {
     static inline double eval(complex<T1> x, complex<T2> y)
     {
-	using C = absdiff<T1,T2>;
-	return C::eval(x.real(), y.real()) + C::eval(x.imag(), y.imag());
+        using C = absdiff<T1,T2>;
+        return C::eval(x.real(), y.real()) + C::eval(x.imag(), y.imag());
     }
 };
 
@@ -118,47 +118,47 @@ double _assert_arrays_equal(
     double maxdiff = 0;
 
     for (auto ix = arr1.ix_start(); arr1.ix_valid(ix); arr1.ix_next(ix)) {
-	T1 x = arr1.at(ix);
-	T2 y = arr2.at(ix);
-	
-	double delta = absdiff<T1,T2>::eval(x,y);
-	double thresh = epsabs + epsrel * (l1_norm(x) + l1_norm(y));
+        T1 x = arr1.at(ix);
+        T2 y = arr2.at(ix);
+        
+        double delta = absdiff<T1,T2>::eval(x,y);
+        double thresh = epsabs + epsrel * (l1_norm(x) + l1_norm(y));
 
-	maxdiff = max(maxdiff, delta);
-	bool failed = (delta > thresh) || !_isfinite(x) || !_isfinite(y);
-	
-	if (!failed && !verbose)
-	    continue;
+        maxdiff = max(maxdiff, delta);
+        bool failed = (delta > thresh) || !_isfinite(x) || !_isfinite(y);
+        
+        if (!failed && !verbose)
+            continue;
 
-	if (failed && (nfail == 0))
-	    cout << "\nassert_arrays_equal() failed [shape=" << arr1.shape_str() << "]\n";
+        if (failed && (nfail == 0))
+            cout << "\nassert_arrays_equal() failed [shape=" << arr1.shape_str() << "]\n";
 
-	if (failed)
-	    nfail++;
-	
-	if (nfail > max_display)
-	    continue;
-	
-	cout << "   ";
-	for (int d = 0; d < arr1.ndim; d++)
-	    cout << " " << axis_names[d] << "=" << ix[d];
+        if (failed)
+            nfail++;
+        
+        if (nfail > max_display)
+            continue;
+        
+        cout << "   ";
+        for (int d = 0; d < arr1.ndim; d++)
+            cout << " " << axis_names[d] << "=" << ix[d];
 
-	cout << ": " << name1 << "=" << x << ", " << name2
-	     << "=" << y << "  [delta=" << delta << "]";
+        cout << ": " << name1 << "=" << x << ", " << name2
+             << "=" << y << "  [delta=" << delta << "]";
 
-	if (failed)
-	    cout << " FAILED";
+        if (failed)
+            cout << " FAILED";
 
-	cout << "\n";
+        cout << "\n";
     }
 
     if ((nfail > max_display) && (max_display > 0))
-	cout << "        (+ " << (nfail-max_display) << " more failures)\n";
+        cout << "        (+ " << (nfail-max_display) << " more failures)\n";
     
     cout.flush();
     
     if (nfail > 0)
-	throw runtime_error("Arrays were not equal as expected");
+        throw runtime_error("Arrays were not equal as expected");
     
     return maxdiff;    
 }
@@ -176,8 +176,8 @@ double _assert_arrays_equal(
 
 // Same signature as _assert_arrays_equal<T1,T2> ()
 using assert_func = double (*)(const Array<void> &, const Array<void> &,
-			       const string &, const string &, const vector<string> &,
-			       double, double, long, bool);
+                               const string &, const string &, const vector<string> &,
+                               double, double, long, bool);
 
 // Helper for get_assert_func().
 // Matches <T1,T2> or <complex<T1>,complex<T2>>
@@ -185,10 +185,10 @@ template<typename T1, typename T2>
 static assert_func get_doubly_templated_assert_func(Dtype dt1, Dtype dt2)
 {
     if ((dt1 == Dtype::native<T1>()) && (dt2 == Dtype::native<T2>()))
-	return _assert_arrays_equal<T1, T2>;
+        return _assert_arrays_equal<T1, T2>;
     
     if ((dt1 == Dtype::native<complex<T1>>()) && (dt2 == Dtype::native<complex<T2>>()))
-	return _assert_arrays_equal<complex<T1>, complex<T2>>;
+        return _assert_arrays_equal<complex<T1>, complex<T2>>;
 
     return nullptr;
 }
@@ -201,13 +201,13 @@ static assert_func get_singly_templated_assert_func(Dtype dt1, Dtype dt2)
     Dtype dt = dt2.real();
 
     if (dt == Dtype::native<__half>())
-	return get_doubly_templated_assert_func<T1, __half> (dt1, dt2);
+        return get_doubly_templated_assert_func<T1, __half> (dt1, dt2);
     
     if (dt == Dtype::native<float>())
-	return get_doubly_templated_assert_func<T1, float> (dt1, dt2);
+        return get_doubly_templated_assert_func<T1, float> (dt1, dt2);
     
     if (dt == Dtype::native<double>())
-	return get_doubly_templated_assert_func<T1, double> (dt1, dt2);
+        return get_doubly_templated_assert_func<T1, double> (dt1, dt2);
 
     return nullptr;
 }
@@ -219,37 +219,37 @@ static assert_func get_assert_func(Dtype dt1, Dtype dt2)
     Dtype dt = dt1.real();
 
     if (dt == Dtype::native<__half>())
-	return get_singly_templated_assert_func<__half> (dt1, dt2);
+        return get_singly_templated_assert_func<__half> (dt1, dt2);
     
     if (dt == Dtype::native<float>())
-	return get_singly_templated_assert_func<float> (dt1, dt2);
+        return get_singly_templated_assert_func<float> (dt1, dt2);
     
     if (dt == Dtype::native<double>())
-	return get_singly_templated_assert_func<double> (dt1, dt2);
+        return get_singly_templated_assert_func<double> (dt1, dt2);
 
     if (dt == Dtype::native<int>())
-	return get_doubly_templated_assert_func<int,int> (dt1, dt2);
+        return get_doubly_templated_assert_func<int,int> (dt1, dt2);
 
     if (dt == Dtype::native<uint>())
-	return get_doubly_templated_assert_func<uint,uint> (dt1, dt2);
+        return get_doubly_templated_assert_func<uint,uint> (dt1, dt2);
 
     if (dt == Dtype::native<long>())
-	return get_doubly_templated_assert_func<long,long> (dt1, dt2);
+        return get_doubly_templated_assert_func<long,long> (dt1, dt2);
 
     if (dt == Dtype::native<ulong>())
-	return get_doubly_templated_assert_func<ulong,ulong> (dt1, dt2);
+        return get_doubly_templated_assert_func<ulong,ulong> (dt1, dt2);
 
     if (dt == Dtype::native<short>())
-	return get_doubly_templated_assert_func<short,short> (dt1, dt2);
+        return get_doubly_templated_assert_func<short,short> (dt1, dt2);
 
     if (dt == Dtype::native<ushort>())
-	return get_doubly_templated_assert_func<ushort,ushort> (dt1, dt2);
+        return get_doubly_templated_assert_func<ushort,ushort> (dt1, dt2);
 
     if (dt == Dtype::native<char>())
-	return get_doubly_templated_assert_func<char,char> (dt1, dt2);
+        return get_doubly_templated_assert_func<char,char> (dt1, dt2);
 
     if (dt == Dtype::native<unsigned char>())
-	return get_doubly_templated_assert_func<unsigned char, unsigned char> (dt1, dt2);
+        return get_doubly_templated_assert_func<unsigned char, unsigned char> (dt1, dt2);
 
     return nullptr;
 }
@@ -276,9 +276,9 @@ double assert_arrays_equal(
     assert_func afunc = get_assert_func(arr1.dtype, arr2.dtype);
     
     if (!afunc) {
-	stringstream ss;
-	ss << "assert_arrays_equal() is not implemented for this dtype pair: (" << arr1.dtype << ", " << arr2.dtype << ")";
-	throw runtime_error(ss.str());
+        stringstream ss;
+        ss << "assert_arrays_equal() is not implemented for this dtype pair: (" << arr1.dtype << ", " << arr2.dtype << ")";
+        throw runtime_error(ss.str());
     }
     
     double eps = 10.0 * max(arr1.dtype.precision(), arr2.dtype.precision());

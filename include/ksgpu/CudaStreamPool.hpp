@@ -29,7 +29,7 @@ namespace ksgpu {
 //       {
 //           kernel <<<...., stream>>> ();   // Queue kernel(s) -- be sure to use correct stream!
 //           CUDA_PEEK(name);                // Don't forget this!
-//	};
+//      };
 //
 //   CudaStreamPool sp(callback, num_callbacks, nstreams, "kernel name");
 //
@@ -87,15 +87,15 @@ protected:
     mutable std::mutex lock;
     
     struct StreamState {
-	int state = 0;   // 0 = initial state, 1 = kernel running, 2 = kernel done, 3 = stream done
-	int istream = -1;
-	CudaStreamPool *pool = nullptr;
+        int state = 0;   // 0 = initial state, 1 = kernel running, 2 = kernel done, 3 = stream done
+        int istream = -1;
+        CudaStreamPool *pool = nullptr;
     };
 
     struct TimingMonitor {
-	std::string label;
-	double coeff;
-	bool thrflag;
+        std::string label;
+        double coeff;
+        bool thrflag;
     };
 
     // Protected by lock

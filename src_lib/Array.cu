@@ -17,11 +17,11 @@ namespace ksgpu {
 bool _tuples_equal(int ndim1, const long *shape1, int ndim2, const long *shape2)
 {
     if (ndim1 != ndim2)
-	return false;
+        return false;
     
     for (int i = 0; i < ndim1; i++)
-	if (shape1[i] != shape2[i])
-	    return false;
+        if (shape1[i] != shape2[i])
+            return false;
 
     return true;
 }
@@ -45,14 +45,14 @@ int array_get_ncontig(const Array<void> &arr)
     const long *strides = arr.strides;
     
     for (int d = 0; d < ndim; d++)
-	if (shape[d] == 0)
-	    return ndim;
+        if (shape[d] == 0)
+            return ndim;
 
     long s = 1;
     for (int d = ndim-1; d >= 0; d--) {
-	if ((shape[d] > 1) && (strides[d] != s))
-	    return ndim-1-d;
-	s *= shape[d];
+        if ((shape[d] > 1) && (strides[d] != s))
+            return ndim-1-d;
+        s *= shape[d];
     }
 
     return ndim;
@@ -74,19 +74,19 @@ void _array_allocate(Array<void> &arr, Dtype dtype, int ndim, const long *shape,
     long nalloc = arr.size;
     
     for (int d = ndim-1; d >= 0; d--) {
-	arr.shape[d] = shape[d];
-	arr.strides[d] = strides ? strides[d] : arr.size;
-	
-	xassert(shape[d] >= 0);
-	xassert(arr.strides[d] >= 0);
-	
-	arr.size *= shape[d];
-	nalloc += (shape[d]-1) * arr.strides[d];
-	// Note that if array is contiguous, then nalloc==size.
+        arr.shape[d] = shape[d];
+        arr.strides[d] = strides ? strides[d] : arr.size;
+        
+        xassert(shape[d] >= 0);
+        xassert(arr.strides[d] >= 0);
+        
+        arr.size *= shape[d];
+        nalloc += (shape[d]-1) * arr.strides[d];
+        // Note that if array is contiguous, then nalloc==size.
     }
 
     for (int d = ndim; d < ArrayMaxDim; d++)
-	arr.shape[d] = arr.strides[d] = 0;
+        arr.shape[d] = arr.strides[d] = 0;
 
     // Note: _af_alloc() calls check_aflags().
     // Note: if nalloc==0, then _af_alloc() returns an empty pointer.
@@ -113,7 +113,7 @@ struct stride_checker {
 
     bool operator<(const stride_checker &x)
     {
-	return this->axis_stride < x.axis_stride;
+        return this->axis_stride < x.axis_stride;
     }
 };
 
@@ -127,9 +127,9 @@ void _check_array_invariants(const Array<void> &arr, const char *where)
     long expected_size = ndim ? 1 : 0;
     
     for (int d = 0; d < ndim; d++) {
-	xassert_where(arr.shape[d] >= 0, where);
-	xassert_where(arr.strides[d] >= 0, where);
-	expected_size *= arr.shape[d];
+        xassert_where(arr.shape[d] >= 0, where);
+        xassert_where(arr.strides[d] >= 0, where);
+        expected_size *= arr.shape[d];
     }
 
     xassert_where((arr.size == expected_size), where);
@@ -137,7 +137,7 @@ void _check_array_invariants(const Array<void> &arr, const char *where)
     check_aflags(arr.aflags, where);
 
     if (arr.size <= 1)
-	return;
+        return;
 
     // Stride checks follow
     
@@ -145,13 +145,13 @@ void _check_array_invariants(const Array<void> &arr, const char *where)
     int n = 0;
     
     for (int d = 0; d < ndim; d++) {
-	// Length-1 axes can have arbitrary strides
-	if (arr.shape[d] == 1)
-	    continue;
-	
-	sc[n].axis_length = arr.shape[d];
-	sc[n].axis_stride = arr.strides[d];
-	n++;
+        // Length-1 axes can have arbitrary strides
+        if (arr.shape[d] == 1)
+            continue;
+        
+        sc[n].axis_length = arr.shape[d];
+        sc[n].axis_stride = arr.strides[d];
+        n++;
     }
 
     xassert_where(n > 0, where);  // should never fail
@@ -159,8 +159,8 @@ void _check_array_invariants(const Array<void> &arr, const char *where)
 
     long min_stride = 1;
     for (int i = 0; i < n; i++) {
-	xassert_where(sc[i].axis_stride >= min_stride, where);
-	min_stride += (sc[i].axis_length - 1) * sc[i].axis_stride;
+        xassert_where(sc[i].axis_stride >= min_stride, where);
+        min_stride += (sc[i].axis_length - 1) * sc[i].axis_stride;
     }
 }
 
@@ -189,93 +189,93 @@ static int reshape_helper(Array<void> &dst, const Array<void> &src)
     int ret = 0;
     
     if (dst.size != src.size)
-	return 1;      // catches empty-array corner cases
+        return 1;      // catches empty-array corner cases
 
     if (src.size == 0) {
-	// Both arrays are empty
-	for (int d = 0; d < ArrayMaxDim; d++)
-	    dst.strides[d] = 0;  // arbitrary
-	return 0;
+        // Both arrays are empty
+        for (int d = 0; d < ArrayMaxDim; d++)
+            dst.strides[d] = 0;  // arbitrary
+        return 0;
     }
 
     for (int d = dst.ndim; d < ArrayMaxDim; d++)
-	dst.strides[d] = 0;
+        dst.strides[d] = 0;
     
     int is = 0;
     int id = 0;
     
     for (;;) {
-	// At top of loop, src indices < is and dst indices < id
-	// have been "consumed", and verified to be compatible.
-	
-	// Advance until non-1 is reached
-	while ((is < src.ndim) && (src.shape[is] == 1))
-	    is++;
-	
-	// Advance until non-1 is reached
-	while ((id < dst.ndim) && (dst.shape[id] == 1))
-	    dst.strides[id++] = 0;  // arbitrary
+        // At top of loop, src indices < is and dst indices < id
+        // have been "consumed", and verified to be compatible.
+        
+        // Advance until non-1 is reached
+        while ((is < src.ndim) && (src.shape[is] == 1))
+            is++;
+        
+        // Advance until non-1 is reached
+        while ((id < dst.ndim) && (dst.shape[id] == 1))
+            dst.strides[id++] = 0;  // arbitrary
 
-	if ((is == src.ndim) && (id == dst.ndim))
-	    return ret;  // shapes are compatible (return value may be 0 or 2)
+        if ((is == src.ndim) && (id == dst.ndim))
+            return ret;  // shapes are compatible (return value may be 0 or 2)
 
-	if ((is == src.ndim) || (id == dst.ndim))
-	    return 1;    // should never happen, thanks to "if (dst.size != src.size) ..." above
+        if ((is == src.ndim) || (id == dst.ndim))
+            return 1;    // should never happen, thanks to "if (dst.size != src.size) ..." above
 
-	long ss = src.shape[is];
-	long sd = dst.shape[id];
-	xassert((ss >= 2) && (sd >= 2));  // should never fail
+        long ss = src.shape[is];
+        long sd = dst.shape[id];
+        xassert((ss >= 2) && (sd >= 2));  // should never fail
 
-	if ((ss % sd) == 0) {
-	    // Split source axis across one or more destination axes.
-	    // In the loop below, source axis parameters (is,ss) are fixed.
-	    // At top, dst axes <= id have "consumed" sd elements, where sd | ss.
-	    
-	    for (;;) {
-		dst.strides[id] = (ss/sd) * src.strides[is];
-		id++;
-		if (ss == sd)
-		    break;
-		if (id == dst.ndim)
-		    return 1;
-		sd *= dst.shape[id];
-		if ((ss % sd) != 0)
-		    return 1;
-	    }
-	    
-	    is++;
-	}
-	else if ((sd % ss) == 0) {
-	    // Combine multiple source axes into single destination axis.
-	    // In the loop below, destination axis parameters (id,sd) are fixed.
-	    // At top, src axes <= is have "consumed" ss elements, where ss | sd.
-	    
-	    long tot_stride = (src.strides[is] * ss);
-	    if ((tot_stride % sd) != 0)
-		ret = 2;   // not "return 2"
-	    
-	    dst.strides[id] = tot_stride / sd;
+        if ((ss % sd) == 0) {
+            // Split source axis across one or more destination axes.
+            // In the loop below, source axis parameters (is,ss) are fixed.
+            // At top, dst axes <= id have "consumed" sd elements, where sd | ss.
+            
+            for (;;) {
+                dst.strides[id] = (ss/sd) * src.strides[is];
+                id++;
+                if (ss == sd)
+                    break;
+                if (id == dst.ndim)
+                    return 1;
+                sd *= dst.shape[id];
+                if ((ss % sd) != 0)
+                    return 1;
+            }
+            
+            is++;
+        }
+        else if ((sd % ss) == 0) {
+            // Combine multiple source axes into single destination axis.
+            // In the loop below, destination axis parameters (id,sd) are fixed.
+            // At top, src axes <= is have "consumed" ss elements, where ss | sd.
+            
+            long tot_stride = (src.strides[is] * ss);
+            if ((tot_stride % sd) != 0)
+                ret = 2;   // not "return 2"
+            
+            dst.strides[id] = tot_stride / sd;
 
-	    for (;;) {
-		is++;
-		if (ss == sd)
-		    break;
-		if (is == src.ndim)
-		    return 1;
-		ss *= src.shape[is];
-		if ((sd % ss) != 0)
-		    return 1;
-		if ((src.strides[is] * ss) != tot_stride)
-		    ret = 2;  // not "return 2"
-	    }
+            for (;;) {
+                is++;
+                if (ss == sd)
+                    break;
+                if (is == src.ndim)
+                    return 1;
+                ss *= src.shape[is];
+                if ((sd % ss) != 0)
+                    return 1;
+                if ((src.strides[is] * ss) != tot_stride)
+                    ret = 2;  // not "return 2"
+            }
 
-	    id++;
-	}
-	else
-	    return 1;
+            id++;
+        }
+        else
+            return 1;
     }
 }
-	    
+            
 
 void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const long *dst_shape)
 {
@@ -291,31 +291,31 @@ void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const
     dst.size = dst_ndim ? 1 : 0;
     
     for (int d = 0; d < dst_ndim; d++) {
-	xassert(dst_shape[d] >= 0);
-	dst.shape[d] = dst_shape[d];
-	dst.size *= dst_shape[d];
+        xassert(dst_shape[d] >= 0);
+        dst.shape[d] = dst_shape[d];
+        dst.size *= dst_shape[d];
     }
 
     for (int d = dst_ndim; d < ArrayMaxDim; d++)
-	dst.shape[d] = 0;
+        dst.shape[d] = 0;
 
     // reshape_helper() initializes dst.strides
     int status = reshape_helper(dst, src);
 
     if (status == 1) {
-	stringstream ss;
-	ss << "Array::reshape(): src_shape=" << src.shape_str()
-	   << " is incompatible with dst_shape=" << dst.shape_str();
-	throw runtime_error(ss.str());
-	
+        stringstream ss;
+        ss << "Array::reshape(): src_shape=" << src.shape_str()
+           << " is incompatible with dst_shape=" << dst.shape_str();
+        throw runtime_error(ss.str());
+        
     }
     else if (status == 2) {
-	stringstream ss;
-	ss << "Array::reshape(): src_shape=" << src.shape_str()
-	   << " and dst_shape=" << dst.shape_str()
-	   << " are compatible, but src_strides=" << src.stride_str()
-	   << " don't allow axes to be combined";
-	throw runtime_error(ss.str());
+        stringstream ss;
+        ss << "Array::reshape(): src_shape=" << src.shape_str()
+           << " and dst_shape=" << dst.shape_str()
+           << " are compatible, but src_strides=" << src.stride_str()
+           << " don't allow axes to be combined";
+        throw runtime_error(ss.str());
     }
 
     dst.check_invariants("array_reshape()");
@@ -338,8 +338,8 @@ struct fill_axis {
 
     inline bool operator<(const fill_axis &a) const
     {
-	// FIXME put more thought into this
-	return dstride < a.dstride;
+        // FIXME put more thought into this
+        return dstride < a.dstride;
     }
 
     fill_axis() { }
@@ -348,28 +348,28 @@ struct fill_axis {
 
 
 static void init_uncoalesced_axes(int &naxes, fill_axis *axes, const Array<void> &dst, const Array<void> &src, const char *where)
-{	
+{       
     // Check that dst/src shapes match.
     // Note: we don't check that dst/src dtypes match.
     
     if (!dst.shape_equals(src)) {
-	stringstream ss;
-	ss << where << ": dst.shape=" << dst.shape_str()
-	   << " and src.shape=" << src.shape_str() << " are unequal";
-	throw runtime_error(ss.str());
+        stringstream ss;
+        ss << where << ": dst.shape=" << dst.shape_str()
+           << " and src.shape=" << src.shape_str() << " are unequal";
+        throw runtime_error(ss.str());
     }
 
     if (dst.size == 0) {
-	naxes = 0;
-	return;
+        naxes = 0;
+        return;
     }
 
     if (dst.size == 1) {
-	naxes = 1;
-	axes[0].length = 1;
-	axes[0].dstride = 1;
-	axes[0].sstride = 1;
-	return;
+        naxes = 1;
+        axes[0].length = 1;
+        axes[0].dstride = 1;
+        axes[0].sstride = 1;
+        return;
     }
 
     // Uncoalesced axes.
@@ -377,16 +377,16 @@ static void init_uncoalesced_axes(int &naxes, fill_axis *axes, const Array<void>
     naxes = 0;
     
     for (int d = 0; d < ndim; d++) {
-	xassert(dst.shape[d] > 0);
-	
-	// Skip length-1 axes.
-	if (dst.shape[d] == 1)
-	    continue;
-	
-	axes[naxes].length = dst.shape[d];
-	axes[naxes].dstride = dst.strides[d];
-	axes[naxes].sstride = src.strides[d];
-	naxes++;
+        xassert(dst.shape[d] > 0);
+        
+        // Skip length-1 axes.
+        if (dst.shape[d] == 1)
+            continue;
+        
+        axes[naxes].length = dst.shape[d];
+        axes[naxes].dstride = dst.strides[d];
+        axes[naxes].sstride = src.strides[d];
+        naxes++;
     }
 
     xassert(naxes > 0);
@@ -405,14 +405,14 @@ init_coalesced_axes(int &nax_c, fill_axis *axes_c, int nax_u, fill_axis *axes_u)
     nax_c = 1;
     
     for (int i = 1; i < nax_u; i++) {
-	long ds = axes_c[nax_c-1].length * axes_c[nax_c-1].dstride;
-	long ss = axes_c[nax_c-1].length * axes_c[nax_c-1].sstride;
-	bool can_coalesce = (axes_u[i].dstride == ds) && (axes_u[i].sstride == ss);
-	
-	if (can_coalesce)
-	    axes_c[nax_c-1].length *= axes_u[i].length;
-	else
-	    axes_c[nax_c++] = axes_u[i];
+        long ds = axes_c[nax_c-1].length * axes_c[nax_c-1].dstride;
+        long ss = axes_c[nax_c-1].length * axes_c[nax_c-1].sstride;
+        bool can_coalesce = (axes_u[i].dstride == ds) && (axes_u[i].sstride == ss);
+        
+        if (can_coalesce)
+            axes_c[nax_c-1].length *= axes_u[i].length;
+        else
+            axes_c[nax_c++] = axes_u[i];
     }
 }
 
@@ -427,10 +427,10 @@ static void show_axes(ostream &os, const Array<void> &dst, const Array<void> &sr
        << "\n";
     
     for (int d = 0; d < nax_c; d++)
-	os << "    coalesced axis: len=" << axes_c[d].length
-	   << ", dstride=" << axes_c[d].dstride
-	   << ", sstride=" << axes_c[d].sstride
-	   << "\n";
+        os << "    coalesced axis: len=" << axes_c[d].length
+           << ", dstride=" << axes_c[d].dstride
+           << ", sstride=" << axes_c[d].sstride
+           << "\n";
 };
 
 
@@ -453,32 +453,32 @@ static void array_fill2(char *dst, const char *src, int naxes, const fill_axis *
     //   (axes[d].sstride % 8) == 0    for d > 0
     
     if (naxes == 1)
-	CUDA_CALL(cudaMemcpy(dst, src, axes[0].length >> 3, cudaMemcpyDefault));
+        CUDA_CALL(cudaMemcpy(dst, src, axes[0].length >> 3, cudaMemcpyDefault));
 
     else if (naxes == 2) {
-	// These two conditions are required by cudaMemcpy2D().
-	// In particular, strides must be positive.
-	xassert(axes[1].dstride >= axes[0].length);
-	xassert(axes[1].sstride >= axes[0].length);
-	
-	CUDA_CALL(cudaMemcpy2D(dst, axes[1].dstride >> 3,
-			       src, axes[1].sstride >> 3,
-			       axes[0].length >> 3,
-			       axes[1].length,
-			       cudaMemcpyDefault));
+        // These two conditions are required by cudaMemcpy2D().
+        // In particular, strides must be positive.
+        xassert(axes[1].dstride >= axes[0].length);
+        xassert(axes[1].sstride >= axes[0].length);
+        
+        CUDA_CALL(cudaMemcpy2D(dst, axes[1].dstride >> 3,
+                               src, axes[1].sstride >> 3,
+                               axes[0].length >> 3,
+                               axes[1].length,
+                               cudaMemcpyDefault));
     }
 
     else {
-	// Note: there is a cudaMemcpy3D(), but it requires that either the
-	// data be in a cudaArray, or that strides are contiguous (so that
-	// it's a cudaMemcpy2D in disguise), so we can't use it here.
+        // Note: there is a cudaMemcpy3D(), but it requires that either the
+        // data be in a cudaArray, or that strides are contiguous (so that
+        // it's a cudaMemcpy2D in disguise), so we can't use it here.
 
-	xassert(naxes >= 3);
-	long ds = axes[naxes-1].dstride >> 3;
-	long ss = axes[naxes-1].sstride >> 3;
-	
-	for (long i = 0; i < axes[naxes-1].length; i++)
-	    array_fill2(dst + i*ds, src + i*ss, naxes-1, axes);
+        xassert(naxes >= 3);
+        long ds = axes[naxes-1].dstride >> 3;
+        long ss = axes[naxes-1].sstride >> 3;
+        
+        for (long i = 0; i < axes[naxes-1].length; i++)
+            array_fill2(dst + i*ds, src + i*ss, naxes-1, axes);
     }
 }
 
@@ -493,10 +493,10 @@ void array_fill(Array<void> &dst, const Array<void> &src, bool noisy)
     // Check that dst/src dtypes match.
     // Currently require dtypes to match exactly (e.g. can't fill signed int from unsigned int).
     if (dst.dtype != src.dtype) {
-	stringstream ss;
-	ss << "ksgpu::Array::fill(): dst.dtype=" << dst.dtype
-	   << " and src.dtype=" << src.dtype << " are unequal";
-	throw runtime_error(ss.str());
+        stringstream ss;
+        ss << "ksgpu::Array::fill(): dst.dtype=" << dst.dtype
+           << " and src.dtype=" << src.dtype << " are unequal";
+        throw runtime_error(ss.str());
     }
 
     // Pure paranoia.
@@ -506,12 +506,12 @@ void array_fill(Array<void> &dst, const Array<void> &src, bool noisy)
     
     // Return early if there is no data to copy.
     if (nax_u == 0)
-	return;
+        return;
 
     // Convert strides to bits.
     for (int i = 0; i < nax_u; i++) {
-	axes_u[i].dstride *= nbits;
-	axes_u[i].sstride *= nbits;
+        axes_u[i].dstride *= nbits;
+        axes_u[i].sstride *= nbits;
     }
 
     // Add dummy "single-bit" axis -- this allows us to subsequently ignore dtypes, and work with bits.
@@ -526,8 +526,8 @@ void array_fill(Array<void> &dst, const Array<void> &src, bool noisy)
     init_coalesced_axes(nax_c, axes_c, nax_u, axes_u);   // note: permutes 'axes_u' in place.
 
     if (noisy) {
-	cout << "Array::fill(): note that 'dst/src' strides are elements, and 'coalesced axis' strides are bits\n";
-	show_axes(cout, dst, src, nax_c, axes_c);
+        cout << "Array::fill(): note that 'dst/src' strides are elements, and 'coalesced axis' strides are bits\n";
+        show_axes(cout, dst, src, nax_c, axes_c);
     }
     
     // Now a bunch of asserts/checks, in preparation for calling array_fill2().
@@ -539,20 +539,20 @@ void array_fill(Array<void> &dst, const Array<void> &src, bool noisy)
     bool invalid = (axes_c[0].length & 7) != 0;
 
     for (int d = 1; d < nax_c; d++)
-	if ((axes_c[d].dstride & 7) || (axes_c[d].sstride & 7))
-	    invalid = true;
+        if ((axes_c[d].dstride & 7) || (axes_c[d].sstride & 7))
+            invalid = true;
 
     if (invalid) {
-	stringstream ss;
-	
-	ss << "Array::fill() operation can't be decomposed into byte-contiguous copies.\n"
-	   << "This is currently treated as an error, even in tame cases such as a contiguous 1-d array with (total_nbits % 8) != 0.\n"
-	   << "Addressing this is nontrivial (e.g. consider case where 'tame' array is subarray of an ambient array).\n"
-	   << "I may revisit this in the future, but it's not a high priority right now.\n"
-	   << "In the diagnostic output below, note that 'dst/src' strides are elements, and 'coalesced axis' strides are bits\n";
-	
-	show_axes(ss, dst, src, nax_c, axes_c);
-	throw runtime_error(ss.str());
+        stringstream ss;
+        
+        ss << "Array::fill() operation can't be decomposed into byte-contiguous copies.\n"
+           << "This is currently treated as an error, even in tame cases such as a contiguous 1-d array with (total_nbits % 8) != 0.\n"
+           << "Addressing this is nontrivial (e.g. consider case where 'tame' array is subarray of an ambient array).\n"
+           << "I may revisit this in the future, but it's not a high priority right now.\n"
+           << "In the diagnostic output below, note that 'dst/src' strides are elements, and 'coalesced axis' strides are bits\n";
+        
+        show_axes(ss, dst, src, nax_c, axes_c);
+        throw runtime_error(ss.str());
     }
 
     // Checks pass, now we can call array_fill2().
@@ -588,23 +588,23 @@ void array_slice(Array<void> &dst, const Array<void> &src, int axis, long ix)
 #pragma GCC diagnostic ignored "-Warray-bounds"
     
     for (int i = 0; i < ndim-1; i++) {
-	int j = (i < axis) ? i : (i+1);
-	dst.shape[i] = src.shape[j];
-	dst.strides[i] = src.strides[j];
-	dst.size *= src.shape[j];
+        int j = (i < axis) ? i : (i+1);
+        dst.shape[i] = src.shape[j];
+        dst.strides[i] = src.strides[j];
+        dst.size *= src.shape[j];
     }
     
 #pragma GCC diagnostic pop
 
     for (int i = ndim-1; i < ArrayMaxDim; i++) {
-	dst.shape[i] = 0;
-	dst.strides[i] = 0;
+        dst.shape[i] = 0;
+        dst.strides[i] = 0;
     }
 
     long nbits = ix * src.strides[axis] * long(src.dtype.nbits);
     
     if (dst.size && (nbits & 7))
-	throw runtime_error("Array::slice(): slicing operation is not byte-aligned");
+        throw runtime_error("Array::slice(): slicing operation is not byte-aligned");
 
     const char *p = dst.size ? ((const char *)src.data + (nbits >> 3)) : nullptr;
     dst.data = (void *) p;
@@ -628,18 +628,18 @@ void array_slice(Array<void> &dst, const Array<void> &src, int axis, long start,
     dst.size = 1;  // will be updated in loop below
 
     for (int i = 0; i < ndim; i++) {
-	dst.shape[i] = (i == axis) ? (stop-start) : src.shape[i];
-	dst.strides[i] = src.strides[i];
-	dst.size *= dst.shape[i];
+        dst.shape[i] = (i == axis) ? (stop-start) : src.shape[i];
+        dst.strides[i] = src.strides[i];
+        dst.size *= dst.shape[i];
     }
 
     for (int i = ndim; i < ArrayMaxDim; i++)
-	dst.shape[i] = dst.strides[i] = 0;
+        dst.shape[i] = dst.strides[i] = 0;
     
     long nbits = start * src.strides[axis] * long(src.dtype.nbits);
     
     if (dst.size && (nbits & 7))
-	throw runtime_error("Array::slice(): slicing operation is not byte-aligned");
+        throw runtime_error("Array::slice(): slicing operation is not byte-aligned");
 
     const char *p = dst.size ? ((const char *)src.data + (nbits >> 3)) : nullptr;
     dst.data = (void *)p;
@@ -680,7 +680,7 @@ void array_transpose(Array<void> &dst, const Array<void> &src, const int *perm)
     }
 
     for (int d = ndim; d < ArrayMaxDim; d++)
-	dst.shape[d] = dst.strides[d] = 0;
+        dst.shape[d] = dst.strides[d] = 0;
     
     dst.check_invariants("array_transpose()");
 }
@@ -712,8 +712,8 @@ struct convert_scalar<complex<Tdst>, complex<Tsrc>>
 {
     static inline complex<Tdst> conv(complex<Tsrc> x)
     {
-	using C = convert_scalar<Tdst,Tsrc>;
-	return { C::conv(x.real()), C::conv(x.imag()) };
+        using C = convert_scalar<Tdst,Tsrc>;
+        return { C::conv(x.real()), C::conv(x.imag()) };
     }
 };
 
@@ -731,12 +731,12 @@ static void convert_array2(Tdst *dst, const Tsrc *src, int naxes, const fill_axi
     // could improve speed in "scattered" cases.
     
     if (naxes == 1) {
-	for (long i = 0; i < len; i++)
-	    dst[i*ds] = convert_scalar<Tdst,Tsrc>::conv(src[i*ss]);
+        for (long i = 0; i < len; i++)
+            dst[i*ds] = convert_scalar<Tdst,Tsrc>::conv(src[i*ss]);
     }
     else {
-	for (long i = 0; i < axes[naxes-1].length; i++)
-	    convert_array2(dst + i*ds, src + i*ss, naxes-1, axes);
+        for (long i = 0; i < axes[naxes-1].length; i++)
+            convert_array2(dst + i*ds, src + i*ss, naxes-1, axes);
     }
 }
 
@@ -760,10 +760,10 @@ template<typename Tdst, typename Tsrc>
 static convert_func get_doubly_templated_converter(Dtype dst_dtype, Dtype src_dtype)
 {
     if ((dst_dtype == Dtype::native<Tdst>()) && (src_dtype == Dtype::native<Tsrc>()))
-	return convert_array<Tdst, Tsrc>;
+        return convert_array<Tdst, Tsrc>;
     
     if ((dst_dtype == Dtype::native<complex<Tdst>>()) && (src_dtype == Dtype::native<complex<Tsrc>>()))
-	return convert_array<complex<Tdst>, complex<Tsrc>>;
+        return convert_array<complex<Tdst>, complex<Tsrc>>;
 
     return nullptr;    
 }
@@ -776,13 +776,13 @@ static convert_func get_singly_templated_converter(Dtype dst_dtype, Dtype src_dt
     Dtype dt = src_dtype.real();
     
     if (dt == Dtype::native<__half>())
-	return get_doubly_templated_converter<Tdst, __half> (dst_dtype, src_dtype);
+        return get_doubly_templated_converter<Tdst, __half> (dst_dtype, src_dtype);
     
     if (dt == Dtype::native<float>())
-	return get_doubly_templated_converter<Tdst, float> (dst_dtype, src_dtype);
+        return get_doubly_templated_converter<Tdst, float> (dst_dtype, src_dtype);
     
     if (dt == Dtype::native<double>())
-	return get_doubly_templated_converter<Tdst, double> (dst_dtype, src_dtype);
+        return get_doubly_templated_converter<Tdst, double> (dst_dtype, src_dtype);
 
     return nullptr;
 }
@@ -795,13 +795,13 @@ static convert_func get_converter(Dtype dst_dtype, Dtype src_dtype)
     Dtype dt = dst_dtype.real();
     
     if (dt == Dtype::native<__half>())
-	return get_singly_templated_converter<__half> (dst_dtype, src_dtype);
+        return get_singly_templated_converter<__half> (dst_dtype, src_dtype);
     
     if (dt == Dtype::native<float>())
-	return get_singly_templated_converter<float> (dst_dtype, src_dtype);
+        return get_singly_templated_converter<float> (dst_dtype, src_dtype);
     
     if (dt == Dtype::native<double>())
-	return get_singly_templated_converter<double> (dst_dtype, src_dtype);
+        return get_singly_templated_converter<double> (dst_dtype, src_dtype);
 
     return nullptr;
 }
@@ -810,14 +810,14 @@ static convert_func get_converter(Dtype dst_dtype, Dtype src_dtype)
 void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
 {
     if (!src.on_host())
-	throw runtime_error("Array::convert(): source array must be on host");
+        throw runtime_error("Array::convert(): source array must be on host");
     if (!dst.on_host())
-	throw runtime_error("Array::convert(): destination array must be on host");
+        throw runtime_error("Array::convert(): destination array must be on host");
 
     // If src/dst dtypes match, then array_convert() can be "implemented" by calling array_fill().
     if (dst.dtype == src.dtype) {
-	array_fill(dst, src, noisy);
-	return;
+        array_fill(dst, src, noisy);
+        return;
     }
 
     // Uncoalesced axes.
@@ -827,7 +827,7 @@ void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
     
     // Return early if there is no data to convert.
     if (nax_u == 0)
-	return;
+        return;
 
     // Coalesced axes.
     int nax_c = 0;
@@ -838,16 +838,16 @@ void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
     convert_func converter = get_converter(dst.dtype, src.dtype);
 
     if (!converter) {
-	stringstream ss;
-	ss << "Array::convert(): (dst_dtype, src_dtype) = (" << dst.dtype << ", " << src.dtype
-	   << ") is currently unimplemented (implementing new dtypes should be straightforward,"
-	   << " see comments in ksgpu/src_lib/Array.cu)";
-	throw runtime_error(ss.str());
+        stringstream ss;
+        ss << "Array::convert(): (dst_dtype, src_dtype) = (" << dst.dtype << ", " << src.dtype
+           << ") is currently unimplemented (implementing new dtypes should be straightforward,"
+           << " see comments in ksgpu/src_lib/Array.cu)";
+        throw runtime_error(ss.str());
     }
 
     if (noisy) {
-	cout << "Array::convert(): note that all strides are elements (not bits or bytes)\n";
-	show_axes(cout, dst, src, nax_c, axes_c);
+        cout << "Array::convert(): note that all strides are elements (not bits or bytes)\n";
+        show_axes(cout, dst, src, nax_c, axes_c);
     }
 
     converter(dst, src, nax_c, axes_c);
@@ -866,19 +866,19 @@ static void _print_array(const Array<void> &arr_, const vector<string> &axis_nam
     int nd = arr_.ndim;
     
     for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix)) {
-	if (axis_names.size() == 0) {
-	    os << "    (";
-	    for (int d = 0; d < nd; d++)
-		os << (d ? "," : "") << ix[d];
-	    os << ((nd <= 1) ? ",)" : ")");
-	}
-	else {
-	    os << "   ";
-	    for (int d = 0; d < nd; d++)
-		os << " " << axis_names[d] << "=" << ix[d];
-	}
+        if (axis_names.size() == 0) {
+            os << "    (";
+            for (int d = 0; d < nd; d++)
+                os << (d ? "," : "") << ix[d];
+            os << ((nd <= 1) ? ",)" : ")");
+        }
+        else {
+            os << "   ";
+            for (int d = 0; d < nd; d++)
+                os << " " << axis_names[d] << "=" << ix[d];
+        }
 
-	os << ": " << arr.at(ix) << "\n";
+        os << ": " << arr.at(ix) << "\n";
     }
 }
 
@@ -887,11 +887,11 @@ template<typename T>
 static void _print_array2(const Array<void> &arr, const vector<string> &axis_names, std::ostream &os)
 {
     if (arr.dtype == Dtype::native<T>())
-	_print_array<T> (arr, axis_names, os);
+        _print_array<T> (arr, axis_names, os);
     else if (arr.dtype == Dtype::native<complex<T>>())
-	_print_array<complex<T>> (arr, axis_names, os);
+        _print_array<complex<T>> (arr, axis_names, os);
     else
-	throw runtime_error("internal error in ksgpu::print_array()");
+        throw runtime_error("internal error in ksgpu::print_array()");
 }
 
 
@@ -903,40 +903,40 @@ void print_array(const Array<void> &arr_, const vector<string> &axis_names, std:
     Dtype dt = arr.dtype.real();
 
     if (dt == Dtype::native<float>())
-	_print_array2<float> (arr, axis_names, os);
+        _print_array2<float> (arr, axis_names, os);
     
     else if (dt == Dtype::native<double>())
-	_print_array2<double> (arr, axis_names, os);
+        _print_array2<double> (arr, axis_names, os);
     
     else if (dt == Dtype::native<__half>())
-	_print_array2<__half> (arr, axis_names, os);
+        _print_array2<__half> (arr, axis_names, os);
     
     else if (dt == Dtype::native<int>())
-	_print_array2<int> (arr, axis_names, os);
+        _print_array2<int> (arr, axis_names, os);
     
     else if (dt == Dtype::native<uint>())
-	_print_array2<uint> (arr, axis_names, os);
+        _print_array2<uint> (arr, axis_names, os);
     
     else if (dt == Dtype::native<long>())
-	_print_array2<long> (arr, axis_names, os);
+        _print_array2<long> (arr, axis_names, os);
     
     else if (dt == Dtype::native<ulong>())
-	_print_array2<ulong> (arr, axis_names, os);
+        _print_array2<ulong> (arr, axis_names, os);
     
     else if (dt == Dtype::native<short>())
-	_print_array2<short> (arr, axis_names, os);
+        _print_array2<short> (arr, axis_names, os);
     
     else if (dt == Dtype::native<ushort>())
-	_print_array2<ushort> (arr, axis_names, os);
+        _print_array2<ushort> (arr, axis_names, os);
     
     else if (dt == Dtype::native<char>())
-	_print_array2<char> (arr, axis_names, os);
+        _print_array2<char> (arr, axis_names, os);
     
     else if (dt == Dtype::native<unsigned char>())
-	_print_array2<unsigned char> (arr, axis_names, os);
+        _print_array2<unsigned char> (arr, axis_names, os);
 
     else
-	throw runtime_error("ksgpu::print_array() is not implemented for dtype " + arr.dtype.str());
+        throw runtime_error("ksgpu::print_array() is not implemented for dtype " + arr.dtype.str());
     
     os.flush();
 }

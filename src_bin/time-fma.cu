@@ -28,17 +28,17 @@ __global__ void fma_kernel(T *dst, const T *src, int niter)
     
     for (int i = 0; i < niter; i++) {
 #if 1
-	// Always fast
-	a += c*c;
-	b += d*d;
-	c += a*a;
-	d += b*b;
+        // Always fast
+        a += c*c;
+        b += d*d;
+        c += a*a;
+        d += b*b;
 #else
-	// Slow for fp32, but not fp16 (register bank conflicts?)
-	a += b*c;
-	b += c*d;
-	c += d*a;
-	d += a*b;
+        // Slow for fp32, but not fp16 (register bank conflicts?)
+        a += b*c;
+        b += c*d;
+        c += d*a;
+        d += a*b;
 #endif
     }
 
@@ -58,17 +58,17 @@ __global__ void hcmadd_kernel(__half2 *dst, const __half2 *src, int niter)
     
     for (int i = 0; i < niter; i++) {
 #if 1
-	// Faster
-	a = __hcmadd(c, c, a);
-	b = __hcmadd(d, d, b);
-	c = __hcmadd(a, a, c);
-	d = __hcmadd(b, b, d);
+        // Faster
+        a = __hcmadd(c, c, a);
+        b = __hcmadd(d, d, b);
+        c = __hcmadd(a, a, c);
+        d = __hcmadd(b, b, d);
 #else
-	// Slower (register bank conflicts?)
-	a = __hcmadd(b, c, a);
-	b = __hcmadd(c, d, b);
-	c = __hcmadd(d, a, c);
-	d = __hcmadd(a, b, d);
+        // Slower (register bank conflicts?)
+        a = __hcmadd(b, c, a);
+        b = __hcmadd(c, d, b);
+        c = __hcmadd(d, a, c);
+        d = __hcmadd(a, b, d);
 #endif
     }
 
@@ -95,13 +95,13 @@ static void time_kernel(const char *name, int flops_per_iteration)
     Array<int> src({nstreams,4*nth}, af_zero | af_gpu);
     
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-	{
-	    T *d = (T *) (dst.data + istream*nth);
-	    T *s = (T *) (src.data + istream*4*nth);
-	    
-	    F <<< nblocks, nthreads_per_block, 0, stream >>> (d,s,niter);
-	    CUDA_PEEK(name);
-	};
+        {
+            T *d = (T *) (dst.data + istream*nth);
+            T *s = (T *) (src.data + istream*4*nth);
+            
+            F <<< nblocks, nthreads_per_block, 0, stream >>> (d,s,niter);
+            CUDA_PEEK(name);
+        };
 
     
     CudaStreamPool pool(callback, ncallbacks, nstreams, name);
@@ -118,4 +118,4 @@ int main(int argc, char **argv)
     
     return 0;
 }
-	     
+             

@@ -23,8 +23,8 @@ l2_bandwidth_kernel(int *dst, const int *src)
 {
     int subtotal = 0;
     for (int i = 0; i < num_inner_iterations; i++)
-	for (int j = threadIdx.x; j < nsrc; j += blockDim.x)
-	    subtotal += src[j];
+        for (int j = threadIdx.x; j < nsrc; j += blockDim.x)
+            subtotal += src[j];
 
     static_assert(nthreads_per_block == 1024);
 
@@ -38,7 +38,7 @@ l2_bandwidth_kernel(int *dst, const int *src)
     __syncthreads();
     
     if (warpId == 0)
-	dst[dstId] = warp_total[laneId];
+        dst[dstId] = warp_total[laneId];
 }
 
 
@@ -47,11 +47,11 @@ int main(int argc, char **argv)
     double gb = nblocks * num_inner_iterations * (l2_footprint_nbytes / double(1<<30));
 
     cout << "L2 cache bandwidth test\n"
-	 << "    nblocks = " << nblocks << "\n"
-	 << "    nthreads_per_block = " << nthreads_per_block << "\n"
-	 << "    num_inner_iterations = " << num_inner_iterations << "\n"
-	 << "    L2 footprint (bytes) = " << l2_footprint_nbytes << "\n"
-	 << "    Total data read (GB) = " << gb << endl;
+         << "    nblocks = " << nblocks << "\n"
+         << "    nthreads_per_block = " << nthreads_per_block << "\n"
+         << "    num_inner_iterations = " << num_inner_iterations << "\n"
+         << "    L2 footprint (bytes) = " << l2_footprint_nbytes << "\n"
+         << "    Total data read (GB) = " << gb << endl;
     
     Array<int> dst({ndst}, af_gpu | af_zero);
     Array<int> src({nsrc}, af_gpu | af_zero);
@@ -64,7 +64,7 @@ int main(int argc, char **argv)
     double bw = gb / elapsed_time;
 
     cout << "    Elapsed time (sec) = "<< elapsed_time << "\n"
-	 << "    Bandwidth (GB/s) = " << bw << endl;
+         << "    Bandwidth (GB/s) = " << bw << endl;
 
     return 0;
 }

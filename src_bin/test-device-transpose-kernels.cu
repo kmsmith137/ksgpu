@@ -43,17 +43,17 @@ static void test_warp_half2_kernels(int n, uint thread_stride)
     Array<float> dst({n,32,2}, af_rhost | af_random);
 
     for (int i = 0; i < n; i++) {
-	for (int j = 0; j < 32; j++) {
-	    for (int k = 0; k < 2; k++) {
-		int ix_dst = 64*i + 2*j + k;
+        for (int j = 0; j < 32; j++) {
+            for (int k = 0; k < 2; k++) {
+                int ix_dst = 64*i + 2*j + k;
 
-		int j0 = j & ~thread_stride;
-		int j1 = (j & thread_stride) ? 1 : 0;
-		int ix_src = 64*i + 2*(j0 + thread_stride*k) + j1;
+                int j0 = j & ~thread_stride;
+                int j1 = (j & thread_stride) ? 1 : 0;
+                int ix_src = 64*i + 2*(j0 + thread_stride*k) + j1;
 
-		dst.data[ix_dst] = src.data[ix_src];
-	    }
-	}
+                dst.data[ix_dst] = src.data[ix_src];
+            }
+        }
     }
 
     Array<__half> garr1 = src.template convert<__half>().to_gpu();
@@ -74,7 +74,7 @@ static void test_warp_half2_kernels(int n, uint thread_stride)
 int main(int argc, char **argv)
 {
     for (int thread_stride = 1; thread_stride < 32; thread_stride *= 2)
-	test_warp_half2_kernels(1024, thread_stride);
+        test_warp_half2_kernels(1024, thread_stride);
 
     cout << "TODO: test kernels other than warp_half2" << endl;
     return 0;

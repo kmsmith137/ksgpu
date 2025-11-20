@@ -44,22 +44,61 @@ namespace ksgpu {
 
 #define _CUDA_CALL(x, xstr, file, line) \
     do { \
-	cudaError_t xerr = (x); \
-	if (_unlikely(xerr != cudaSuccess)) \
-	    throw ::ksgpu::make_cuda_exception(xerr, xstr, file, line); \
+        cudaError_t xerr = (x); \
+        if (_unlikely(xerr != cudaSuccess)) \
+            throw ::ksgpu::make_cuda_exception(xerr, xstr, file, line); \
     } while (0)
 
 #define _CUDA_CALL_ABORT(x, xstr, file, line) \
     do { \
-	cudaError_t xerr = (x); \
-	if (_unlikely(xerr != cudaSuccess)) { \
-	    fprintf(stderr, "CUDA call '%s' failed at %s:%d\n", xstr, file, line); \
-	    exit(1); \
-	} \
+        cudaError_t xerr = (x); \
+        if (_unlikely(xerr != cudaSuccess)) { \
+            fprintf(stderr, "CUDA call '%s' returned %d (%s) [%s:%d]\n", \
+                    xstr, int(xerr), cudaGetErrorString(xerr), file, line); \
+            exit(1); \
+        } \
     } while (0)
 
 // Helper for CUDA_CALL().
 std::runtime_error make_cuda_exception(cudaError_t xerr, const char *xstr, const char *file, int line);
+
+
+// -----------------------------  RAII wrapper for cudaSetDevice()  --------------------------------
+//
+// Constructor sets current cuda device to 'new_dev'.
+// Destructor restores the original cuda_device (at the time the constructor was called).
+// If new_dev < 0, then the constructor/destructor will no-op.
+
+
+struct CudaSetDevice {
+    const int new_dev;
+    int old_dev = -1;
+
+    // Noncopyable.
+    CudaSetDevice() = delete;
+    CudaSetDevice(const CudaSetDevice &) = delete;
+    CudaSetDevice& operator=(const CudaSetDevice &) = delete;
+
+    CudaSetDevice(int new_dev_) : new_dev(new_dev_)
+    {
+        if (new_dev < 0)
+            return;
+
+        // Save current device in 'old_dev'.
+        // Note: we use CUDA_CALL_ABORT() instead of CUDA_CALL(), since CudaSetDevice is
+        // used in a context (shared_ptr deleter) where it is not safe to throw an exception.
+        CUDA_CALL_ABORT(cudaGetDevice(&old_dev));
+        
+        if (old_dev != new_dev)
+            CUDA_CALL_ABORT(cudaSetDevice(new_dev));
+    }
+
+    ~CudaSetDevice()
+    {
+        if ((old_dev >= 0) && (new_dev >= 0) && (old_dev != new_dev))
+            CUDA_CALL_ABORT(cudaSetDevice(old_dev));
+    }
+};
 
 
 // ------------------------------  RAII wrapper for cudaStream_t  ----------------------------------
@@ -74,9 +113,9 @@ struct CudaStreamWrapper {
 
     CudaStreamWrapper()
     {
-	cudaStream_t s;
-	CUDA_CALL(cudaStreamCreate(&s));
-	this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
+        cudaStream_t s;
+        CUDA_CALL(cudaStreamCreate(&s));
+        this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
     }
 
     // Create cudaStream with priority. CUDA priorities follow a convention where lower numbers represent
@@ -85,9 +124,9 @@ struct CudaStreamWrapper {
     
     CudaStreamWrapper(int priority)
     {
-	cudaStream_t s;
-	CUDA_CALL(cudaStreamCreateWithPriority(&s, cudaStreamDefault, priority));
-	this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
+        cudaStream_t s;
+        CUDA_CALL(cudaStreamCreateWithPriority(&s, cudaStreamDefault, priority));
+        this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
     }
 
     // A CudaStreamWrapper can be used anywhere a cudaStream_t can be used
@@ -120,9 +159,9 @@ struct CudaEventWrapper {
     
     CudaEventWrapper(uint flags = cudaEventDefault)
     {
-	cudaEvent_t e;
-	CUDA_CALL(cudaEventCreateWithFlags(&e, flags));
-	this->p = std::shared_ptr<CUevent_st> (e, cudaEventDestroy);
+        cudaEvent_t e;
+        CUDA_CALL(cudaEventCreateWithFlags(&e, flags));
+        this->p = std::shared_ptr<CUevent_st> (e, cudaEventDestroy);
     }
 
     // A CudaEventWrapper can be used anywhere a cudaEvent_t can be used
@@ -160,22 +199,22 @@ protected:
 public:
     CudaTimer(cudaStream_t stream_ = nullptr)
     {
-	stream = stream_;
-	CUDA_CALL(cudaEventRecord(start, stream));
+        stream = stream_;
+        CUDA_CALL(cudaEventRecord(start, stream));
     }
 
     float stop()
     {
-	if (!running)
-	    throw std::runtime_error("double call to CudaTimer::stop()");
+        if (!running)
+            throw std::runtime_error("double call to CudaTimer::stop()");
 
-	running = false;
-	CUDA_CALL(cudaEventRecord(end, stream));
-	CUDA_CALL(cudaEventSynchronize(end));
+        running = false;
+        CUDA_CALL(cudaEventRecord(end, stream));
+        CUDA_CALL(cudaEventSynchronize(end));
 
-	float milliseconds = 0.0;
-	CUDA_CALL(cudaEventElapsedTime(&milliseconds, start, end));
-	return milliseconds / 1000.;
+        float milliseconds = 0.0;
+        CUDA_CALL(cudaEventElapsedTime(&milliseconds, start, end));
+        return milliseconds / 1000.;
     }
 };
 

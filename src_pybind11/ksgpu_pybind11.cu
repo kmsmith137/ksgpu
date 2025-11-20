@@ -63,13 +63,13 @@ string get_cuda_pcie_bus_id(int cuda_device)
 static double _sum(Array<double> &arr)
 {
     if (!arr.on_host()) {
-	cout << "sum() copying array from GPU to host" << endl;
-	arr = arr.to_host();
+        cout << "sum() copying array from GPU to host" << endl;
+        arr = arr.to_host();
     }
     
     double sum = 0;
     for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix))
-	sum += arr.at(ix);
+        sum += arr.at(ix);
     
     return sum;
 }
@@ -81,17 +81,17 @@ static void _double(Array<double> &arr)
     bool copy = !arr.on_host();
 
     if (copy) {
-	cout << "double() copying array from GPU to host" << endl;
-	asave = arr;
-	arr = arr.to_host();
+        cout << "double() copying array from GPU to host" << endl;
+        asave = arr;
+        arr = arr.to_host();
     }
     
     for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix))
-	arr.at({ix}) *= 2;
+        arr.at({ix}) *= 2;
 
     if (copy) {
-	cout << "double() copying array from host to GPU" << endl;
-	asave.fill(arr);
+        cout << "double() copying array from host to GPU" << endl;
+        asave.fill(arr);
     }
 }    
 
@@ -102,7 +102,7 @@ static Array<int> _arange(int n)
     Array<int> ret({n}, af_uhost | af_verbose);
     
     for (int i = 0; i < n; i++)
-	ret.at({i}) = i;
+        ret.at({i}) = i;
     
     return ret;
 }
@@ -113,11 +113,11 @@ static void _convert_array_from_python(py::object &obj)
     ksgpu::Array<void> arr;
 
     ksgpu::convert_array_from_python(
-	arr,                          // Array<void> &dst
-	obj.ptr(),                    // PyObject *src
-	ksgpu::Dtype(),               // Dtype dt_expected
-	false,                        // bool convert
-	"convert_array_from_python"   // const char *debug_prefix
+        arr,                          // Array<void> &dst
+        obj.ptr(),                    // PyObject *src
+        ksgpu::Dtype(),               // Dtype dt_expected
+        false,                        // bool convert
+        "convert_array_from_python"   // const char *debug_prefix
     );
 }
 
@@ -174,16 +174,16 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
     // found at compile-time versus runtime.
 
     if (_import_array() < 0) {
-	PyErr_Print();
-	PyErr_SetString(PyExc_ImportError, "ksgpu: numpy.core.multiarray failed to import");
-	return;
+        PyErr_Print();
+        PyErr_SetString(PyExc_ImportError, "ksgpu: numpy.core.multiarray failed to import");
+        return;
     }
 
     // -----------------------------------  ksgpu toplevel -----------------------------------------
     
     const char *baseptr_doc =
-	"This helper class is a hack, used interally for converting C++ arrays to python\n"
-	"It can't be instantiated or used from python.";
+        "This helper class is a hack, used interally for converting C++ arrays to python\n"
+        "It can't be instantiated or used from python.";
 
     // Reminder: struct PybindBasePtr is in pybind11_utils.{hpp,cu}.
     py::class_<PybindBasePtr>(m, "BasePtr", baseptr_doc);
@@ -195,41 +195,41 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
     m.def("set_cuda_device", &set_cuda_device, "Sets current cuda device");
     
     m.def("get_cuda_pcie_bus_id", &get_cuda_pcie_bus_id,
-	  "Returns PCIe bus ID of specified cuda device, as string e.g. '0000:E1:00.0'",
-	  py::arg("device"));
+          "Returns PCIe bus ID of specified cuda device, as string e.g. '0000:E1:00.0'",
+          py::arg("device"));
     
     // ------------------------------  ksgpu.tests submodule  --------------------------------------
      
     const char *stash_doc =
-	"Helper class intended for testing C++ <-> python array conversion.\n"
-	"   s = Stash(numpy_or_cupy_array)     # converts array to C++ and saves it\n"
-	"   arr = Stash.get()                  # converts array to python and returns it";
+        "Helper class intended for testing C++ <-> python array conversion.\n"
+        "   s = Stash(numpy_or_cupy_array)     # converts array to C++ and saves it\n"
+        "   arr = Stash.get()                  # converts array to python and returns it";
 
 
     py::class_<Stash>(m, "Stash", stash_doc)
-	.def(py::init<const Array<void> &>(), py::arg("arr"))
-	.def("get", &Stash::get)
+        .def(py::init<const Array<void> &>(), py::arg("arr"))
+        .def("get", &Stash::get)
         .def("clear", &Stash::clear)
     ;
     
-    m.def("sum", &_sum,	  
-	  "Equivalent to {numpy,cupy}.sum(arr), but uses the python -> C++ converter",
-	  py::arg("arr"));
-	  
+    m.def("sum", &_sum,   
+          "Equivalent to {numpy,cupy}.sum(arr), but uses the python -> C++ converter",
+          py::arg("arr"));
+          
     m.def("double", &_double,
-	  "Equivalent to 'arr *= 2', but uses the python -> C++ converter",
-	  py::arg("arr"));
+          "Equivalent to 'arr *= 2', but uses the python -> C++ converter",
+          py::arg("arr"));
 
     m.def("arange", &_arange,
-	  "Equivalent to numpy.arange(n), but uses the C++ -> python converter."
-	  " (FIXME CPU-only for now.)",
-	  py::arg("n"));
+          "Equivalent to numpy.arange(n), but uses the C++ -> python converter."
+          " (FIXME CPU-only for now.)",
+          py::arg("n"));
 
     m.def("convert_array_from_python", &_convert_array_from_python,
-	  "Converts array from python to C++, but with a lot of debug output."
-	  " This is intended as a mechanism for tracing/debugging array conversion.",
-	  py::arg("arr"));
+          "Converts array from python to C++, but with a lot of debug output."
+          " This is intended as a mechanism for tracing/debugging array conversion.",
+          py::arg("arr"));
 
     m.def("_launch_busy_wait_kernel", &_launch_busy_wait_kernel,
-	  py::arg("arr"), py::arg("a40_sec"), py::arg("stream_ptr"));
+          py::arg("arr"), py::arg("a40_sec"), py::arg("stream_ptr"));
 }

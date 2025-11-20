@@ -33,20 +33,20 @@ struct type_caster<ksgpu::Array<T>>
 
     bool load(handle src, bool convert)
     {
-	ksgpu::Dtype dt_expected;
-	
-	if constexpr (!std::is_void_v<T>)
-	    dt_expected = ksgpu::Dtype::native<T>();
-	
-	// Throws a C++ exception on failure. (I tried a few ways of reporting
-	// failure, including calling PyErr_SetString() and returning false,
-	// but I liked throwing a C++ exception best.)
-	//
-	// If 'dt_expected' is an empty type (i.e. flags==nbits==0) then no
-	// type-checking is performed.
-	
-	ksgpu::convert_array_from_python(this->value, src.ptr(), dt_expected, convert);
-	return true;
+        ksgpu::Dtype dt_expected;
+        
+        if constexpr (!std::is_void_v<T>)
+            dt_expected = ksgpu::Dtype::native<T>();
+        
+        // Throws a C++ exception on failure. (I tried a few ways of reporting
+        // failure, including calling PyErr_SetString() and returning false,
+        // but I liked throwing a C++ exception best.)
+        //
+        // If 'dt_expected' is an empty type (i.e. flags==nbits==0) then no
+        // type-checking is performed.
+        
+        ksgpu::convert_array_from_python(this->value, src.ptr(), dt_expected, convert);
+        return true;
     }
     
     // cast(): convert C++ -> python
@@ -54,11 +54,11 @@ struct type_caster<ksgpu::Array<T>>
 
     static handle cast(ksgpu::Array<T> src, return_value_policy policy, handle parent)
     {
-	// On failure, ksgpu::convert_array_to_python() calls PyErr_SetString()
-	// and returns NULL. (I tried a few ways of reporting failure, and I liked
-	// this way best.)
-	
-	return ksgpu::convert_array_to_python(src, policy, parent);
+        // On failure, ksgpu::convert_array_to_python() calls PyErr_SetString()
+        // and returns NULL. (I tried a few ways of reporting failure, and I liked
+        // this way best.)
+        
+        return ksgpu::convert_array_to_python(src, policy, parent);
     }
 };
 
