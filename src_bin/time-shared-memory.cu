@@ -24,7 +24,7 @@ __global__ void shmem_read_write_kernel(T *p, int niter)
 
     p += threadIdx.x + (blockIdx.x * blockDim.x);
     T x = *p;
-    
+
     int s = threadIdx.x;
     shmem[s] = x;
     
@@ -82,13 +82,13 @@ int main(int argc, char **argv)
     time_kernel<int,false,true> ("Write shared memory (int)");
     time_kernel<int,true,true> ("Read/write shared memory (int)");
     
-    time_kernel<int2,true,false> ("Read shared memory (long)");
-    time_kernel<int2,false,true> ("Write shared memory (long)");
-    time_kernel<int2,true,true> ("Read/write shared memory (long)");
+    time_kernel<int2,true,false> ("Read shared memory (int2)");
+    time_kernel<int2,false,true> ("Write shared memory (int2)");
+    time_kernel<int2,true,true> ("Read/write shared memory (int2)");
     
-    time_kernel<int4,true,false> ("Read shared memory (long)");
-    time_kernel<int4,false,true> ("Write shared memory (long)");
-    time_kernel<int4,true,true> ("Read/write shared memory (long)");
+    time_kernel<int4,true,false> ("Read shared memory (int4)");
+    time_kernel<int4,false,true> ("Write shared memory (int4)");
+    time_kernel<int4,true,true> ("Read/write shared memory (int4)");
     
     return 0;
 }
