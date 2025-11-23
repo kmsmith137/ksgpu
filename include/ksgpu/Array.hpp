@@ -385,7 +385,7 @@ template<typename T>
 inline Array<T>::Array(Dtype dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
 {
     xassert(strides_ != nullptr);
-    this->allocate(dtype_, ndim_, shape_, nullptr, aflags_);
+    this->allocate(dtype_, ndim_, shape_, strides_, aflags_);
 }
 
 
