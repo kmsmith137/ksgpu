@@ -174,7 +174,12 @@ struct Array {
     inline bool shape_equals(int ndim, const long *shape) const;
     inline bool shape_equals(const std::vector<long> &shape) const;
     inline bool shape_equals(std::initializer_list<long> shape) const;
-    template<typename T2> inline bool shape_equals(const Array<T2> &a) const;    
+    template<typename T2> inline bool shape_equals(const Array<T2> &a) const;   
+    
+    inline bool strides_equal(int ndim, const long *strides) const;
+    inline bool strides_equal(const std::vector<long> &strides) const;
+    inline bool strides_equal(std::initializer_list<long> strides) const;
+    template<typename T2> inline bool strides_equal(const Array<T2> &a) const;    
 
     inline std::string shape_str() const;
     inline std::string stride_str() const;
@@ -621,7 +626,7 @@ inline Array<void> Array<T>::convert(Dtype dtype, int aflags) const
 //
 // Member functions intended for debugging/testing:
 //  - ix_start(), ix_valid(), ix_next()
-//  - shape_equals(), shape_str(), stride_str()
+//  - shape_equals(), strides_equal(), shape_str(), stride_str()
 //  - check_invariants()
 //  - at().
 
@@ -663,9 +668,9 @@ inline bool Array<T>::shape_equals(int ndim_, const long *shape_) const
 }
 
 template<typename T>
-inline bool Array<T>::shape_equals(const std::vector<long> &shape) const
+inline bool Array<T>::shape_equals(const std::vector<long> &shape_) const
 {
-    return _tuples_equal(this->ndim, this->shape, shape.size(), &shape[0]);
+    return _tuples_equal(this->ndim, this->shape, shape_.size(), &shape_[0]);
 }
 
 template<typename T>
@@ -680,6 +685,32 @@ inline bool Array<T>::shape_equals(const Array<T2> &a) const
     return _tuples_equal(this->ndim, this->shape, a.ndim, a.shape);
 }
 
+
+template<typename T>
+inline bool Array<T>::strides_equal(int ndim_, const long *strides_) const
+{
+    return _tuples_equal(this->ndim, this->strides, ndim_, strides_);
+}
+
+template<typename T>
+inline bool Array<T>::strides_equal(const std::vector<long> &strides_) const
+{
+    return _tuples_equal(this->ndim, this->strides, strides_.size(), &strides_[0]);
+}
+
+template<typename T>
+inline bool Array<T>::strides_equal(std::initializer_list<long> strides_) const
+{
+    return _tuples_equal(this->ndim, this->strides, strides_.size(), strides_.begin());
+}   
+
+template<typename T> template<typename T2>
+inline bool Array<T>::strides_equal(const Array<T2> &a) const
+{
+    return _tuples_equal(this->ndim, this->strides, a.ndim, a.strides);
+}
+
+
 template<typename T>
 inline std::string Array<T>::shape_str() const
 {
@@ -691,6 +722,7 @@ inline std::string Array<T>::stride_str() const
 {
     return _tuple_str(ndim, strides);
 }
+
 
 template<typename T>
 inline void Array<T>::check_invariants(const char *where) const
