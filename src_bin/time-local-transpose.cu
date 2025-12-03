@@ -2,7 +2,7 @@
 #include <cuda_fp16.h>
 
 #include "../include/ksgpu/Array.hpp"
-#include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
 
 using namespace std;
@@ -104,27 +104,29 @@ void time_local_transpose_kernel(const char *name)
     
     const int nblocks = 82 * 84;
     const int nthreads_per_block = 1024;
-    const int ncallbacks = 10;
+    const int nouter = 10;
     const int nstreams = 2;
-    const int niter = 256 * 1024;
-    const double tera_transposes_per_kernel = double(niter) * nblocks * nthreads_per_block * 12 / pow(2.,40.);
+    const int ninner = 256 * 1024;
+    const double tera_transposes_per_kernel = double(ninner) * nblocks * nthreads_per_block * 12 / pow(2.,40.);
 
-    const int ninner = nblocks * nthreads_per_block * 16;
-    Array<D16> dst({nstreams,ninner}, af_zero | af_gpu);
-    Array<D16> src({nstreams,ninner}, af_zero | af_gpu);
+    const int arr_size = nblocks * nthreads_per_block * 16;
+    Array<D16> dst({nstreams,arr_size}, af_zero | af_gpu);
+    Array<D16> src({nstreams,arr_size}, af_zero | af_gpu);
 
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-        {
-            D16 *d = dst.data + istream*ninner;
-            D16 *s = src.data + istream*ninner;
+    KernelTimer kt(nstreams);
 
-            local_transpose_kernel<T> <<< nblocks, nthreads_per_block, 0, stream >>> ((D32 *)d, (D32 *)s, niter);
-            CUDA_PEEK(name);
-        };
+    for (int i = 0; i < nouter; i++) {
+        D16 *d = dst.data + kt.istream*arr_size;
+        D16 *s = src.data + kt.istream*arr_size;
 
-    CudaStreamPool pool(callback, ncallbacks, nstreams, name);
-    pool.monitor_throughput("teratransposes / sec", tera_transposes_per_kernel);
-    pool.run();
+        local_transpose_kernel<T> <<< nblocks, nthreads_per_block, 0, kt.stream >>> ((D32 *)d, (D32 *)s, ninner);
+        CUDA_PEEK(name);
+
+        if (kt.advance()) {
+            double tera_per_sec = tera_transposes_per_kernel / kt.dt;
+            cout << name << " teratransposes / sec: " << tera_per_sec << endl;
+        }
+    }
 }
 
 

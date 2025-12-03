@@ -4,6 +4,7 @@
 
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
 #include "../include/ksgpu/mem_utils.hpp"
 
@@ -84,7 +85,7 @@ static void time_curand()
     int threads_per_block = 128;
     int nblocks = 16*1024;
     int nstreams = 2;
-    int ncallbacks = 20;
+    int niter = 20;
 
     int threads_per_stream = nblocks * threads_per_block;
     int total_threads = nstreams * threads_per_stream;
@@ -92,19 +93,21 @@ static void time_curand()
     Array<uint> out({total_threads}, af_gpu);
     CurandStateArray state(total_threads, seed);
 
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-    {
-        time_curand_kernel<<< nblocks, threads_per_block, 0, stream >>>
-            (out.data + istream * threads_per_stream,
-             state.data + istream * threads_per_stream,
+    KernelTimer kt(nstreams);
+
+    for (int i = 0; i < niter; i++) {
+        time_curand_kernel<<< nblocks, threads_per_block, 0, kt.stream >>>
+            (out.data + kt.istream * threads_per_stream,
+             state.data + kt.istream * threads_per_stream,
              iterations_per_thread);
         
         CUDA_PEEK("time_curand_kernel launch");
-    };
 
-    CudaStreamPool sp(callback, ncallbacks, nstreams, "time_curand");
-    sp.monitor_throughput("RNG throughput (Gsamples/s)", 1.0e-9 * iterations_per_thread * threads_per_stream);
-    sp.run();
+        if (kt.advance()) {
+            double gsamp_per_sec = 1.0e-9 * iterations_per_thread * threads_per_stream / kt.dt;
+            cout << "RNG throughput (Gsamples/s): " << gsamp_per_sec << ((i==(niter-1)) ? "\n" : "") << endl;
+        }
+    };
 }
 
 
@@ -156,7 +159,7 @@ static void time_global_atomic_add(const string &name, int iterations_per_thread
     int threads_per_block = 128;
     int nblocks = 16*1024;
     int nstreams = 2;
-    int ncallbacks = 20;
+    int niter = 20;
 
     int threads_per_stream = nblocks * threads_per_block;
     int total_threads = nstreams * threads_per_stream;
@@ -169,21 +172,23 @@ static void time_global_atomic_add(const string &name, int iterations_per_thread
     Array<T> p({nelts_tot}, af_gpu | af_zero);
     CurandStateArray state(total_threads, seed);
 
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-    {
-        global_atomic_add_kernel<<< nblocks, threads_per_block, 0, stream >>>
-            (p.data + istream * nelts_per_stream,
-             state.data + istream * threads_per_stream,
+    KernelTimer kt(nstreams);
+
+    for (int i = 0; i < niter; i++) {
+        global_atomic_add_kernel<<< nblocks, threads_per_block, 0, kt.stream >>>
+            (p.data + kt.istream * nelts_per_stream,
+             state.data + kt.istream * threads_per_stream,
              iterations_per_thread,
              nelts,
              sep_flag);
         
-        CUDA_PEEK("time_curand_kernel launch");
-    };
+        CUDA_PEEK("global_atomic_add_kernel launch");
 
-    CudaStreamPool sp(callback, ncallbacks, nstreams, name);
-    sp.monitor_throughput("Bandwidth (GB/s)", 2.0e-9 * iterations_per_thread * threads_per_stream * sizeof(T));
-    sp.run();
+        if (kt.advance()) {
+            double gb_per_sec = 2.0e-9 * iterations_per_thread * threads_per_stream * sizeof(T) / kt.dt;
+            cout << name << " Bandwidth (GB/s): " << gb_per_sec << ((i==(niter-1)) ? "\n" : "") << endl;
+        }
+    }
 }
 
 

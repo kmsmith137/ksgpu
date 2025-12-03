@@ -2,7 +2,7 @@
 #include <iostream>
 
 #include "../include/ksgpu/Array.hpp"
-#include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
 #include "../include/ksgpu/memcpy_kernels.hpp"
 
@@ -15,24 +15,28 @@ static void time_memcpy(long nbytes, int ninner, int nouter, int nstreams=1)
     Array<char> adst({nstreams,nbytes}, af_zero | af_gpu);
     Array<char> asrc({nstreams,nbytes}, af_zero | af_gpu);
 
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-    {
-        char *d = adst.data + istream*nbytes;
-        char *s = asrc.data + istream*nbytes;
-
-        for (int i = 0; i < ninner; i++)
-            launch_memcpy_kernel(d, s, nbytes, stream);
-        
-        CUDA_PEEK("launch_memcpy_kernel");
-    };
-
     stringstream ss;
     ss << "memcpy(nbytes=" << nbytes << ")";
+    string name = ss.str();
 
     double gb_per_kernel = 2.0e-9 * ninner * nbytes;
-    CudaStreamPool pool(callback, nouter, nstreams, ss.str());
-    pool.monitor_throughput("GB/s", gb_per_kernel);
-    pool.run();
+
+    KernelTimer kt(nstreams);
+
+    for (int i = 0; i < nouter; i++) {
+        char *d = adst.data + kt.istream*nbytes;
+        char *s = asrc.data + kt.istream*nbytes;
+
+        for (int j = 0; j < ninner; j++)
+            launch_memcpy_kernel(d, s, nbytes, kt.stream);
+        
+        CUDA_PEEK("launch_memcpy_kernel");
+
+        if (kt.advance()) {
+            double gb_per_sec = gb_per_kernel / kt.dt;
+            cout << name << " GB/s: " << gb_per_sec << endl;
+        }
+    }
 }
 
 
@@ -44,24 +48,28 @@ static void time_memcpy_2d(long dpitch, long spitch, long width, long height, in
     Array<char> adst({nstreams,dst_nbytes}, af_zero | af_gpu);
     Array<char> asrc({nstreams,src_nbytes}, af_zero | af_gpu);
 
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-    {
-        char *d = adst.data + istream * dst_nbytes;
-        char *s = asrc.data + istream * src_nbytes;
-
-        for (int i = 0; i < ninner; i++)
-            launch_memcpy_2d_kernel(d, dpitch, s, spitch, width, height, stream);
-        
-        CUDA_PEEK("launch_memcpy_2d_kernel");
-    };
-
     stringstream ss;
     ss << "memcpy_2d(dpitch=" << dpitch << ", spitch=" << spitch << ", width=" << width << ", height=" << height << ")";
+    string name = ss.str();
 
     double gb_per_kernel = 2.0e-9 * ninner * width * height;
-    CudaStreamPool pool(callback, nouter, nstreams, ss.str());
-    pool.monitor_throughput("GB/s", gb_per_kernel);
-    pool.run();
+
+    KernelTimer kt(nstreams);
+
+    for (int i = 0; i < nouter; i++) {
+        char *d = adst.data + kt.istream * dst_nbytes;
+        char *s = asrc.data + kt.istream * src_nbytes;
+
+        for (int j = 0; j < ninner; j++)
+            launch_memcpy_2d_kernel(d, dpitch, s, spitch, width, height, kt.stream);
+        
+        CUDA_PEEK("launch_memcpy_2d_kernel");
+
+        if (kt.advance()) {
+            double gb_per_sec = gb_per_kernel / kt.dt;
+            cout << name << " GB/s: " << gb_per_sec << endl;
+        }
+    }
 }
 
 

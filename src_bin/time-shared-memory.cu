@@ -1,5 +1,5 @@
 #include "../include/ksgpu/Array.hpp"
-#include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
 
 #include <iostream>
@@ -45,34 +45,37 @@ __global__ void shmem_read_write_kernel(T *p, int niter)
 template<typename T, bool Read, bool Write>
 static void time_kernel(const char *name)
 {
-    const int niter = 8 * 1024;
+    const int ninner = 8 * 1024;
     const int threads_per_block = 16 * 32;
     const int blocks_per_kernel = 32 * 1024;
     const int nstreams = 1;
-    const int nkernels = 10;
+    const int nouter = 10;
 
     const double sm_cycles_per_second = get_sm_cycles_per_second();
-    const double instructions_per_kernel = double(niter) * double(threads_per_block/32) * double(blocks_per_kernel);
+    const double instructions_per_kernel = double(ninner) * double(threads_per_block/32) * double(blocks_per_kernel);
     const double shmem_tb_per_kernel = 1.0e-12 * 32.0 * sizeof(T) * instructions_per_kernel;
     const int shmem_nbytes = threads_per_block * sizeof(T);
 
     Array<uint8_t> arr({nstreams, blocks_per_kernel * threads_per_block * sizeof(T) }, af_gpu | af_zero);
     
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-    {
-	T *gmem = (T*)arr.data + (istream * arr.shape[1]);
+    KernelTimer kt(nstreams);
+
+    for (int i = 0; i < nouter; i++) {
+	T *gmem = (T*)arr.data + (kt.istream * arr.shape[1]);
 	
 	shmem_read_write_kernel<T, Read, Write>
-	    <<< blocks_per_kernel, threads_per_block, shmem_nbytes, stream >>>
-	    (gmem, niter);
+	    <<< blocks_per_kernel, threads_per_block, shmem_nbytes, kt.stream >>>
+	    (gmem, ninner);
 	
 	CUDA_PEEK(name);
-    };
 
-    CudaStreamPool sp(callback, nkernels, nstreams, name);
-    sp.monitor_throughput("Shared memory BW (TB/s)", shmem_tb_per_kernel);
-    sp.monitor_time("Clock cycles", instructions_per_kernel / sm_cycles_per_second);
-    sp.run();
+        if (kt.advance()) {
+            double tb_per_sec = shmem_tb_per_kernel / kt.dt;
+            double cycles = kt.dt / (instructions_per_kernel / sm_cycles_per_second);
+            cout << name << " Shared memory BW (TB/s): " << tb_per_sec
+                 << ", Clock cycles: " << cycles << endl;
+        }
+    }
 }
 
     

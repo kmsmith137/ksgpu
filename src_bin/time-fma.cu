@@ -3,7 +3,7 @@
 #include <cuda_fp16.h>
 
 #include "../include/ksgpu/Array.hpp"
-#include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
 
 using namespace std;
@@ -84,29 +84,30 @@ static void time_kernel(const char *name, int flops_per_iteration)
 {
     const int nblocks = 82 * 84;
     const int nthreads_per_block = 1024;
-    const int ncallbacks = 10;
+    const int nouter = 10;
     const int nstreams = 2;
-    const int niter = 4096 * 1024 / flops_per_iteration;
+    const int ninner = 4096 * 1024 / flops_per_iteration;
     const int nth = nblocks * nthreads_per_block;
-    const double tflops_per_kernel = nth * double(niter) * flops_per_iteration / pow(2,40.);
+    const double tflops_per_kernel = nth * double(ninner) * flops_per_iteration / pow(2,40.);
 
     static_assert(sizeof(T) == 4);
     Array<int> dst({nstreams,nth}, af_zero | af_gpu);
     Array<int> src({nstreams,4*nth}, af_zero | af_gpu);
     
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-        {
-            T *d = (T *) (dst.data + istream*nth);
-            T *s = (T *) (src.data + istream*4*nth);
-            
-            F <<< nblocks, nthreads_per_block, 0, stream >>> (d,s,niter);
-            CUDA_PEEK(name);
-        };
+    KernelTimer kt(nstreams);
 
-    
-    CudaStreamPool pool(callback, ncallbacks, nstreams, name);
-    pool.monitor_throughput("Tflops", tflops_per_kernel);
-    pool.run();
+    for (int i = 0; i < nouter; i++) {
+        T *d = (T *) (dst.data + kt.istream*nth);
+        T *s = (T *) (src.data + kt.istream*4*nth);
+        
+        F <<< nblocks, nthreads_per_block, 0, kt.stream >>> (d,s,ninner);
+        CUDA_PEEK(name);
+
+        if (kt.advance()) {
+            double tflops = tflops_per_kernel / kt.dt;
+            cout << name << " Tflops: " << tflops << endl;
+        }
+    }
 }
 
 

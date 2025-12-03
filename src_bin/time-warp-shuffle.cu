@@ -1,6 +1,6 @@
 #include <iostream>
 #include "../include/ksgpu/Array.hpp"
-#include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/KernelTimer.hpp"
 
 using namespace std;
 using namespace ksgpu;
@@ -59,55 +59,59 @@ __global__ void shfl_long_kernel(long2 *buf, const uint2 *lane, int niter)
 }
 
 
-static void time_shfl_int(int nblocks, int nthreads, int nstreams, int ncallbacks, int niter)
+static void time_shfl_int(int nblocks, int nthreads, int nstreams, int nouter, int ninner)
 {
     int s = nblocks * nthreads;
     Array<int> bufs({nstreams,s*4}, af_zero | af_gpu);
     Array<uint> lanes({nstreams,s*4}, af_zero | af_gpu);
 
     double thread_cycles_per_second = 32. * get_sm_cycles_per_second();
-    double shuffles_per_kernel = 8. * double(nblocks) * double(nthreads) * double(niter);  // 8 shuffles per iteration (see above)
+    double shuffles_per_kernel = 8. * double(nblocks) * double(nthreads) * double(ninner);  // 8 shuffles per iteration (see above)
 
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-        {
-            int4 *buf = (int4*)bufs.data + istream * s;
-            uint4 *lane = (uint4*)lanes.data + istream * s;
-            
-            shfl_int_kernel <<< nblocks, nthreads, 0, stream >>>
-                (buf, lane, niter);
+    KernelTimer kt(nstreams);
 
-            CUDA_PEEK("shfl_kernel launch");
-        };
+    for (int i = 0; i < nouter; i++) {
+        int4 *buf = (int4*)bufs.data + kt.istream * s;
+        uint4 *lane = (uint4*)lanes.data + kt.istream * s;
+        
+        shfl_int_kernel <<< nblocks, nthreads, 0, kt.stream >>>
+            (buf, lane, ninner);
 
-    CudaStreamPool pool(callback, ncallbacks, nstreams, "32-bit warp shuffle");
-    pool.monitor_time("Clock cycles", shuffles_per_kernel / thread_cycles_per_second);
-    pool.run();
+        CUDA_PEEK("shfl_kernel launch");
+
+        if (kt.advance()) {
+            double cycles = kt.dt / (shuffles_per_kernel / thread_cycles_per_second);
+            cout << "32-bit warp shuffle Clock cycles: " << cycles << endl;
+        }
+    }
 }
 
 
-static void time_shfl_long(int nblocks, int nthreads, int nstreams, int ncallbacks, int niter)
+static void time_shfl_long(int nblocks, int nthreads, int nstreams, int nouter, int ninner)
 {
     int s = nblocks * nthreads;
     Array<long> bufs({nstreams,s*2}, af_zero | af_gpu);
     Array<uint> lanes({nstreams,s*2}, af_zero | af_gpu);
 
     double thread_cycles_per_second = 32. * get_sm_cycles_per_second();
-    double shuffles_per_kernel = 4. * double(nblocks) * double(nthreads) * double(niter);  // 4 shuffles per iteration (see above)
+    double shuffles_per_kernel = 4. * double(nblocks) * double(nthreads) * double(ninner);  // 4 shuffles per iteration (see above)
 
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-        {
-            long2 *buf = (long2*)bufs.data + istream * s;
-            uint2 *lane = (uint2*)lanes.data + istream * s;
-            
-            shfl_long_kernel <<< nblocks, nthreads, 0, stream >>>
-                (buf, lane, niter);
+    KernelTimer kt(nstreams);
 
-            CUDA_PEEK("shfl_kernel launch");
-        };
+    for (int i = 0; i < nouter; i++) {
+        long2 *buf = (long2*)bufs.data + kt.istream * s;
+        uint2 *lane = (uint2*)lanes.data + kt.istream * s;
+        
+        shfl_long_kernel <<< nblocks, nthreads, 0, kt.stream >>>
+            (buf, lane, ninner);
 
-    CudaStreamPool pool(callback, ncallbacks, nstreams, "64-bit warp shuffle");
-    pool.monitor_time("Clock cycles", shuffles_per_kernel / thread_cycles_per_second);
-    pool.run();
+        CUDA_PEEK("shfl_kernel launch");
+
+        if (kt.advance()) {
+            double cycles = kt.dt / (shuffles_per_kernel / thread_cycles_per_second);
+            cout << "64-bit warp shuffle Clock cycles: " << cycles << endl;
+        }
+    }
 }
 
 
@@ -126,7 +130,7 @@ __global__ void reduce_add_kernel(int *dst, const int *src, int niter)
 }
 
 
-static void time_reduce_add(int nblocks, int nthreads, int nstreams, int ncallbacks, int niter)
+static void time_reduce_add(int nblocks, int nthreads, int nstreams, int nouter, int ninner)
 {
     int s = nblocks * nthreads;
     Array<int> dst_arr({nstreams,s}, af_zero | af_gpu);
@@ -134,22 +138,24 @@ static void time_reduce_add(int nblocks, int nthreads, int nstreams, int ncallba
 
     // gigareduces per callback
     double thread_cycles_per_second = 32. * get_sm_cycles_per_second();
-    double reduces_per_kernel = double(s) * double(niter);
+    double reduces_per_kernel = double(s) * double(ninner);
 
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-        {
-            int *dst = dst_arr.data + istream * s;
-            int *src = src_arr.data + istream * s;
-            
-            reduce_add_kernel <<< nblocks, nthreads, 0, stream >>>
-                (dst, src, niter);
+    KernelTimer kt(nstreams);
 
-            CUDA_PEEK("reduce_add_kernel");
-        };
+    for (int i = 0; i < nouter; i++) {
+        int *dst = dst_arr.data + kt.istream * s;
+        int *src = src_arr.data + kt.istream * s;
+        
+        reduce_add_kernel <<< nblocks, nthreads, 0, kt.stream >>>
+            (dst, src, ninner);
 
-    CudaStreamPool pool(callback, ncallbacks, nstreams, "reduce_add<int>");
-    pool.monitor_time("Clock cycles", reduces_per_kernel / thread_cycles_per_second);
-    pool.run();
+        CUDA_PEEK("reduce_add_kernel");
+
+        if (kt.advance()) {
+            double cycles = kt.dt / (reduces_per_kernel / thread_cycles_per_second);
+            cout << "reduce_add<int> Clock cycles: " << cycles << endl;
+        }
+    }
 }
 
 
