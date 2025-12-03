@@ -58,7 +58,7 @@ public:
 // Implementation
 
 
-KernelTimer::KernelTimer(int nstreams_) : nstreams(nstreams_)
+inline KernelTimer::KernelTimer(int nstreams_) : nstreams(nstreams_)
 {
     if (nstreams < 1)
         throw std::runtime_error("KernelTimer constructor called with nstreams < 1");
@@ -69,7 +69,7 @@ KernelTimer::KernelTimer(int nstreams_) : nstreams(nstreams_)
 }
 
 
-bool KernelTimer::advance()
+inline bool KernelTimer::advance()
 {
     tv.push_back(get_time());   // tv[nstreams]
     int n = niter++;
