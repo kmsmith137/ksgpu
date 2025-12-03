@@ -13,9 +13,6 @@
 // Barrier: synchronization point between N threads
 #include "ksgpu/Barrier.hpp"
 
-// CudaStreamPool: run multiple streams with dynamic load-balancing, intended for timing.
-#include "ksgpu/CudaStreamPool.hpp"
-
 // CpuThreadPool: run multiple CPU threads with dynamic load-balancing, intended for timing.
 #include "ksgpu/CpuThreadPool.hpp"
 

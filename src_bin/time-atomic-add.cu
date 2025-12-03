@@ -3,7 +3,6 @@
 #include <curand_kernel.h>
 
 #include "../include/ksgpu/Array.hpp"
-#include "../include/ksgpu/CudaStreamPool.hpp"
 #include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
 #include "../include/ksgpu/mem_utils.hpp"

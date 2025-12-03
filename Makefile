@@ -69,7 +69,6 @@ LIB_SRCFILES := \
   src_lib/Array.cu \
   src_lib/Barrier.cu \
   src_lib/CpuThreadPool.cu \
-  src_lib/CudaStreamPool.cu \
   src_lib/Dtype.cu \
   src_lib/assert_arrays_equal.cu \
   src_lib/cuda_utils.cu \
@@ -115,7 +114,6 @@ HFILES := \
   include/ksgpu/Array.hpp \
   include/ksgpu/Barrier.hpp \
   include/ksgpu/CpuThreadPool.hpp \
-  include/ksgpu/CudaStreamPool.hpp \
   include/ksgpu/Dtype.hpp \
   include/ksgpu/KernelTimer.hpp \
   include/ksgpu/constexpr_functions.hpp \
