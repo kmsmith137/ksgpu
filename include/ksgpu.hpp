@@ -22,6 +22,9 @@
 // Dtype class (used in Array)
 #include "ksgpu/Dtype.hpp"
 
+// KernelTimer: simple header-only class for timing cuda kernels.
+#include "ksgpu/KernelTimer.hpp"
+
 // constexpr_is_pow2(), constexpr_ilog2(), etc.
 #include "ksgpu/constexpr_functions.hpp"
 
