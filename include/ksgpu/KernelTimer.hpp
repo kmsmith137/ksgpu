@@ -75,7 +75,7 @@ inline bool KernelTimer::advance()
     int n = niter++;
 
     // Infer time from time_diff(tv[m], tv[n])
-    int mmin = nstreams;
+    int mmin = nstreams + 1;
     int m = (n > mmin) ? (mmin + (n-mmin)/2) : max(n-1,0);
     dt = time_diff(tv[m],tv[n]) / max(n-m,1);
 
