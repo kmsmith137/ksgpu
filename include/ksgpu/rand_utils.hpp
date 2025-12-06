@@ -47,6 +47,11 @@ inline double rand_uniform(double lo=0.0, double hi=1.0, std::mt19937 &rng = def
     return std::uniform_real_distribution<double>(lo,hi) (rng);
 }
 
+inline bool rand_bool(double p=0.5, std::mt19937 &rng = default_rng)
+{
+    return std::uniform_real_distribution<double>(0.0,1.0)(rng) < p;
+}
+
 
 template<typename T>
 inline void randomly_permute(std::vector<T> &v, std::mt19937 &rng = default_rng)
