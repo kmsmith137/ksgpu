@@ -127,6 +127,17 @@
         } \
     } while (0)
 
+// xassert_iff(): equivalent to xassert(bool(lhs) == bool(rhs))
+#define xassert_iff(lhs,rhs) _xassert_iff(lhs,rhs,__LINE__)
+#define _xassert_iff(lhs,rhs,line) \
+    do { \
+        if (_unlikely((bool(lhs) != bool(rhs)))) { \
+            std::stringstream ss; \
+            ss << ("C++ assertion (" __STRING(lhs) ") iff (" __STRING(rhs) ") failed (" __FILE__ ":" __STRING(line) "): lhs=") \
+               << bool(lhs) << ", rhs=" << bool(rhs); \
+            throw std::runtime_error(ss.str()); \
+        } \
+    } while (0)
 
 // -------------------------------------------------------------------------------------------------
 //
