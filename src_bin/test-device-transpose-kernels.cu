@@ -1,3 +1,4 @@
+#include "../include/ksgpu/device_fp16.hpp"
 #include "../include/ksgpu/device_transposes.hpp"
 
 #include <cassert>
