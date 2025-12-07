@@ -759,9 +759,13 @@ inline const U& Array<T>::at(std::initializer_list<long> ix) const { return _at(
 template<typename T> template<typename U, typename X>
 inline U& Array<T>::_at(int nd, const long *ix) const
 {
-    xassert(on_host());
-    xassert(this->ndim == nd);
+    // xassert(on_host());
+    // Replaced by a verbose error message, since I specifically get tripped up by this :)
+    if (_unlikely(!on_host()))
+        throw std::runtime_error("ksgpu::Array::at() called on array in GPU memory. This is treated as an error");
     
+    xassert(this->ndim == nd);
+
     long pos = 0;
     for (int d = 0; d < nd; d++) {
         xassert(ix[d] >= 0 && ix[d] < shape[d]);
