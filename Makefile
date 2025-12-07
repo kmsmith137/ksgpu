@@ -88,6 +88,7 @@ PYEXT_SRCFILES := \
 BIN_SRCFILES := \
   src_bin/time-atomic-add.cu \
   src_bin/time-fma.cu \
+  src_bin/time-global-memory.cu \
   src_bin/time-l2-cache.cu \
   src_bin/time-local-transpose.cu \
   src_bin/time-memcpy-kernels.cu \
