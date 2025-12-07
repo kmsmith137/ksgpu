@@ -119,6 +119,7 @@ HFILES := \
   include/ksgpu/constexpr_functions.hpp \
   include/ksgpu/cuda_utils.hpp \
   include/ksgpu/device_basics.hpp \
+  include/ksgpu/device_fp16.hpp \
   include/ksgpu/device_mma.hpp \
   include/ksgpu/device_transposes.hpp \
   include/ksgpu/mem_utils.hpp \
