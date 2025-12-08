@@ -58,12 +58,13 @@ public:
 // Implementation
 
 
-inline KernelTimer::KernelTimer(int nstreams_) : nstreams(nstreams_)
+inline KernelTimer::KernelTimer(int nstreams_) :
+    nstreams(nstreams_)
 {
     if (nstreams < 1)
         throw std::runtime_error("KernelTimer constructor called with nstreams < 1");
 
-    streams.resize(nstreams);
+    streams = CudaStreamWrapper::create_vector(nstreams_);
     stream = streams.at(0);
     tv.reserve(1000);
 }

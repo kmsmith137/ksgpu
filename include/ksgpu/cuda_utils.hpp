@@ -1,6 +1,7 @@
 #ifndef _KSGPU_CUDA_UTILS_HPP
 #define _KSGPU_CUDA_UTILS_HPP
 
+#include <vector>
 #include <memory>
 #include <stdexcept>
 
@@ -102,31 +103,41 @@ struct CudaSetDevice {
 
 
 // ------------------------------  RAII wrapper for cudaStream_t  ----------------------------------
-//
-// Note: you can also get RAII semantics for streams by working with shared_ptrs directly, e.g.
-//   shared_ptr<CUstream_st> stream = CudaStreamWrapper().p;
 
 
-struct CudaStreamWrapper {
+
+class CudaStreamWrapper {
+public:
     // Reminder: cudaStream_t is a typedef for (CUstream_st *)
     std::shared_ptr<CUstream_st> p;
 
-    CudaStreamWrapper()
-    {
-        cudaStream_t s;
-        CUDA_CALL(cudaStreamCreate(&s));
-        this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
-    }
+    // Note: default constructor makes an empty shared_ptr, representing the default stream.
+    // To get a new stream, use CudaStreamWrapper::create().
+
+    CudaStreamWrapper() { }
 
     // Create cudaStream with priority. CUDA priorities follow a convention where lower numbers represent
     // higher priorities. '0' represents default priority. The range of meaningful numerical priorities can
     // be queried using cudaDeviceGetStreamPriorityRange(). On an A40, the allowed range is [-5,0].
     
-    CudaStreamWrapper(int priority)
+    static CudaStreamWrapper create(int priority=0)
     {
-        cudaStream_t s;
+        CudaStreamWrapper ret;
+        cudaStream_t s = nullptr;
         CUDA_CALL(cudaStreamCreateWithPriority(&s, cudaStreamDefault, priority));
-        this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
+        ret.p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
+        return ret;
+    }
+
+    static std::vector<CudaStreamWrapper> create_vector(long size, int priority=0)
+    {
+        if (_unlikely(size < 0))
+            throw std::runtime_error("CudaStreamWrapper::create_vector() called with size < 0");
+
+        std::vector<CudaStreamWrapper> v(size);
+        for (long i = 0; i < size; i++)
+            v[i] = CudaStreamWrapper::create(priority);
+        return v;
     }
 
     // A CudaStreamWrapper can be used anywhere a cudaStream_t can be used
