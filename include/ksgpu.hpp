@@ -29,7 +29,6 @@
 #include "ksgpu/cuda_utils.hpp"
 
 // __device__ inline functions.
-#include "ksgpu/device_basics.hpp"
 #include "ksgpu/device_fp16.hpp"
 #include "ksgpu/device_mma.hpp"          // C++ wrappers for mma.* PTX instructions
 #include "ksgpu/device_transposes.hpp"   // warp_transpose(), etc.
