@@ -154,6 +154,33 @@ struct CudaEventWrapper {
     
     CudaEventWrapper() { }
 
+    static CudaEventWrapper create(int ev_flags)
+    {
+        CudaEventWrapper ret;
+        cudaEvent_t e = nullptr;
+        CUDA_CALL(cudaEventCreateWithFlags(&e, _cuda_flags_from_ev_flags(ev_flags)));
+        ret.p = std::shared_ptr<CUevent_st> (e, cudaEventDestroy);
+        return ret;
+    }
+
+    static std::vector<CudaEventWrapper> create_vector(long size, int ev_flags)
+    {
+        if (_unlikely(size < 0))
+            throw std::runtime_error("CudaStreamWrapper::create_vector() called with size < 0");
+
+        std::vector<CudaEventWrapper> v(size);
+        for (long i = 0; i < size; i++)
+            v[i] = CudaEventWrapper::create(ev_flags);
+        return v;
+    }
+
+    // A CudaEventWrapper can be used anywhere a cudaEvent_t can be used
+    // (e.g. in a kernel launch, or elsewhere in the CUDA API), via this
+    // conversion operator.
+    
+    operator cudaEvent_t() const { return p.get(); }
+
+
     static uint _cuda_flags_from_ev_flags(int ev_flags)
     {
         bool spin = (ev_flags & ev_spin) != 0;
@@ -170,28 +197,6 @@ struct CudaEventWrapper {
             cuda_flags |= cudaEventDisableTiming;
 
         return cuda_flags;
-    }
-
-    static CudaEventWrapper create(int ev_flags)
-    {
-        CudaEventWrapper ret;
-        cudaEvent_t e = nullptr;
-        CUDA_CALL(cudaEventCreateWithFlags(&e, _cuda_flags_from_ev_flags(ev_flags)));
-        ret.p = std::shared_ptr<CUevent_st> (e, cudaEventDestroy);
-        return ret;
-    }
-
-    // A CudaEventWrapper can be used anywhere a cudaEvent_t can be used
-    // (e.g. in a kernel launch, or elsewhere in the CUDA API), via this
-    // conversion operator.
-    
-    operator cudaEvent_t() const { return p.get(); }
-
-    // Alternate syntax for cudaEventSynchronize
-    // (For more wrappers of this kind, see CudaStreamWrapper below.)
-    void synchronize_host()
-    {
-        CUDA_CALL(cudaEventSynchronize(p.get()));
     }
 };
 
@@ -245,12 +250,6 @@ public:
         CudaEventWrapper e = CudaEventWrapper::create(ev_flags);
         CUDA_CALL(cudaEventRecord(e, p.get()));
         return e;
-    }
-
-    // Alternate syntax for cudaStreamWaitEvent()
-    void synchronize(cudaEvent_t event)
-    {
-        CUDA_CALL(cudaStreamWaitEvent(p.get(), event, 0));
     }
 
     // Commonly occuring sequence (EventCreate) -> (EventRecord) -> (StreamWaitEvent) -> (EventDestroy)
