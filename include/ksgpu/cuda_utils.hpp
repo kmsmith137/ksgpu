@@ -1,9 +1,12 @@
 #ifndef _KSGPU_CUDA_UTILS_HPP
 #define _KSGPU_CUDA_UTILS_HPP
 
+#include <cstdio>
+#include <cstdlib>
 #include <vector>
 #include <memory>
 #include <stdexcept>
+#include <cuda_runtime.h>
 
 
 // Note: CUDA_CALL(), CUDA_PEEK(), and CUDA_CALL_ABORT() are implemented with #define,
@@ -136,23 +139,22 @@ struct CudaEventWrapper {
     // Constructor flags:
     //   cudaEventDefault = 0
     //   cudaEventBlockingSync: callers of cudaEventSynchronize() will block instead of busy-waiting
-    //   cudaEventDisabluint eTiming: event does not need to record timing data
+    //   cudaEventDisableTiming: event does not need to record timing data
     //   cudaEventInterprocess: event may be used as an interprocess event by cudaIpcGetEventHandle()
     
     CudaEventWrapper() { }
 
     static uint _cuda_flags_from_ev_flags(int ev_flags)
     {
-        uint cuda_flags = 0;
-        int f = ev_flags & (ev_spin | ev_block);
+        bool spin = (ev_flags & ev_spin) != 0;
+        bool block = (ev_flags & ev_block) != 0;
 
         if (_unlikely(ev_flags & ~(ev_time | ev_spin | ev_block)))
             throw std::runtime_error("CudaEventWrapper: invalid flags");
-
-        if (f == ev_block)
-            cuda_flags = cudaEventBlockingSync;
-        else if (_unlikely(f != ev_spin))
+        if (_unlikely(spin == block))
             throw std::runtime_error("CudaEventWrapper: invalid flags: precisely one of ev_spin or ev_block must be specified");
+
+        uint cuda_flags = block ? cudaEventBlockingSync : 0;
 
         if (!(ev_flags & ev_time))
             cuda_flags |= cudaEventDisableTiming;
@@ -173,7 +175,7 @@ struct CudaEventWrapper {
     // (e.g. in a kernel launch, or elsewhere in the CUDA API), via this
     // conversion operator.
     
-    operator cudaEvent_t() { return p.get(); }
+    operator cudaEvent_t() const { return p.get(); }
 
     // Alternate syntax for cudaEventSynchronize
     // (For more wrappers of this kind, see CudaStreamWrapper below.)
@@ -225,7 +227,7 @@ public:
     // (e.g. in a kernel launch, or elsewhere in the CUDA API), via this
     // conversion operator.
     
-    operator cudaStream_t() { return p.get(); }
+    operator cudaStream_t() const { return p.get(); }
 
     // Commonly occuring sequence (EventCreate) -> (EventRecord)
     CudaEventWrapper record_event(int ev_flags)
@@ -250,6 +252,9 @@ public:
 
         CUDA_CALL(cudaEventRecord(e, src_stream));
         CUDA_CALL(cudaStreamWaitEvent(p.get(), e, 0));
+        // Note: the event is destroyed when synchronize() returns, even if the
+        // stream has not "consumed" the event. This is okay since cuda has its
+        // own reference-counting mechanism.
     }
 };
 
