@@ -18,6 +18,16 @@ namespace ksgpu {
 #endif
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// Misc utilities
+
+
+extern void assign_kernel_dims(dim3 &nblocks, dim3 &nthreads, long nx, long ny, long nz, int threads_per_block=128, bool noisy=false);
+
+extern double get_sm_cycles_per_second(int device=0);
+
+
 // -------------------------------------------   Macros   ------------------------------------------
 //
 // CUDA_CALL(f()): wrapper for CUDA API calls which return cudaError_t.
@@ -257,63 +267,6 @@ public:
         // own reference-counting mechanism.
     }
 };
-
-
-// ---------------------------------------   CudaTimer   -------------------------------------------
-//
-// A very simple class for timing cuda kernels.
-//
-// Usage:
-//
-//   // Timer is running when constructed.
-//   CudaTimer t;   // or specify optional stream argument
-//
-//   // Run one or more kernels.
-//   kernel1<<<...>>> (...);
-//   kernel2<<<...>>> (...);
-//
-//   // CudaTimer::stop() synchronizes the stream.
-//   float elapsed_time = t.stop();
-
-
-struct CudaTimer {
-protected:
-    CudaEventWrapper start;
-    CudaEventWrapper end;
-    cudaStream_t stream;
-    bool running = true;
-
-public:
-    CudaTimer(cudaStream_t stream_ = nullptr)
-    {
-        stream = stream_;
-        CUDA_CALL(cudaEventRecord(start, stream));
-    }
-
-    float stop()
-    {
-        if (!running)
-            throw std::runtime_error("double call to CudaTimer::stop()");
-
-        running = false;
-        CUDA_CALL(cudaEventRecord(end, stream));
-        CUDA_CALL(cudaEventSynchronize(end));
-
-        float milliseconds = 0.0;
-        CUDA_CALL(cudaEventElapsedTime(&milliseconds, start, end));
-        return milliseconds / 1000.;
-    }
-};
-
-
-// -------------------------------------------------------------------------------------------------
-//
-// Misc
-
-
-extern void assign_kernel_dims(dim3 &nblocks, dim3 &nthreads, long nx, long ny, long nz, int threads_per_block=128, bool noisy=false);
-
-extern double get_sm_cycles_per_second(int device=0);
 
 
 } // namespace ksgpu

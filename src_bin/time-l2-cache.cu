@@ -5,11 +5,11 @@ using namespace std;
 using namespace ksgpu;
 
 
-constexpr int nblocks = 3444 * 128;
+constexpr int nblocks = 64 * 1024;
 constexpr int nthreads_per_block = 1024;
 constexpr int num_inner_iterations = 10;
 constexpr int l2_footprint_nbytes = 1024 * 1024;
-
+constexpr int nstreams = 2;
 
 constexpr int nsrc = l2_footprint_nbytes / sizeof(int);
 constexpr int ndst = nblocks * 32;
@@ -53,18 +53,19 @@ int main(int argc, char **argv)
          << "    L2 footprint (bytes) = " << l2_footprint_nbytes << "\n"
          << "    Total data read (GB) = " << gb << endl;
     
-    Array<int> dst({ndst}, af_gpu | af_zero);
-    Array<int> src({nsrc}, af_gpu | af_zero);
-    
-    CudaTimer t;
-    l2_bandwidth_kernel<<<nblocks, nthreads_per_block>>> (dst.data, src.data);
-    CUDA_PEEK("l2_bandwidth_kernel");
-    float elapsed_time = t.stop();
+    Array<int> dst({nstreams,ndst}, af_gpu | af_zero);
+    Array<int> src({nstreams,nsrc}, af_gpu | af_zero);    
+    KernelTimer kt(nstreams);
 
-    double bw = gb / elapsed_time;
+    for (int i = 0; i < 20; i++) {
+        l2_bandwidth_kernel<<<nblocks, nthreads_per_block, 0, kt.stream>>> 
+            (dst.data + kt.istream * ndst, src.data + kt.istream * nsrc);
 
-    cout << "    Elapsed time (sec) = "<< elapsed_time << "\n"
-         << "    Bandwidth (GB/s) = " << bw << endl;
+        if (kt.advance()) {
+            double gb_per_sec = gb / kt.dt;
+            cout << "    Bandwidth (GB/s) = " << gb_per_sec << endl;
+        }
+    }
 
     return 0;
 }
