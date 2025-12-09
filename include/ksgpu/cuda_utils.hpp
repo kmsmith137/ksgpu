@@ -102,8 +102,89 @@ struct CudaSetDevice {
 };
 
 
-// ------------------------------  RAII wrapper for cudaStream_t  ----------------------------------
+// ------------------------------  RAII wrapper for cudaEvent_t  -----------------------------------
+//
+// Reminder: cuda defines the following flags:
+//
+//   cudaEventDefault = 0
+//   cudaEventBlockingSync: callers of cudaEventSynchronize() will block instead of busy-waiting
+//   cudaEventDisableTiming: event does not need to record timing data
+//   cudaEventInterprocess: event may be used as an interprocess event by cudaIpcGetEventHandle()
+//
+// I felt compelled to define a different set of flags!
+//
+//   - ev_time: enables timing (I thought that disabled-timing should be the default)
+//
+//   - ev_spin, ev_block: selects between busy-wait and blocking. (Here, I wanted to avoid
+//      assigning a default, since there are situations where one or the other strongly
+//      makes sense, and specifying the wrong one would be a performance-killer.)
+//
+// Usage reminder:
+//   CUDA_CALL(cudaEventRecord(event, stream));   // submits event to stream
+//   CUDA_CALL(cudaEventSynchronize(event));      // waits for event
 
+
+static constexpr int ev_time = 0x100;
+static constexpr int ev_spin = 0x200;
+static constexpr int ev_block = 0x400;
+
+
+struct CudaEventWrapper {
+    // Reminder: cudaEvent_t is a typedef for (CUevent_st *)
+    std::shared_ptr<CUevent_st> p;
+
+    // Constructor flags:
+    //   cudaEventDefault = 0
+    //   cudaEventBlockingSync: callers of cudaEventSynchronize() will block instead of busy-waiting
+    //   cudaEventDisabluint eTiming: event does not need to record timing data
+    //   cudaEventInterprocess: event may be used as an interprocess event by cudaIpcGetEventHandle()
+    
+    CudaEventWrapper() { }
+
+    static uint _cuda_flags_from_ev_flags(int ev_flags)
+    {
+        uint cuda_flags = 0;
+        int f = ev_flags & (ev_spin | ev_block);
+
+        if (_unlikely(ev_flags & ~(ev_time | ev_spin | ev_block)))
+            throw std::runtime_error("CudaEventWrapper: invalid flags");
+
+        if (f == ev_block)
+            cuda_flags = cudaEventBlockingSync;
+        else if (_unlikely(f != ev_spin))
+            throw std::runtime_error("CudaEventWrapper: invalid flags: precisely one of ev_spin or ev_block must be specified");
+
+        if (!(ev_flags & ev_time))
+            cuda_flags |= cudaEventDisableTiming;
+
+        return cuda_flags;
+    }
+
+    static CudaEventWrapper create(int ev_flags)
+    {
+        CudaEventWrapper ret;
+        cudaEvent_t e = nullptr;
+        CUDA_CALL(cudaEventCreateWithFlags(&e, _cuda_flags_from_ev_flags(ev_flags)));
+        ret.p = std::shared_ptr<CUevent_st> (e, cudaEventDestroy);
+        return ret;
+    }
+
+    // A CudaEventWrapper can be used anywhere a cudaEvent_t can be used
+    // (e.g. in a kernel launch, or elsewhere in the CUDA API), via this
+    // conversion operator.
+    
+    operator cudaEvent_t() { return p.get(); }
+
+    // Alternate syntax for cudaEventSynchronize
+    // (For more wrappers of this kind, see CudaStreamWrapper below.)
+    void synchronize_host()
+    {
+        CUDA_CALL(cudaEventSynchronize(p.get()));
+    }
+};
+
+
+// ------------------------------  RAII wrapper for cudaStream_t  ----------------------------------
 
 
 class CudaStreamWrapper {
@@ -145,41 +226,31 @@ public:
     // conversion operator.
     
     operator cudaStream_t() { return p.get(); }
-};
 
-
-// ------------------------------  RAII wrapper for cudaEvent_t  -----------------------------------
-//
-// Note: you can also get RAII semantics for events by working with shared_ptrs directly, e.g.
-//   shared_ptr<CUevent_st> event = CudaEventWrapper(flags).p;
-//
-// Usage reminder:
-//   CUDA_CALL(cudaEventRecord(event, stream));   // submits event to stream
-//   CUDA_CALL(cudaEventSynchronize(event));      // waits for event
-
-
-struct CudaEventWrapper {
-    // Reminder: cudaEvent_t is a typedef for (CUevent_st *)
-    std::shared_ptr<CUevent_st> p;
-
-    // Constructor flags:
-    //   cudaEventDefault = 0
-    //   cudaEventBlockingSync: callers of cudaEventSynchronize() will block instead of busy-waiting
-    //   cudaEventDisableTiming: event does not need to record timing data
-    //   cudaEventInterprocess: event may be used as an interprocess event by cudaIpcGetEventHandle()
-    
-    CudaEventWrapper(uint flags = cudaEventDefault)
+    // Commonly occuring sequence (EventCreate) -> (EventRecord)
+    CudaEventWrapper record_event(int ev_flags)
     {
-        cudaEvent_t e;
-        CUDA_CALL(cudaEventCreateWithFlags(&e, flags));
-        this->p = std::shared_ptr<CUevent_st> (e, cudaEventDestroy);
+        CudaEventWrapper e = CudaEventWrapper::create(ev_flags);
+        CUDA_CALL(cudaEventRecord(e, p.get()));
+        return e;
     }
 
-    // A CudaEventWrapper can be used anywhere a cudaEvent_t can be used
-    // (e.g. in a kernel launch, or elsewhere in the CUDA API), via this
-    // conversion operator.
-    
-    operator cudaEvent_t() { return p.get(); }
+    // Alternate syntax for cudaStreamWaitEvent()
+    void synchronize(cudaEvent_t event)
+    {
+        CUDA_CALL(cudaStreamWaitEvent(p.get(), event, 0));
+    }
+
+    // Commonly occuring sequence (EventCreate) -> (EventRecord) -> (StreamWaitEvent) -> (EventDestroy)
+    void synchronize(cudaStream_t src_stream)
+    {
+        cudaEvent_t e = nullptr;
+        CUDA_CALL(cudaEventCreateWithFlags(&e, cudaEventDisableTiming));
+        std::unique_ptr<CUevent_st, decltype(&cudaEventDestroy)> eref(e, cudaEventDestroy);
+
+        CUDA_CALL(cudaEventRecord(e, src_stream));
+        CUDA_CALL(cudaStreamWaitEvent(p.get(), e, 0));
+    }
 };
 
 
