@@ -324,10 +324,207 @@ void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const
 
 // -------------------------------------------------------------------------------------------------
 //
-// fill_axis: a helper class for array_fill() and array_convert().
+// fill_axis: a helper class for array_set_zero() and array_randomize()
 
 
 struct fill_axis {
+    // Meaning of length/stride is context-dependent:
+    //  - in array_set_zero(), length/stride are bit counts
+    //  - in array_randomize(), length/stride are element counts
+
+    long length = 0;
+    long stride = 0;
+
+    inline bool operator<(const fill_axis &a) const
+    {
+        // FIXME put more thought into this
+        return stride < a.stride;
+    }
+
+    fill_axis() { }
+    fill_axis(const fill_axis &) = default;
+};
+
+
+
+static void init_uncoalesced_axes(int &naxes, fill_axis *axes, const Array<void> &arr)
+{ 
+    xassert(arr.size > 0);
+
+    if (arr.size == 1) {
+        naxes = 1;
+        axes[0].length = 1;
+        axes[0].stride = 1;
+        return;
+    }
+
+    // Uncoalesced axes.
+    naxes = 0;
+    
+    for (int d = 0; d < arr.ndim; d++) {
+        xassert(arr.shape[d] > 0);
+        
+        // Skip length-1 axes.
+        if (arr.shape[d] == 1)
+            continue;
+        
+        axes[naxes].length = arr.shape[d];
+        axes[naxes].stride = arr.strides[d];
+        naxes++;
+    }
+
+    xassert(naxes > 0);
+}
+
+
+// 'noinline' suppresses gcc compiler warning when inlining std::sort() on few-element array.
+static __attribute__((noinline)) void
+init_coalesced_axes(int &nax_c, fill_axis *axes_c, int nax_u, fill_axis *axes_u)
+{
+    // Sort 'axes_u' by increasing dstride.
+    xassert(nax_u > 0);
+    std::sort(axes_u, axes_u + nax_u);
+    
+    axes_c[0] = axes_u[0];
+    nax_c = 1;
+    
+    for (int i = 1; i < nax_u; i++) {
+        long s = axes_c[nax_c-1].length * axes_c[nax_c-1].stride;
+        bool can_coalesce = (axes_u[i].stride == s);
+        
+        if (can_coalesce)
+            axes_c[nax_c-1].length *= axes_u[i].length;
+        else
+            axes_c[nax_c++] = axes_u[i];
+    }
+}
+
+
+static void show_axes(ostream &os, const Array<void> &arr, int nax_c, const fill_axis *axes_c)
+{
+    os << "    shape=" << arr.shape_str()
+       << ", strides=" << arr.stride_str()
+       << ", dtype=" << arr.dtype
+       << "\n";
+    
+    for (int d = 0; d < nax_c; d++)
+        os << "    coalesced axis: len=" << axes_c[d].length
+           << ", stride=" << axes_c[d].stride
+           << "\n";
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// array_set_zero()
+
+
+// Recursive helper function called by array_set_zero().
+static void array_set_zero2(char *dst, int naxes, const fill_axis *axes, bool on_gpu)
+{
+    // Caller guarantees the following (these are asserts in array_set_zero()).
+    // Note that fill_axis::stride is a bit count.
+    //
+    //   naxes > 0
+    //   axes[0].stride == 1
+    //   (axes[0].length % 8) == 0
+    //   (axes[d].stride % 8) == 0    for d > 0
+    
+    if (naxes == 1) {
+        if (on_gpu)
+            CUDA_CALL(cudaMemset(dst, 0, axes[0].length >> 3));
+        else
+            memset(dst, 0, axes[0].length >> 3);
+    }
+
+    else if ((naxes == 2) && on_gpu) {
+        long pitch = axes[1].stride >> 3;
+        long width = axes[0].length >> 3;
+        long height = axes[1].length;
+
+        xassert(pitch >= width);  // I think that cudaMemset2D() requires this.
+        CUDA_CALL(cudaMemset2D(dst, pitch, 0, width, height));
+    }
+
+    else {
+        // Note: there is a cudaMemset3D(), but it requires that either the
+        // data be in a cudaArray, or that strides are contiguous (so that
+        // it's a cudaMemset2D in disguise), so we can't use it here.
+
+        xassert(naxes >= 2);
+        long s = axes[naxes-1].stride >> 3;  // (bit stride) -> (byte stride)
+        
+        for (long i = 0; i < axes[naxes-1].length; i++)
+            array_set_zero2(dst + i*s, naxes-1, axes, on_gpu);
+    }
+}
+
+
+void array_set_zero(Array<void> &arr, bool noisy)
+{
+    if (arr.size == 0)
+        return;
+
+    // Uncoalesced axes.
+    int nax_u = 0;
+    fill_axis axes_u[ArrayMaxDim+1];
+    init_uncoalesced_axes(nax_u, axes_u, arr);
+
+    // Convert strides to bits.
+    for (int i = 0; i < nax_u; i++)
+        axes_u[i].stride *= arr.dtype.nbits;
+
+    // Add dummy "single-bit" axis -- this allows us to subsequently ignore dtypes, and work with bits.
+    axes_u[nax_u].length = arr.dtype.nbits;
+    axes_u[nax_u].stride = 1;
+    nax_u++;
+
+    // Coalesced axes.
+    int nax_c = 0;
+    fill_axis axes_c[ArrayMaxDim+1];
+    init_coalesced_axes(nax_c, axes_c, nax_u, axes_u);   // note: permutes 'axes_u' in place.
+
+    if (noisy) {
+        cout << "Array::set_zero(): note that array strides are elements, and 'coalesced axis' strides are bits\n";
+        show_axes(cout, arr, nax_c, axes_c);
+    }
+    
+    // Now a bunch of asserts/checks, in preparation for calling array_set_zero2().
+    
+    xassert(nax_c > 0);
+    xassert(axes_c[0].stride == 1);
+
+    bool invalid = (axes_c[0].length & 7) != 0;
+
+    for (int d = 1; d < nax_c; d++)
+        if (axes_c[d].stride & 7)
+            invalid = true;
+
+    if (invalid) {
+        stringstream ss;
+        
+        ss << "Array::set_zero() operation can't be decomposed into byte-contiguous memset() calls.\n"
+           << "This is currently treated as an error, even in tame cases such as a contiguous 1-d array with (total_nbits % 8) != 0.\n"
+           << "Addressing this is nontrivial (e.g. consider case where 'tame' array is subarray of an ambient array).\n"
+           << "I may revisit this in the future, but it's not a high priority right now.\n"
+           << "In the diagnostic output below, note that 'arr' strides are elements, and 'coalesced axis' strides are bits\n";
+        
+        show_axes(ss, arr, nax_c, axes_c);
+        throw runtime_error(ss.str());
+    }
+
+    // Checks pass, now we can call array_set_zero2().
+    bool on_gpu = (arr.aflags & af_gpu);
+    array_set_zero2((char *) arr.data, nax_c, axes_c, on_gpu);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// fill_axis2: a helper class for array_fill() and array_convert().
+
+
+struct fill_axis2 {
     // Meaning of 'dstride' and 'sstride' is context-dependent:
     //  - in array_fill(), strides are bit counts.
     //  - in array_convert(), strides are element counts.
@@ -336,18 +533,18 @@ struct fill_axis {
     long dstride = 0;
     long sstride = 0;
 
-    inline bool operator<(const fill_axis &a) const
+    inline bool operator<(const fill_axis2 &a) const
     {
         // FIXME put more thought into this
         return dstride < a.dstride;
     }
 
-    fill_axis() { }
-    fill_axis(const fill_axis &) = default;
+    fill_axis2() { }
+    fill_axis2(const fill_axis2 &) = default;
 };
 
 
-static void init_uncoalesced_axes(int &naxes, fill_axis *axes, const Array<void> &dst, const Array<void> &src, const char *where)
+static void init_uncoalesced_axes(int &naxes, fill_axis2 *axes, const Array<void> &dst, const Array<void> &src, const char *where)
 {       
     // Check that dst/src shapes match.
     // Note: we don't check that dst/src dtypes match.
@@ -395,7 +592,7 @@ static void init_uncoalesced_axes(int &naxes, fill_axis *axes, const Array<void>
 
 // 'noinline' suppresses gcc compiler warning when inlining std::sort() on few-element array.
 static __attribute__((noinline)) void
-init_coalesced_axes(int &nax_c, fill_axis *axes_c, int nax_u, fill_axis *axes_u)
+init_coalesced_axes(int &nax_c, fill_axis2 *axes_c, int nax_u, fill_axis2 *axes_u)
 {
     // Sort 'axes_u' by increasing dstride.
     xassert(nax_u > 0);
@@ -417,7 +614,7 @@ init_coalesced_axes(int &nax_c, fill_axis *axes_c, int nax_u, fill_axis *axes_u)
 }
 
 
-static void show_axes(ostream &os, const Array<void> &dst, const Array<void> &src, int nax_c, const fill_axis *axes_c)
+static void show_axes(ostream &os, const Array<void> &dst, const Array<void> &src, int nax_c, const fill_axis2 *axes_c)
 {
     os << "    shape=" << dst.shape_str()
        << ", dst.strides=" << dst.stride_str()
@@ -440,10 +637,10 @@ static void show_axes(ostream &os, const Array<void> &dst, const Array<void> &sr
 
 
 // Recursive helper function called by array_fill().
-static void array_fill2(char *dst, const char *src, int naxes, const fill_axis *axes)
+static void array_fill2(char *dst, const char *src, int naxes, const fill_axis2 *axes)
 {
     // Caller guarantees the following (these are asserts in array_fill()).
-    // Note that fill_axis::dstride and fill_axis::sstride correspond to bits.
+    // Note that fill_axis2::dstride and fill_axis2::sstride correspond to bits.
     //
     //   naxes > 0
     //   axes[0].dstride == 1
@@ -487,7 +684,7 @@ void array_fill(Array<void> &dst, const Array<void> &src, bool noisy)
 {
     // Uncoalesced axes.
     int nax_u = 0;
-    fill_axis axes_u[ArrayMaxDim+1];
+    fill_axis2 axes_u[ArrayMaxDim+1];
     init_uncoalesced_axes(nax_u, axes_u, dst, src, "Array::fill()");
 
     // Check that dst/src dtypes match.
@@ -522,7 +719,7 @@ void array_fill(Array<void> &dst, const Array<void> &src, bool noisy)
 
     // Coalesced axes.
     int nax_c = 0;
-    fill_axis axes_c[ArrayMaxDim+1];
+    fill_axis2 axes_c[ArrayMaxDim+1];
     init_coalesced_axes(nax_c, axes_c, nax_u, axes_u);   // note: permutes 'axes_u' in place.
 
     if (noisy) {
@@ -721,7 +918,7 @@ struct convert_scalar<complex<Tdst>, complex<Tsrc>>
 // convert_array2(): types known at compile time, dst/src are bare pointers.
 // Caller has checked that naxes >= 1.
 template<typename Tdst, typename Tsrc>
-static void convert_array2(Tdst *dst, const Tsrc *src, int naxes, const fill_axis *axes)
+static void convert_array2(Tdst *dst, const Tsrc *src, int naxes, const fill_axis2 *axes)
 {
     long len = axes[naxes-1].length;
     long ds = axes[naxes-1].dstride;
@@ -743,7 +940,7 @@ static void convert_array2(Tdst *dst, const Tsrc *src, int naxes, const fill_axi
 // convert_array(): types known at compile time, dst/src are Array<void>.
 // Caller has checked that naxes >= 1.
 template<typename Tdst, typename Tsrc>
-static void convert_array(Array<void> &dst_, const Array<void> &src_, int naxes, const fill_axis *axes)
+static void convert_array(Array<void> &dst_, const Array<void> &src_, int naxes, const fill_axis2 *axes)
 {
     Array<Tdst> dst = dst_.template cast<Tdst> ("array_convert");
     Array<Tsrc> src = src_.template cast<Tsrc> ("array_convert");
@@ -752,7 +949,7 @@ static void convert_array(Array<void> &dst_, const Array<void> &src_, int naxes,
 
 
 // Same signature as convert_array()
-using convert_func = void (*)(Array<void> &, const Array<void> &, int, const fill_axis *);
+using convert_func = void (*)(Array<void> &, const Array<void> &, int, const fill_axis2 *);
 
 // Helper for get_converter().
 // Matches (Tdst,Tsrc) or (complex<Tdst>, complex<Tsrc>).
@@ -822,7 +1019,7 @@ void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
 
     // Uncoalesced axes.
     int nax_u = 0;
-    fill_axis axes_u[ArrayMaxDim];
+    fill_axis2 axes_u[ArrayMaxDim];
     init_uncoalesced_axes(nax_u, axes_u, dst, src, "Array::convert()");
     
     // Return early if there is no data to convert.
@@ -831,7 +1028,7 @@ void array_convert(Array<void> &dst, const Array<void> &src, bool noisy)
 
     // Coalesced axes.
     int nax_c = 0;
-    fill_axis axes_c[ArrayMaxDim];
+    fill_axis2 axes_c[ArrayMaxDim];
     init_coalesced_axes(nax_c, axes_c, nax_u, axes_u);   // note: permutes 'axes_u' in place.
     
     xassert(nax_c >= 1);  // assumed in converter, see comments above.

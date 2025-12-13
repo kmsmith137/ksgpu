@@ -120,6 +120,8 @@ struct Array {
     inline int get_ncontig() const;
     inline bool is_fully_contiguous() const { return get_ncontig() == ndim; }
     
+    inline void set_zero(bool noisy=false);
+
     // The new Arrays returned by slice() contain references
     // (not copies) to the data in the original Array.
     inline Array<T> slice(int axis, long start, long stop) const;
@@ -263,6 +265,7 @@ extern double assert_arrays_equal(
 
 // Alternate interfaces to some of the Array methods above:
 //   array_get_ncontig()   alternate interface to Array<T>::get_ncontig()
+//   array_set_zero()      alternate interface to Array<T>::set_zero()
 //   array_fill()          alternate interface to Array<T>::fill()
 //   array_slice()         alternate interface to Array<T>::slice()
 //   array_transpose()     alternate interface to Array<T>::transpose()
@@ -270,6 +273,7 @@ extern double assert_arrays_equal(
 //   array_convert()       alternate interface to Array<T>::convert()
 
 extern int array_get_ncontig(const Array<void> &arr);
+extern void array_set_zero(Array<void> &arr, bool noisy=false);
 extern void array_fill(Array<void> &dst, const Array<void> &src, bool noisy=false);
 extern void array_slice(Array<void> &dst, const Array<void> &src, int axis, long ix);
 extern void array_slice(Array<void> &dst, const Array<void> &src, int axis, long start, long stop);
@@ -463,6 +467,12 @@ inline Array<void> Array<T>::to_host(Dtype dtype, bool registered) const
     
     int dst_flags = registered ? af_rhost : af_uhost;
     return (dtype == this->dtype) ? tmp : tmp.convert(dtype, dst_flags);
+}
+
+template<typename T>
+inline void Array<T>::set_zero(bool noisy)
+{
+    array_set_zero(*this, noisy);
 }
 
 

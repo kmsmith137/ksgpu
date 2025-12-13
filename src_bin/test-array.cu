@@ -8,6 +8,9 @@ using namespace ksgpu;
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// FIXME -- all tests are on the host! GPU arrays are not tested. This is a real shame, but I'm not
+// sure how to prioritize fixing it.
 
 
 struct TestArrayAxis {
@@ -254,6 +257,24 @@ struct RandomlyStridedArray {
 };
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T>
+void test_set_zero(bool noisy)
+{
+    vector<long> shape = make_random_shape();
+    vector<long> strides = make_random_strides(shape);
+
+    RandomlyStridedArray<T> rs(shape, strides);
+    rs.arr.set_zero(noisy);
+
+    for (auto ix = rs.arr.ix_start(); rs.arr.ix_valid(ix); rs.arr.ix_next(ix))
+        xassert(rs.arr.at(ix) == T(0));
+
+    rs.check_for_buffer_overflows();
+}
+
 
 // -------------------------------------------------------------------------------------------------
 
@@ -486,6 +507,8 @@ static void run_all_tests(bool noisy)
     
     RandomlyStridedArray<T> rs(noisy);  
     rs.run_simple_tests();
+
+    test_set_zero<T> (true);  // XXX noisy=true
 
     FillTestInstance<T> ft;
     ft.noisy = noisy;
