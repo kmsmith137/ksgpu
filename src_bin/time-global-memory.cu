@@ -57,16 +57,16 @@ static void time_gmem(long dtype_bits)
     long nelts_per_stream = nbytes_per_stream / dtype_bytes;
     long niter = bw_per_launch / (blocks_per_launch * warps_per_block * 32 * dtype_bytes);
 
-    cout << "time_gmem(dtype_bits=" << dtype_bits << ")" << endl
+    cout << "\ntime_gmem(dtype_bits=" << dtype_bits << ")" << endl
          << "    nelts_per_warp = " << nelts_per_warp << endl
          << "    nelts_per_stream = " << nelts_per_stream << endl
          << "    niter = " << niter << endl;
 
     Array<unsigned char> arr({nstreams, nbytes_per_stream}, af_gpu | af_zero);
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(20, nstreams);
 
-    for (int i = 0; i < 20; i++) {
+    while (kt.next()) {
         unsigned char *p = arr.data + kt.istream * nbytes_per_stream;
 
         if (dtype_bits == 32)
@@ -83,7 +83,7 @@ static void time_gmem(long dtype_bits)
 
         CUDA_PEEK("read_gmem");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double gb_per_sec = bw_per_launch / kt.dt / 1.0e9;
             cout << "Global memory BW (GB/s): " << gb_per_sec << endl;
         }

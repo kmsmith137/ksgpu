@@ -106,9 +106,9 @@ static void time_f16_mma(int ninner, int num_active_warps=32)
     
     string name = ss.str();
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         float *a = asrc.data + kt.istream*Areg*nth*2;
         float *b = bsrc.data + kt.istream*Breg*nth*2;
         float *c = csrc.data + kt.istream*Creg*nth*2;
@@ -119,7 +119,7 @@ static void time_f16_mma(int ninner, int num_active_warps=32)
 
         CUDA_PEEK("mma_f16_kernel");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double tflops = tflops_per_kernel / kt.dt;
             cout << name << " Tflops: " << tflops << endl;
         }
@@ -205,9 +205,9 @@ static void time_int_mma(int ninner, int num_active_warps=32)
     
     string name = ss.str();
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         int *a = asrc.data + kt.istream*Areg*nth;
         int *b = bsrc.data + kt.istream*Breg*nth;
         int *c = cdst.data + kt.istream*Creg*nth;
@@ -218,7 +218,7 @@ static void time_int_mma(int ninner, int num_active_warps=32)
 
         CUDA_PEEK("mma_int_kernel");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double tflops = tflops_per_kernel / kt.dt;
             cout << name << " Tflops: " << tflops << endl;
         }
@@ -302,9 +302,9 @@ static void time_sparse_f16_mma(int ninner, int num_active_warps=32)
     
     string name = ss.str();
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         float *a = asrc.data + kt.istream*Areg*nth*2;
         float *b = bsrc.data + kt.istream*Breg*nth*2;
         float *c = csrc.data + kt.istream*Creg*nth*2;
@@ -315,7 +315,7 @@ static void time_sparse_f16_mma(int ninner, int num_active_warps=32)
 
         CUDA_PEEK("sparse_mma_f16_kernel");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double tflops = tflops_per_kernel / kt.dt;
             cout << name << " Tflops: " << tflops << endl;
         }
@@ -383,9 +383,9 @@ static void time_cpp_int4_mma(int ninner, int num_active_warps=32)
     
     string name = ss.str();
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         int *a = asrc.data + kt.istream*32*nwarps;
         int *b = bsrc.data + kt.istream*32*nwarps;
         int *c = cdst.data + kt.istream*64*nwarps;
@@ -396,7 +396,7 @@ static void time_cpp_int4_mma(int ninner, int num_active_warps=32)
 
         CUDA_PEEK("mma_cpp_int4_kernel");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double tflops = tflops_per_kernel / kt.dt;
             cout << name << " Tflops: " << tflops << endl;
         }

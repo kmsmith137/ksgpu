@@ -21,9 +21,9 @@ static void time_memcpy(long nbytes, int ninner, int nouter, int nstreams=1)
 
     double gb_per_kernel = 2.0e-9 * ninner * nbytes;
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         char *d = adst.data + kt.istream*nbytes;
         char *s = asrc.data + kt.istream*nbytes;
 
@@ -32,7 +32,7 @@ static void time_memcpy(long nbytes, int ninner, int nouter, int nstreams=1)
         
         CUDA_PEEK("launch_memcpy_kernel");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double gb_per_sec = gb_per_kernel / kt.dt;
             cout << name << " GB/s: " << gb_per_sec << endl;
         }
@@ -54,9 +54,9 @@ static void time_memcpy_2d(long dpitch, long spitch, long width, long height, in
 
     double gb_per_kernel = 2.0e-9 * ninner * width * height;
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         char *d = adst.data + kt.istream * dst_nbytes;
         char *s = asrc.data + kt.istream * src_nbytes;
 
@@ -65,7 +65,7 @@ static void time_memcpy_2d(long dpitch, long spitch, long width, long height, in
         
         CUDA_PEEK("launch_memcpy_2d_kernel");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double gb_per_sec = gb_per_kernel / kt.dt;
             cout << name << " GB/s: " << gb_per_sec << endl;
         }

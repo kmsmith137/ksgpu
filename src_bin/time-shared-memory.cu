@@ -58,9 +58,9 @@ static void time_kernel(const char *name)
 
     Array<uint8_t> arr({nstreams, blocks_per_kernel * threads_per_block * sizeof(T) }, af_gpu | af_zero);
     
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
 	T *gmem = (T*)arr.data + (kt.istream * arr.shape[1]);
 	
 	shmem_read_write_kernel<T, Read, Write>
@@ -69,7 +69,7 @@ static void time_kernel(const char *name)
 	
 	CUDA_PEEK(name);
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double tb_per_sec = shmem_tb_per_kernel / kt.dt;
             double cycles = kt.dt / (instructions_per_kernel / sm_cycles_per_second);
             cout << name << " Shared memory BW (TB/s): " << tb_per_sec

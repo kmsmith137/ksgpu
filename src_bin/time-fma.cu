@@ -94,16 +94,16 @@ static void time_kernel(const char *name, int flops_per_iteration)
     Array<int> dst({nstreams,nth}, af_zero | af_gpu);
     Array<int> src({nstreams,4*nth}, af_zero | af_gpu);
     
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         T *d = (T *) (dst.data + kt.istream*nth);
         T *s = (T *) (src.data + kt.istream*4*nth);
         
         F <<< nblocks, nthreads_per_block, 0, kt.stream >>> (d,s,ninner);
         CUDA_PEEK(name);
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double tflops = tflops_per_kernel / kt.dt;
             cout << name << " Tflops: " << tflops << endl;
         }

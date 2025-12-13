@@ -92,9 +92,9 @@ static void time_curand()
     Array<uint> out({total_threads}, af_gpu);
     CurandStateArray state(total_threads, seed);
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(niter, nstreams);
 
-    for (int i = 0; i < niter; i++) {
+    while (kt.next()) {
         time_curand_kernel<<< nblocks, threads_per_block, 0, kt.stream >>>
             (out.data + kt.istream * threads_per_stream,
              state.data + kt.istream * threads_per_stream,
@@ -102,11 +102,11 @@ static void time_curand()
         
         CUDA_PEEK("time_curand_kernel launch");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double gsamp_per_sec = 1.0e-9 * iterations_per_thread * threads_per_stream / kt.dt;
-            cout << "RNG throughput (Gsamples/s): " << gsamp_per_sec << ((i==(niter-1)) ? "\n" : "") << endl;
+            cout << "RNG throughput (Gsamples/s): " << gsamp_per_sec << ((kt.curr_iteration==(niter-1)) ? "\n" : "") << endl;
         }
-    };
+    }
 }
 
 
@@ -171,9 +171,9 @@ static void time_global_atomic_add(const string &name, int iterations_per_thread
     Array<T> p({nelts_tot}, af_gpu | af_zero);
     CurandStateArray state(total_threads, seed);
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(niter, nstreams);
 
-    for (int i = 0; i < niter; i++) {
+    while (kt.next()) {
         global_atomic_add_kernel<<< nblocks, threads_per_block, 0, kt.stream >>>
             (p.data + kt.istream * nelts_per_stream,
              state.data + kt.istream * threads_per_stream,
@@ -183,9 +183,9 @@ static void time_global_atomic_add(const string &name, int iterations_per_thread
         
         CUDA_PEEK("global_atomic_add_kernel launch");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double gb_per_sec = 2.0e-9 * iterations_per_thread * threads_per_stream * sizeof(T) / kt.dt;
-            cout << name << " Bandwidth (GB/s): " << gb_per_sec << ((i==(niter-1)) ? "\n" : "") << endl;
+            cout << name << " Bandwidth (GB/s): " << gb_per_sec << ((kt.curr_iteration==(niter-1)) ? "\n" : "") << endl;
         }
     }
 }

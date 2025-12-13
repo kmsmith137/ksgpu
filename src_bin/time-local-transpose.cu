@@ -113,16 +113,16 @@ void time_local_transpose_kernel(const char *name)
     Array<D16> dst({nstreams,arr_size}, af_zero | af_gpu);
     Array<D16> src({nstreams,arr_size}, af_zero | af_gpu);
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         D16 *d = dst.data + kt.istream*arr_size;
         D16 *s = src.data + kt.istream*arr_size;
 
         local_transpose_kernel<T> <<< nblocks, nthreads_per_block, 0, kt.stream >>> ((D32 *)d, (D32 *)s, ninner);
         CUDA_PEEK(name);
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double tera_per_sec = tera_transposes_per_kernel / kt.dt;
             cout << name << " teratransposes / sec: " << tera_per_sec << endl;
         }

@@ -68,9 +68,9 @@ static void time_shfl_int(int nblocks, int nthreads, int nstreams, int nouter, i
     double thread_cycles_per_second = 32. * get_sm_cycles_per_second();
     double shuffles_per_kernel = 8. * double(nblocks) * double(nthreads) * double(ninner);  // 8 shuffles per iteration (see above)
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         int4 *buf = (int4*)bufs.data + kt.istream * s;
         uint4 *lane = (uint4*)lanes.data + kt.istream * s;
         
@@ -79,7 +79,7 @@ static void time_shfl_int(int nblocks, int nthreads, int nstreams, int nouter, i
 
         CUDA_PEEK("shfl_kernel launch");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double cycles = kt.dt / (shuffles_per_kernel / thread_cycles_per_second);
             cout << "32-bit warp shuffle Clock cycles: " << cycles << endl;
         }
@@ -96,9 +96,9 @@ static void time_shfl_long(int nblocks, int nthreads, int nstreams, int nouter, 
     double thread_cycles_per_second = 32. * get_sm_cycles_per_second();
     double shuffles_per_kernel = 4. * double(nblocks) * double(nthreads) * double(ninner);  // 4 shuffles per iteration (see above)
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         long2 *buf = (long2*)bufs.data + kt.istream * s;
         uint2 *lane = (uint2*)lanes.data + kt.istream * s;
         
@@ -107,7 +107,7 @@ static void time_shfl_long(int nblocks, int nthreads, int nstreams, int nouter, 
 
         CUDA_PEEK("shfl_kernel launch");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double cycles = kt.dt / (shuffles_per_kernel / thread_cycles_per_second);
             cout << "64-bit warp shuffle Clock cycles: " << cycles << endl;
         }
@@ -140,9 +140,9 @@ static void time_reduce_add(int nblocks, int nthreads, int nstreams, int nouter,
     double thread_cycles_per_second = 32. * get_sm_cycles_per_second();
     double reduces_per_kernel = double(s) * double(ninner);
 
-    KernelTimer kt(nstreams);
+    KernelTimer kt(nouter, nstreams);
 
-    for (int i = 0; i < nouter; i++) {
+    while (kt.next()) {
         int *dst = dst_arr.data + kt.istream * s;
         int *src = src_arr.data + kt.istream * s;
         
@@ -151,7 +151,7 @@ static void time_reduce_add(int nblocks, int nthreads, int nstreams, int nouter,
 
         CUDA_PEEK("reduce_add_kernel");
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double cycles = kt.dt / (reduces_per_kernel / thread_cycles_per_second);
             cout << "reduce_add<int> Clock cycles: " << cycles << endl;
         }

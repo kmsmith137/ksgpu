@@ -55,13 +55,13 @@ int main(int argc, char **argv)
     
     Array<int> dst({nstreams,ndst}, af_gpu | af_zero);
     Array<int> src({nstreams,nsrc}, af_gpu | af_zero);    
-    KernelTimer kt(nstreams);
+    KernelTimer kt(20, nstreams);
 
-    for (int i = 0; i < 20; i++) {
+    while (kt.next()) {
         l2_bandwidth_kernel<<<nblocks, nthreads_per_block, 0, kt.stream>>> 
             (dst.data + kt.istream * ndst, src.data + kt.istream * nsrc);
 
-        if (kt.advance()) {
+        if (kt.warmed_up) {
             double gb_per_sec = gb / kt.dt;
             cout << "    Bandwidth (GB/s) = " << gb_per_sec << endl;
         }
