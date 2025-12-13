@@ -4,39 +4,16 @@
 #include <complex>
 #include <iostream>
 #include "../include/ksgpu.hpp"
-// #include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/Array.hpp"
 
 using namespace std;
 using namespace ksgpu;
 
-template<typename T>
-static void f()
-{
-    Dtype d = Dtype::native<T>();
-    Dtype d2 = Dtype::from_str(d.str(), false);
-    cout << d << " -> " << d2 << endl;
-}
-
-template<typename T>
-static void g()
-{
-    f<T> ();
-    f<complex<T>> ();
-}
 
 int main(int argc, char **argv)
 {
-    g<int> ();
-    g<uint> ();
-    g<long> ();
-    g<ulong> ();
-    g<short> ();
-    g<ushort> ();
-    g<char> ();
-    g<unsigned char> ();
-    g<float> ();
-    g<double> ();
-    g<__half> ();
-    
+    Array<float> arr({2,3,4}, {20,4,1}, af_uhost | af_zero);
+    arr.randomize(true);
+    print_array(arr);
     return 0;
 }

@@ -272,6 +272,11 @@ void test_set_zero(bool noisy)
     for (auto ix = rs.arr.ix_start(); rs.arr.ix_valid(ix); rs.arr.ix_next(ix))
         xassert(rs.arr.at(ix) == T(0));
 
+    // FIXME: I don't have a unit test yet for Array::randomize(), but in the meantime
+    // this thrown-in call to Array::randomize() does check that it's not overflowing
+    // its buffers.
+    rs.arr.randomize(noisy);
+
     rs.check_for_buffer_overflows();
 }
 
@@ -508,7 +513,7 @@ static void run_all_tests(bool noisy)
     RandomlyStridedArray<T> rs(noisy);  
     rs.run_simple_tests();
 
-    test_set_zero<T> (true);  // XXX noisy=true
+    test_set_zero<T> (noisy);
 
     FillTestInstance<T> ft;
     ft.noisy = noisy;

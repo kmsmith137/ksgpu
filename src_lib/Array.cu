@@ -363,11 +363,6 @@ static void init_uncoalesced_axes(int &naxes, fill_axis *axes, const Array<void>
     
     for (int d = 0; d < arr.ndim; d++) {
         xassert(arr.shape[d] > 0);
-        
-        // Skip length-1 axes.
-        if (arr.shape[d] == 1)
-            continue;
-        
         axes[naxes].length = arr.shape[d];
         axes[naxes].stride = arr.strides[d];
         naxes++;
@@ -389,6 +384,12 @@ init_coalesced_axes(int &nax_c, fill_axis *axes_c, int nax_u, fill_axis *axes_u)
     nax_c = 1;
     
     for (int i = 1; i < nax_u; i++) {
+        // Skip length-1 axes. (It's better to do this here, rather than in init_uncoalesced_axes(),
+        // so that it applies to the "dummy" stride=1 axes that we sometimes add, see below.)
+        
+        if (axes_u[i].length == 1)
+            continue;
+        
         long s = axes_c[nax_c-1].length * axes_c[nax_c-1].stride;
         bool can_coalesce = (axes_u[i].stride == s);
         
@@ -516,6 +517,92 @@ void array_set_zero(Array<void> &arr, bool noisy)
     // Checks pass, now we can call array_set_zero2().
     bool on_gpu = (arr.aflags & af_gpu);
     array_set_zero2((char *) arr.data, nax_c, axes_c, on_gpu);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// array_randomize()
+
+
+// Recursive helper function called by array_randomize().
+static void array_randomize2(Dtype dtype, char *dst, int naxes, const fill_axis *axes)
+{
+    // Caller guarantees the following (these are asserts in array_randomize()).
+    // Note that all strides are element counts (not bit/byte counts).
+    //
+    //   naxes > 0
+    //   axes[0].stride == 1
+    //   ((axes[0].length * dtype.nbits) % 8) == 0
+    //   ((axes[d].stride * dtype.nbits) % 8) == 0    for d > 0
+
+    if (naxes == 1)
+        _randomize(dtype, dst, axes[0].length);  // defined in rand_utils.{hpp,cu}
+    else {
+        long s = (axes[naxes-1].stride * dtype.nbits) >> 3;  // (element stride) -> (byte stride)        
+        for (long i = 0; i < axes[naxes-1].length; i++)
+            array_randomize2(dtype, dst + i*s, naxes-1, axes);
+    }
+}
+
+
+void array_randomize(Array<void> &arr, bool noisy)
+{
+    if (arr.size == 0)
+        return;
+
+    if (!arr.on_host())
+        throw runtime_error("Array::randomize() is not implemented yet for GPU arrays");
+
+    // Uncoalesced axes.
+    int nax_u = 0;
+    fill_axis axes_u[ArrayMaxDim+1];
+    init_uncoalesced_axes(nax_u, axes_u, arr);
+
+    // To handle the case where the fastest-varying axis is discontiguous, we
+    // add a dummy axis with length=stride=1. This ensures that array_randomize()
+    // is correct in all cases, but it's not very efficient. If this is ever an
+    // issue, then defining ksgpu::_randomize_2d() is probably a good solution.
+
+    axes_u[nax_u].length = 1;
+    axes_u[nax_u].stride = 1;
+    nax_u++;
+
+    // Coalesced axes.
+    int nax_c = 0;
+    fill_axis axes_c[ArrayMaxDim+1];
+    init_coalesced_axes(nax_c, axes_c, nax_u, axes_u);   // note: permutes 'axes_u' in place.
+
+    if (noisy) {
+        cout << "Array::randomize(): uncoalesced and coalesced axes follow" << endl;
+        show_axes(cout, arr, nax_c, axes_c);
+    }
+    
+    // Now a bunch of asserts/checks, in preparation for calling array_randomize2().
+    
+    xassert(nax_c > 0);
+    xassert(axes_c[0].stride == 1);
+
+    bool invalid = ((axes_c[0].length * arr.dtype.nbits) & 7) != 0;
+
+    for (int d = 1; d < nax_c; d++)
+        if ((axes_c[d].stride * arr.dtype.nbits) & 7)
+            invalid = true;
+
+    if (invalid) {
+        stringstream ss;
+        
+        ss << "Array::randomize() operation can't be decomposed into byte-contiguous randomize() calls.\n"
+           << "This is currently treated as an error, even in tame cases such as a contiguous 1-d array with (total_nbits % 8) != 0.\n"
+           << "Addressing this is nontrivial (e.g. consider case where 'tame' array is subarray of an ambient array).\n"
+           << "I may revisit this in the future, but it's not a high priority right now.\n";
+        
+        show_axes(ss, arr, nax_c, axes_c);
+        throw runtime_error(ss.str());
+    }
+
+    // Checks pass, now we can call array_randomize2().
+    array_randomize2(arr.dtype, (char *) arr.data, nax_c, axes_c);
 }
 
 
