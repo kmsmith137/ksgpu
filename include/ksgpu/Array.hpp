@@ -121,7 +121,7 @@ struct Array {
     inline bool is_fully_contiguous() const { return get_ncontig() == ndim; }
     
     inline void set_zero(bool noisy=false);
-    inline void randomize(bool noisy=true);
+    inline void randomize(bool noisy=false);
 
     // The new Arrays returned by slice() contain references
     // (not copies) to the data in the original Array.
