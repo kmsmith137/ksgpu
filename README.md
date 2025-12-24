@@ -18,7 +18,7 @@ of these conda packages. In particular, on the CHIME/CHORD machines you can do:
     # Case 2: installing on a CHIME/CHORD machine.
     # Note: I've also included some packages that you need for 'pirate'.
     conda create -c conda-forge -n ENVNAME \
-         cupy scipy matplotlib pybind11 yaml-cpp
+         cupy scipy matplotlib pybind11 yaml-cpp argcomplete
 ```
 Note: I recommend the `miniforge` fork of conda, not the original conda.
 
