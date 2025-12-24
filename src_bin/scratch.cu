@@ -12,8 +12,5 @@ using namespace ksgpu;
 
 int main(int argc, char **argv)
 {
-    Array<float> arr({2,3,4}, {20,4,1}, af_uhost | af_zero);
-    arr.randomize(true);
-    print_array(arr);
     return 0;
 }

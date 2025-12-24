@@ -41,9 +41,9 @@ inline long rand_int(long lo, long hi, std::mt19937 &rng = default_rng)
     return std::uniform_int_distribution<long>(lo,hi-1)(rng);   // note hi-1 here!
 }
 
-
 inline double rand_uniform(double lo=0.0, double hi=1.0, std::mt19937 &rng = default_rng)
 {
+    xassert(lo < hi);
     return std::uniform_real_distribution<double>(lo,hi) (rng);
 }
 
@@ -52,6 +52,32 @@ inline bool rand_bool(double p=0.5, std::mt19937 &rng = default_rng)
     return std::uniform_real_distribution<double>(0.0,1.0)(rng) < p;
 }
 
+
+inline std::vector<long> rand_int_vec(long size, long lo, long hi, std::mt19937 &rng = default_rng)
+{
+    xassert(size >= 0);
+    xassert(lo < hi);
+    auto dist = std::uniform_int_distribution<long>(lo,hi-1);   // note hi-1 here!
+
+    std::vector<long> ret(size);
+    for (long i = 0; i < size; i++)
+        ret[i] = dist(rng);
+
+    return ret;
+}
+
+inline std::vector<double> rand_uniform_vec(long size, double lo=0.0, double hi=1.0, std::mt19937 &rng = default_rng)
+{
+    xassert(size >= 0);
+    xassert(lo <= hi);
+    auto dist = std::uniform_real_distribution<double>(lo,hi);
+
+    std::vector<double> ret(size);
+    for (long i = 0; i < size; i++)
+        ret[i] = dist(rng);
+
+    return ret;
+}
 
 template<typename T>
 inline void randomly_permute(std::vector<T> &v, std::mt19937 &rng = default_rng)
