@@ -1,4 +1,5 @@
 #include "../include/ksgpu/Array.hpp"
+#include "../include/ksgpu/string_utils.hpp"   // tuple_str()
 
 using namespace std;
 
@@ -269,8 +270,21 @@ double assert_arrays_equal(
     long max_display,
     bool verbose)
 {
-    xassert(arr1.shape_equals(arr2));
-    xassert(axis_names.size() == uint(arr1.ndim));
+    if (!arr1.shape_equals(arr2)) {
+        stringstream ss;
+        ss << "assert_arrays_equal(): arrays have different shapes: " 
+            << name1 << ".shape=" << arr1.shape_str() << " and "
+            << name2 << ".shape=" << arr2.shape_str();
+        throw runtime_error(ss.str());
+    }
+
+    if (axis_names.size() != uint(arr1.ndim)) {
+        stringstream ss;
+        ss << "assert_arrays_equal(" << name1 << "," << name2 << "): axis_names=" << tuple_str(axis_names) 
+           << " must have the same length as the array shape " << arr1.shape_str();
+        throw runtime_error(ss.str());
+    }
+
     xassert(max_display > 0);
 
     assert_func afunc = get_assert_func(arr1.dtype, arr2.dtype);
