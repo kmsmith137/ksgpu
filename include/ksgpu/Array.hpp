@@ -284,8 +284,8 @@ extern void array_transpose(Array<void> &dst, const Array<void> &src, const int 
 extern void array_reshape(Array<void> &dst, const Array<void> &src, int dst_ndim, const long *dst_shape);
 extern void array_convert(Array<void> &dst, const Array<void> &src, bool noisy=false);
 
-// Checks all Array invariants except dtype.
-extern void _check_array_invariants(const Array<void> &arr, const char *where = "ksgpu::check_array_invariants()");
+extern void _check_array_invariants_except_dtype(const Array<void> &arr, const char *where = "ksgpu::check_array_invariants()");
+
 extern void _array_allocate(Array<void> &arr, Dtype dtype, int ndim, const long *shape, const long *strides, int aflags);
 
 // Misc helpers.
@@ -747,7 +747,7 @@ template<typename T>
 inline void Array<T>::check_invariants(const char *where) const
 {
     _check_dtype<T> (dtype, where);
-    _check_array_invariants(*this, where);
+    _check_array_invariants_except_dtype(*this, where);
 }
 
 

@@ -93,13 +93,13 @@ void _array_allocate(Array<void> &arr, Dtype dtype, int ndim, const long *shape,
     arr.base = _af_alloc(dtype, nalloc, aflags);
     arr.data = arr.base.get();
     
-    _check_array_invariants(arr, "Array constructor (or _array_allocate())");
+    _check_array_invariants_except_dtype(arr, "Array constructor (or _array_allocate())");
 }
 
 
 // -------------------------------------------------------------------------------------------------
 //
-// _check_array_invariants()
+// _check_array_invariants_except_dtype()
 
 
 // Just for readability.
@@ -118,8 +118,7 @@ struct stride_checker {
 };
 
 
-// Checks all array invariants except dtype.
-void _check_array_invariants(const Array<void> &arr, const char *where)
+void _check_array_invariants_except_dtype(const Array<void> &arr, const char *where)
 {
     int ndim = arr.ndim;
     xassert_where((ndim >= 0) && (ndim <= ArrayMaxDim), where);
