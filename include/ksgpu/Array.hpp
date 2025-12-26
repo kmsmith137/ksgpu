@@ -286,7 +286,15 @@ extern void array_convert(Array<void> &dst, const Array<void> &src, bool noisy=f
 
 extern void _check_array_invariants_except_dtype(const Array<void> &arr, const char *where = "ksgpu::check_array_invariants()");
 
-extern void _array_allocate(Array<void> &arr, Dtype dtype, int ndim, const long *shape, const long *strides, int aflags);
+// Fully initializes array and checks invariants.
+// Assumes that caller has checked dtype (e.g. by calling _check_dtype<T>() defined in Dtype.hpp)
+extern void _array_allocate_prechecked_dtype(Array<void> &arr, Dtype dtype, int ndim, const long *shape, const long *strides, int aflags);
+
+// Initializes all members of Array except 'data' and 'base'.
+// Assumes that caller has checked dtype (e.g. by calling _check_dtype<T>() defined in Dtype.hpp)
+// Returns an element count (not a byte count) for the caller to allocate.
+// Does not check array invariants. Caller should call _check_array_invariants_except_dtype().
+extern long _array_init_noalloc_prechecked_dtype(Array<void> &arr, Dtype dtype, int ndim, const long *shape, const long *strides, int aflags);
 
 // Misc helpers.
 extern bool _tuples_equal(int ndim1, const long *shape1, int ndim2, const long *shape2);
@@ -406,7 +414,7 @@ template<typename T>
 inline void Array<T>::allocate(Dtype dtype_, int ndim_, const long *shape_, const long *strides_, int aflags_)
 {
     _check_dtype<T> (dtype_, "Array constructor");
-    _array_allocate(*this, dtype_, ndim_, shape_, strides_, aflags_);
+    _array_allocate_prechecked_dtype(*this, dtype_, ndim_, shape_, strides_, aflags_);
 }
 
 
