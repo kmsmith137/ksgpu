@@ -59,7 +59,7 @@ int array_get_ncontig(const Array<void> &arr)
 }
 
 
-long _array_init_noalloc_prechecked_dtype(Array<void> &arr, Dtype dtype, int ndim, const long *shape, const long *strides, int aflags)
+long _array_init_dchecked(Array<void> &arr, Dtype dtype, int ndim, const long *shape, const long *strides, int aflags, bool allocate)
 {
     xassert(ndim >= 0);
     xassert(ndim <= ArrayMaxDim);
@@ -88,20 +88,15 @@ long _array_init_noalloc_prechecked_dtype(Array<void> &arr, Dtype dtype, int ndi
     for (int d = ndim; d < ArrayMaxDim; d++)
         arr.shape[d] = arr.strides[d] = 0;
 
+    if (allocate) {
+        // Note: _af_alloc() calls check_aflags().
+        // Note: if nalloc==0, then _af_alloc() returns an empty pointer.
+        arr.base = _af_alloc(dtype, nalloc, aflags);
+        arr.data = arr.base.get();
+        _check_array_invariants_except_dtype(arr, "Array constructor (or _array_allocate())");
+    }
+
     return nalloc;
-}
-
-
-void _array_allocate_prechecked_dtype(Array<void> &arr, Dtype dtype, int ndim, const long *shape, const long *strides, int aflags)
-{
-    long nalloc = _array_init_noalloc_prechecked_dtype(arr, dtype, ndim, shape, strides, aflags);
-
-    // Note: _af_alloc() calls check_aflags().
-    // Note: if nalloc==0, then _af_alloc() returns an empty pointer.
-    arr.base = _af_alloc(dtype, nalloc, aflags);
-    arr.data = arr.base.get();
-    
-    _check_array_invariants_except_dtype(arr, "Array constructor (or _array_allocate())");
 }
 
 
