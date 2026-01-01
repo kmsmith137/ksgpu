@@ -145,7 +145,7 @@ double _assert_arrays_equal(
             cout << " " << axis_names[d] << "=" << ix[d];
 
         cout << ": " << name1 << "=" << x << ", " << name2
-             << "=" << y << "  [delta=" << delta << "]";
+             << "=" << y << "  [delta=" << delta << ", thresh=" << thresh << "]";
 
         if (failed)
             cout << " FAILED";
