@@ -6,6 +6,7 @@
 #include "../include/ksgpu/pybind11.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
 #include "../include/ksgpu/test_utils.hpp"
+#include <pybind11/stl.h>
 #include <iostream>
 
 
@@ -129,6 +130,152 @@ void _launch_busy_wait_kernel(Array<uint> &arr, double a40_sec, long stream_ptr)
 }
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// ArrayInfo: struct for returning array metadata to Python for verification in unit tests.
+
+
+struct ArrayInfo
+{
+    vector<long> shape;
+    vector<long> strides;
+    string dtype_str;
+    string location;      // "gpu", "rhost", "uhost", "unified"
+    uintptr_t data_ptr;
+    
+    ArrayInfo() : data_ptr(0) { }
+    
+    ArrayInfo(const Array<void> &arr)
+    {
+        shape.assign(arr.shape, arr.shape + arr.ndim);
+        strides.assign(arr.strides, arr.strides + arr.ndim);
+        dtype_str = arr.dtype.str();
+        data_ptr = reinterpret_cast<uintptr_t>(arr.data);
+        
+        if (arr.aflags & af_gpu)
+            location = "gpu";
+        else if (arr.aflags & af_rhost)
+            location = "rhost";
+        else if (arr.aflags & af_unified)
+            location = "unified";
+        else
+            location = "uhost";
+    }
+};
+
+
+// get_array_info(): Convert a Python array to C++ and return its metadata.
+// This allows Python tests to verify that C++ sees the correct shape/strides/dtype/location.
+
+static ArrayInfo get_array_info(const Array<void> &arr)
+{
+    return ArrayInfo(arr);
+}
+
+
+// make_strided_array(): Create a C++ array with specified shape/strides, then return to Python.
+// This is useful for testing C++ -> Python conversion with non-contiguous arrays.
+// The array is filled with sequential values 0, 1, 2, ... for easy verification.
+
+static Array<void> make_strided_array(
+    const vector<long> &shape,
+    const vector<long> &strides,
+    const string &dtype_str,
+    bool on_gpu)
+{
+    Dtype dtype = Dtype::from_str(dtype_str);
+    int ndim = shape.size();
+    
+    if ((int)strides.size() != ndim)
+        throw runtime_error("make_strided_array: shape and strides must have same length");
+    
+    // Calculate the total buffer size needed for these strides
+    long max_offset = 0;
+    for (int i = 0; i < ndim; i++) {
+        if (shape[i] <= 0)
+            throw runtime_error("make_strided_array: shape elements must be positive");
+        if (strides[i] <= 0)
+            throw runtime_error("make_strided_array: strides must be positive (ksgpu doesn't support negative strides)");
+        max_offset += (shape[i] - 1) * strides[i];
+    }
+    long buffer_nelts = max_offset + 1;
+    
+    // Allocate buffer on host first, fill with sequential values
+    int aflags_host = af_rhost;
+    Array<void> buffer(dtype, {buffer_nelts}, aflags_host);
+    
+    // Fill buffer with 0, 1, 2, ... (as float64 for simplicity, then we rely on the fact
+    // that we're using this for testing and the values will be recognizable)
+    if (dtype.flags == df_float && dtype.nbits == 32) {
+        float *p = static_cast<float*>(buffer.data);
+        for (long i = 0; i < buffer_nelts; i++)
+            p[i] = static_cast<float>(i);
+    }
+    else if (dtype.flags == df_float && dtype.nbits == 64) {
+        double *p = static_cast<double*>(buffer.data);
+        for (long i = 0; i < buffer_nelts; i++)
+            p[i] = static_cast<double>(i);
+    }
+    else if (dtype.flags == df_int && dtype.nbits == 32) {
+        int32_t *p = static_cast<int32_t*>(buffer.data);
+        for (long i = 0; i < buffer_nelts; i++)
+            p[i] = static_cast<int32_t>(i);
+    }
+    else if (dtype.flags == df_int && dtype.nbits == 64) {
+        int64_t *p = static_cast<int64_t*>(buffer.data);
+        for (long i = 0; i < buffer_nelts; i++)
+            p[i] = static_cast<int64_t>(i);
+    }
+    else if (dtype.flags == df_uint && dtype.nbits == 32) {
+        uint32_t *p = static_cast<uint32_t*>(buffer.data);
+        for (long i = 0; i < buffer_nelts; i++)
+            p[i] = static_cast<uint32_t>(i);
+    }
+    else if (dtype.flags == (df_complex | df_float) && dtype.nbits == 64) {
+        complex<float> *p = static_cast<complex<float>*>(buffer.data);
+        for (long i = 0; i < buffer_nelts; i++)
+            p[i] = complex<float>(static_cast<float>(i), 0.0f);
+    }
+    else if (dtype.flags == (df_complex | df_float) && dtype.nbits == 128) {
+        complex<double> *p = static_cast<complex<double>*>(buffer.data);
+        for (long i = 0; i < buffer_nelts; i++)
+            p[i] = complex<double>(static_cast<double>(i), 0.0);
+    }
+    else {
+        throw runtime_error("make_strided_array: unsupported dtype " + dtype_str);
+    }
+    
+    // Copy to GPU if needed
+    if (on_gpu)
+        buffer = buffer.to_gpu();
+    
+    // Create the strided view
+    Array<void> ret;
+    ret.data = buffer.data;
+    ret.ndim = ndim;
+    ret.dtype = dtype;
+    ret.aflags = buffer.aflags;
+    ret.base = buffer.base;
+    ret.size = 1;
+    
+    for (int i = 0; i < ndim; i++) {
+        ret.shape[i] = shape[i];
+        ret.strides[i] = strides[i];
+        ret.size *= shape[i];
+    }
+    for (int i = ndim; i < ArrayMaxDim; i++) {
+        ret.shape[i] = 0;
+        ret.strides[i] = 0;
+    }
+    
+    ret.check_invariants();
+    return ret;
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
 struct Stash
 {
     Array<void> x;
@@ -138,6 +285,12 @@ struct Stash
     
     Array<void> get() { return x; }
     void clear() { x = Array<void> (); }
+    
+    // Return metadata about the stashed array (for testing)
+    ArrayInfo info() const { return ArrayInfo(x); }
+    
+    // Check if stash is empty
+    bool is_empty() const { return x.size == 0; }
 };
 
 
@@ -199,17 +352,52 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
           py::arg("device"));
     
     // ------------------------------  ksgpu.tests submodule  --------------------------------------
+
+    // ArrayInfo: struct for returning array metadata to Python
+    py::class_<ArrayInfo>(m, "ArrayInfo",
+        "Metadata about a C++ array, returned by get_array_info() and Stash.info()")
+        .def_readonly("shape", &ArrayInfo::shape)
+        .def_readonly("strides", &ArrayInfo::strides)
+        .def_readonly("dtype_str", &ArrayInfo::dtype_str)
+        .def_readonly("location", &ArrayInfo::location)
+        .def_readonly("data_ptr", &ArrayInfo::data_ptr)
+        .def("__repr__", [](const ArrayInfo &info) {
+            stringstream ss;
+            ss << "ArrayInfo(shape=[";
+            for (size_t i = 0; i < info.shape.size(); i++)
+                ss << (i ? "," : "") << info.shape[i];
+            ss << "], strides=[";
+            for (size_t i = 0; i < info.strides.size(); i++)
+                ss << (i ? "," : "") << info.strides[i];
+            ss << "], dtype='" << info.dtype_str << "', location='" << info.location << "')";
+            return ss.str();
+        })
+    ;
+    
+    m.def("get_array_info", &get_array_info,
+          "Convert a Python array to C++ and return its metadata (shape, strides, dtype, location).\n"
+          "Useful for testing that C++ sees the correct array properties.",
+          py::arg("arr"));
+    
+    m.def("make_strided_array", &make_strided_array,
+          "Create a C++ array with specified shape/strides, filled with sequential values 0,1,2,...\n"
+          "Returns the array converted to Python (numpy or cupy depending on on_gpu).\n"
+          "Useful for testing C++ -> Python conversion with non-contiguous arrays.",
+          py::arg("shape"), py::arg("strides"), py::arg("dtype"), py::arg("on_gpu"));
      
     const char *stash_doc =
         "Helper class intended for testing C++ <-> python array conversion.\n"
         "   s = Stash(numpy_or_cupy_array)     # converts array to C++ and saves it\n"
-        "   arr = Stash.get()                  # converts array to python and returns it";
+        "   arr = Stash.get()                  # converts array to python and returns it\n"
+        "   info = Stash.info()                # returns ArrayInfo about the stashed array";
 
 
     py::class_<Stash>(m, "Stash", stash_doc)
         .def(py::init<const Array<void> &>(), py::arg("arr"))
         .def("get", &Stash::get)
         .def("clear", &Stash::clear)
+        .def("info", &Stash::info)
+        .def("is_empty", &Stash::is_empty)
     ;
     
     m.def("sum", &_sum,   

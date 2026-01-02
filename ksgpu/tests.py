@@ -1,5 +1,8 @@
 from .ksgpu_pybind11 import \
     Stash, \
+    ArrayInfo, \
+    get_array_info, \
+    make_strided_array, \
     sum, \
     double, \
     arange, \
