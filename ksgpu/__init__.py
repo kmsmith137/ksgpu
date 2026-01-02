@@ -35,4 +35,6 @@ from .ksgpu_pybind11 import \
     set_cuda_device, \
     get_cuda_pcie_bus_id
 
+from .CudaStreamWrapper import CudaStreamWrapper, StreamHolder
+
 from . import tests

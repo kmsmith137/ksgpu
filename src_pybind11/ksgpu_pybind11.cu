@@ -274,6 +274,53 @@ static Array<void> make_strided_array(
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _CudaStreamWrapperBase: Internal pybind11 binding for CudaStreamWrapper.
+//
+// This class is NOT intended to be used directly from Python. Instead, users should use
+// the Python class `ksgpu.CudaStreamWrapper`, which:
+//
+//   1. Inherits from cupy.cuda.ExternalStream (providing context manager support and
+//      seamless cupy interop via isinstance() checks)
+//
+//   2. Holds a reference to this _CudaStreamWrapperBase object, which ensures proper
+//      reference counting via std::shared_ptr<CUstream_st>
+//
+// The reference counting works as follows:
+//
+//   - CudaStreamWrapper (C++) contains std::shared_ptr<CUstream_st>
+//   - When _CudaStreamWrapperBase is returned to Python, pybind11 creates a COPY,
+//     incrementing the shared_ptr refcount
+//   - The Python CudaStreamWrapper stores this _CudaStreamWrapperBase in self._cpp_wrapper
+//   - When Python's GC collects the CudaStreamWrapper, _cpp_wrapper is destroyed,
+//     decrementing the refcount
+//   - When refcount reaches 0, cudaStreamDestroy() is called
+//
+// This design allows C++ code to return CudaStreamWrapper objects to Python while
+// ensuring the underlying CUDA stream stays alive as long as Python holds a reference.
+
+
+// _StreamHolderBase: Test helper class for verifying stream reference counting.
+// Used in unit tests to create a stream, pass it to Python, then verify the stream
+// stays alive after the C++ holder is destroyed.
+
+struct _StreamHolderBase {
+    CudaStreamWrapper stream;
+    
+    _StreamHolderBase() : stream(CudaStreamWrapper::create()) {
+        std::cout << "_StreamHolderBase created, stream ptr=" 
+                  << reinterpret_cast<uintptr_t>(stream.p.get()) << std::endl;
+    }
+    
+    ~_StreamHolderBase() {
+        std::cout << "_StreamHolderBase destroyed" << std::endl;
+    }
+    
+    CudaStreamWrapper get_stream() { return stream; }
+};
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 struct Stash
@@ -420,4 +467,43 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
 
     m.def("_launch_busy_wait_kernel", &_launch_busy_wait_kernel,
           py::arg("arr"), py::arg("a40_sec"), py::arg("stream_ptr"));
+    
+    // --------------------------  CudaStreamWrapper bindings  ---------------------------------
+    //
+    // See comments above _StreamHolderBase for detailed explanation of the design.
+    
+    py::class_<CudaStreamWrapper>(m, "_CudaStreamWrapperBase",
+        "Internal: C++ CUDA stream wrapper with reference counting.\n\n"
+        "DO NOT USE DIRECTLY. Use ksgpu.CudaStreamWrapper instead, which inherits from\n"
+        "cupy.cuda.ExternalStream and holds a reference to this object for proper\n"
+        "reference counting.\n\n"
+        "The underlying CUDA stream is destroyed when all Python and C++ references\n"
+        "to this object are released.")
+        .def(py::init<>(), "Create wrapper for default stream (ptr=0)")
+        .def_static("create", &CudaStreamWrapper::create,
+            "Create a new CUDA stream with optional priority (default=0)", 
+            py::arg("priority") = 0)
+        .def_property_readonly("ptr", [](const CudaStreamWrapper &s) {
+            return reinterpret_cast<uintptr_t>(s.p.get());
+        }, "Raw cudaStream_t pointer as integer")
+        .def_property_readonly("is_default", [](const CudaStreamWrapper &s) {
+            return s.p.get() == nullptr;
+        }, "True if this wraps the default stream (ptr=0)")
+        .def("__repr__", [](const CudaStreamWrapper &s) {
+            std::stringstream ss;
+            ss << "_CudaStreamWrapperBase(ptr=0x" << std::hex 
+               << reinterpret_cast<uintptr_t>(s.p.get()) << ")";
+            return ss.str();
+        })
+    ;
+    
+    py::class_<_StreamHolderBase>(m, "_StreamHolderBase",
+        "Internal: Test helper for stream reference counting.\n\n"
+        "Creates a CUDA stream on construction, allows retrieving it via get_stream().\n"
+        "Used in unit tests to verify that streams stay alive when Python holds\n"
+        "a reference even after the C++ holder is destroyed.")
+        .def(py::init<>(), "Create holder with a new CUDA stream")
+        .def("get_stream", &_StreamHolderBase::get_stream,
+            "Return the stream (as _CudaStreamWrapperBase)")
+    ;
 }
