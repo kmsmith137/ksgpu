@@ -5,6 +5,7 @@
 #include <numpy/arrayobject.h>
 
 #include <complex>
+#include <cstring>
 #include <iostream>
 
 #include "../include/ksgpu/Dtype.hpp"
@@ -125,6 +126,28 @@ static ksgpu::Dtype dl_type_to_ksgpu_dtype(DLDataType d)
 }
 
 
+// Converts ksgpu::Dtype to DLDataType.
+// If conversion fails, returns DLDataType with lanes==0 (invalid).
+static DLDataType ksgpu_dtype_to_dl_type(const ksgpu::Dtype &dtype)
+{
+    DLDataType ret = {0, 0, 1};  // lanes=1 for scalar types
+    
+    if (dtype.flags == df_int)
+        ret.code = kDLInt;
+    else if (dtype.flags == df_uint)
+        ret.code = kDLUInt;
+    else if (dtype.flags == df_float)
+        ret.code = kDLFloat;
+    else if (dtype.flags == (df_complex | df_float))
+        ret.code = kDLComplex;
+    else
+        return {0, 0, 0};  // invalid
+    
+    ret.bits = dtype.nbits;
+    return ret;
+}
+
+
 // Returns (-1) on failure.
 static int ksgpu_dtype_to_npy_type_code(const ksgpu::Dtype &dtype)
 {
@@ -232,6 +255,23 @@ static int dl_device_type_to_aflags(DLDeviceType d)
     default:
         return 0;
     }
+}
+
+
+// Converts ksgpu aflags to DLDevice.
+static DLDevice aflags_to_dl_device(int aflags, int device_id = 0)
+{
+    DLDevice ret = {kDLCPU, 0};
+    
+    if (aflags & af_gpu)
+        ret = {kDLCUDA, device_id};
+    else if (aflags & af_rhost)
+        ret = {kDLCUDAHost, 0};
+    else if (aflags & af_unified)
+        ret = {kDLCUDAManaged, 0};
+    // af_uhost -> kDLCPU (default)
+    
+    return ret;
 }
 
 
@@ -459,16 +499,131 @@ void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expecte
 //   https://github.com/pybind/pybind11/blob/master/include/pybind11/detail/common.h
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// DLPack export helpers for GPU array -> Python conversion.
+// We export a DLManagedTensor via PyCapsule, then call cupy.from_dlpack().
+
+
+// Context struct holds data that must outlive the DLManagedTensor.
+struct DLPackExportContext {
+    shared_ptr<void> base;         // Prevent C++ array from being deallocated
+    vector<int64_t> shape;         // DLPack requires int64_t arrays
+    vector<int64_t> strides;
+};
+
+
+// Deleter called when DLManagedTensor is no longer needed.
+static void dlpack_deleter(DLManagedTensor *self)
+{
+    auto *ctx = static_cast<DLPackExportContext *>(self->manager_ctx);
+    delete ctx;
+    delete self;
+}
+
+
+// Capsule destructor: called when PyCapsule is garbage collected.
+// Only calls dlpack_deleter if the capsule was never consumed (i.e., still named "dltensor").
+static void capsule_destructor(PyObject *capsule)
+{
+    const char *name = PyCapsule_GetName(capsule);
+    if (name && strcmp(name, "dltensor") == 0) {
+        auto *mt = static_cast<DLManagedTensor *>(PyCapsule_GetPointer(capsule, "dltensor"));
+        if (mt && mt->deleter)
+            mt->deleter(mt);
+    }
+}
+
+
+// Create a PyCapsule containing a DLManagedTensor for the given GPU array.
+// Returns NULL and sets PyErr on failure.
+static PyObject *create_dlpack_capsule(const Array<void> &src)
+{
+    // Validate dtype conversion
+    DLDataType dl_dtype = ksgpu_dtype_to_dl_type(src.dtype);
+    if (dl_dtype.lanes == 0) {
+        stringstream ss;
+        ss << "Couldn't export C++ array dtype " << src.dtype << " to DLPack";
+        PyErr_SetString(PyExc_TypeError, ss.str().c_str());
+        return NULL;
+    }
+    
+    // Get current CUDA device
+    int device_id = 0;
+    cudaError_t err = cudaGetDevice(&device_id);
+    if (err != cudaSuccess) {
+        PyErr_SetString(PyExc_RuntimeError, "cudaGetDevice() failed");
+        return NULL;
+    }
+    
+    // Create context to hold array lifetime and metadata
+    auto *ctx = new DLPackExportContext();
+    ctx->base = src.base;
+    ctx->shape.assign(src.shape, src.shape + src.ndim);
+    ctx->strides.assign(src.strides, src.strides + src.ndim);
+    
+    // Create DLManagedTensor
+    auto *mt = new DLManagedTensor();
+    mt->manager_ctx = ctx;
+    mt->deleter = dlpack_deleter;
+    
+    DLTensor &t = mt->dl_tensor;
+    t.data = src.data;
+    t.device = aflags_to_dl_device(src.aflags, device_id);
+    t.ndim = src.ndim;
+    t.dtype = dl_dtype;
+    t.shape = ctx->shape.data();
+    t.strides = ctx->strides.data();
+    t.byte_offset = 0;
+    
+    // Wrap in capsule
+    PyObject *capsule = PyCapsule_New(mt, "dltensor", capsule_destructor);
+    if (!capsule) {
+        delete ctx;
+        delete mt;
+        return NULL;
+    }
+    
+    return capsule;
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
 __attribute__ ((visibility ("default")))
 PyObject *convert_array_to_python(const Array<void> &src, pybind11::return_value_policy policy, pybind11::handle parent)
 {
     if (!af_on_host(src.aflags)) {
-        // FIXME currently C++ -> python array conversion is not implemented for GPU arrays.
-        // However, I'm skeptical that this is a good idea (in code 
-
-        const char *msg = "Currently C++ -> python array conversion is not implemented for GPU arrays";
-        PyErr_SetString(PyExc_TypeError, msg);
-        return NULL;
+        // GPU array: export via DLPack and call cupy.from_dlpack()
+        
+        PyObject *capsule = create_dlpack_capsule(src);
+        if (!capsule)
+            return NULL;
+        
+        // Import cupy
+        PyObject *cupy = PyImport_ImportModule("cupy");
+        if (!cupy) {
+            Py_DECREF(capsule);
+            PyErr_Clear();
+            PyErr_SetString(PyExc_ImportError,
+                "GPU array conversion requires cupy, but cupy is not installed");
+            return NULL;
+        }
+        
+        // Get cupy.from_dlpack
+        PyObject *from_dlpack = PyObject_GetAttrString(cupy, "from_dlpack");
+        Py_DECREF(cupy);
+        if (!from_dlpack) {
+            Py_DECREF(capsule);
+            return NULL;
+        }
+        
+        // Call cupy.from_dlpack(capsule)
+        PyObject *result = PyObject_CallFunctionObjArgs(from_dlpack, capsule, NULL);
+        Py_DECREF(from_dlpack);
+        Py_DECREF(capsule);
+        return result;
     }
 
     int ndim = src.ndim;
