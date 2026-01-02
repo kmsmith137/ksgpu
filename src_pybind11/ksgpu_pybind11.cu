@@ -5,6 +5,7 @@
 
 #include "../include/ksgpu/pybind11.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/mem_utils.hpp"
 #include "../include/ksgpu/test_utils.hpp"
 #include <pybind11/stl.h>
 #include <iostream>
@@ -397,6 +398,32 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
     m.def("get_cuda_pcie_bus_id", &get_cuda_pcie_bus_id,
           "Returns PCIe bus ID of specified cuda device, as string e.g. '0000:E1:00.0'",
           py::arg("device"));
+    
+    // -----------------------------------  aflags and aflag_str  -----------------------------------
+    
+    // Location flags
+    m.attr("af_gpu") = af_gpu;
+    m.attr("af_uhost") = af_uhost;
+    m.attr("af_rhost") = af_rhost;
+    m.attr("af_unified") = af_unified;
+    
+    // Initialization flags
+    m.attr("af_zero") = af_zero;
+    m.attr("af_random") = af_random;
+    
+    // Mmap flags
+    m.attr("af_mmap_small") = af_mmap_small;
+    m.attr("af_mmap_huge") = af_mmap_huge;
+    m.attr("af_mmap_try_huge") = af_mmap_try_huge;
+    
+    // Debug flags
+    m.attr("af_guard") = af_guard;
+    m.attr("af_verbose") = af_verbose;
+    
+    // aflag_str function
+    m.def("aflag_str", &aflag_str,
+          "Convert allocation flags to human-readable string (e.g. 'af_gpu | af_zero')",
+          py::arg("flags"));
     
     // ------------------------------  ksgpu.tests submodule  --------------------------------------
 

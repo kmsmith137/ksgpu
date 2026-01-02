@@ -33,8 +33,21 @@ from .ksgpu_pybind11 import \
     get_cuda_num_devices, \
     get_cuda_device, \
     set_cuda_device, \
-    get_cuda_pcie_bus_id
+    get_cuda_pcie_bus_id, \
+    af_gpu, \
+    af_uhost, \
+    af_rhost, \
+    af_unified, \
+    af_zero, \
+    af_random, \
+    af_mmap_small, \
+    af_mmap_huge, \
+    af_mmap_try_huge, \
+    af_guard, \
+    af_verbose, \
+    aflag_str
 
 from .CudaStreamWrapper import CudaStreamWrapper, StreamHolder
+from .utils import parse_aflags
 
 from . import tests

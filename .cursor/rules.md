@@ -28,8 +28,7 @@ example, figuring out which directory the numpy `*.h` files are in.) The output
 of this script is a file `makefile_helper.out`, containing variable declarations
 in Makefile language.
 
-You can freely mix invokations of `pip` and `make`, which is convenient but can
-be confusing. See README.md for a recommendation.
+Build with `make -j 32`.
 
 ## File Structure
 
