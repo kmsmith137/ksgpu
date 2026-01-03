@@ -99,6 +99,22 @@ def test_dtype_flags_nbits_construction():
     assert_false(dt.is_empty, "dtype should not be empty")
 
 
+def test_dtype_copy_constructor():
+    """Test Dtype copy constructor."""
+    dt1 = Dtype(Dtype.FLOAT, 32)
+    dt2 = Dtype(dt1)
+    
+    # Should be equal
+    assert_equal(dt2.flags, dt1.flags, "copied flags should match")
+    assert_equal(dt2.nbits, dt1.nbits, "copied nbits should match")
+    assert_true(dt1 == dt2, "copied dtype should equal original")
+    
+    # Modifying one should not affect the other
+    dt2.nbits = 64
+    assert_equal(dt1.nbits, 32, "original should be unchanged")
+    assert_equal(dt2.nbits, 64, "copy should be modified")
+
+
 def test_dtype_class_attributes():
     """Test that df_* constants are class attributes."""
     assert_true(hasattr(Dtype, 'INT'), "Dtype.INT should exist")
@@ -409,6 +425,7 @@ def run_basic_tests():
     tests = [
         test_dtype_empty_construction,
         test_dtype_flags_nbits_construction,
+        test_dtype_copy_constructor,
         test_dtype_class_attributes,
     ]
     passed = sum(run_test(t) for t in tests)

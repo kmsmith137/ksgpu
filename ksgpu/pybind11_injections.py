@@ -94,7 +94,8 @@ class DtypeExtensions:
         
         Parameters
         ----------
-        x : str, numpy.dtype, cupy.dtype, or int, optional
+        x : str, numpy.dtype, cupy.dtype, ksgpu.Dtype, or int, optional
+            - If ksgpu.Dtype: create a copy
             - If str: parse as dtype string (e.g., "float32", "int64")
             - If numpy/cupy dtype: extract flags and nbits automatically
             - If int: interpreted as flags (requires nbits parameter)
@@ -117,6 +118,9 @@ class DtypeExtensions:
         >>> import cupy as cp
         >>> dt = ksgpu.Dtype(cp.int64)
         >>> 
+        >>> # Copy constructor
+        >>> dt2 = ksgpu.Dtype(dt)
+        >>> 
         >>> # From flags + nbits (low-level)
         >>> dt = ksgpu.Dtype(ksgpu.Dtype.FLOAT, 32)
         >>> 
@@ -135,7 +139,12 @@ class DtypeExtensions:
             self._cpp_init(x, nbits)
             return
         
-        # Case 3: String → try from_str()
+        # Case 3: Copy constructor (x is already a ksgpu.Dtype)
+        if isinstance(x, ksgpu_pybind11.Dtype):
+            self._cpp_init(x.flags, x.nbits)
+            return
+        
+        # Case 4: String → try from_str()
         if isinstance(x, str):
             try:
                 parsed = ksgpu_pybind11.Dtype.from_str(x, throw_exception_on_failure=True)
@@ -145,7 +154,7 @@ class DtypeExtensions:
                 # If from_str() fails, try numpy dtype conversion below
                 pass
         
-        # Case 4: Try numpy/cupy dtype conversion
+        # Case 5: Try numpy/cupy dtype conversion
         try:
             import numpy as np
             dt = np.dtype(x)  # This handles numpy dtypes, cupy dtypes, and strings
