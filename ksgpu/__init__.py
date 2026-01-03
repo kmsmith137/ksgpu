@@ -48,6 +48,5 @@ from .ksgpu_pybind11 import \
     aflag_str
 
 from .CudaStreamWrapper import CudaStreamWrapper, StreamHolder
-from .utils import parse_aflags
-
+from .utils import inject_methods, parse_aflags
 from . import tests
