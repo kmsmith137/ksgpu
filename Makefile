@@ -107,7 +107,10 @@ BIN_SRCFILES := \
 # (Otherwise they won't show up in 'pip install' or pypi.)
 PYFILES := \
   ksgpu/__init__.py \
-  ksgpu/tests.py
+  ksgpu/CudaStreamWrapper.py \
+  ksgpu/pybind11_injections.py \
+  ksgpu/tests.py \
+  ksgpu/utils.py
 
 # Must list all header files here.
 # (Otherwise they won't show up in 'pip install' or pypi.)
