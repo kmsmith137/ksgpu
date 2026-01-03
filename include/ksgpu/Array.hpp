@@ -49,8 +49,15 @@ struct Array {
     long strides[ArrayMaxDim];  // in multiples of dtype size (not bytes or bits)
 
     Dtype dtype;
-    std::shared_ptr<void> base;
     int aflags = 0;
+
+    // Memory ownership is refcounted with a member 'shared_ptr<void> base'.
+    // This usually points to the same memory as the 'data' pointer, but there are 
+    // exceptions. For example, when an array is converted from python, the base 
+    // pointer is a (PyObject *), and the shared_ptr deleter calls Py_DECREF(). 
+    // This allows refcounts to be shared between python and C++.
+    
+    std::shared_ptr<void> base;
 
     // "Empty" arrays are size-zero objects containing null pointers.
     // All Arrays obey the rules:
