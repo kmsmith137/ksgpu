@@ -116,6 +116,9 @@ class CudaStreamWrapper(cupy.cuda.ExternalStream):
         cpp_wrapper : _CudaStreamWrapperBase
             Internal C++ wrapper object that manages the stream lifetime.
         """
+
+        assert isinstance(cpp_wrapper, _CudaStreamWrapperBase)
+        
         # Store the C++ wrapper to prevent premature destruction of the stream.
         # The _CudaStreamWrapperBase contains a std::shared_ptr<CUstream_st>,
         # so as long as we hold this reference, the stream stays alive.
