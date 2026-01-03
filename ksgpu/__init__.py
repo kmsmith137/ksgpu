@@ -53,5 +53,6 @@ from .utils import parse_aflags
 
 # Apply pybind11 injections (extends Dtype with flexible Python constructor)
 from . import pybind11_injections
+from .pybind11_injections import inject_methods
 
 from . import tests
