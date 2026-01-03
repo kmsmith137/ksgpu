@@ -30,6 +30,7 @@ _import_pybind11()
 ####################################################################################################
 
 from .ksgpu_pybind11 import \
+    Dtype, \
     get_cuda_num_devices, \
     get_cuda_device, \
     set_cuda_device, \
@@ -48,5 +49,9 @@ from .ksgpu_pybind11 import \
     aflag_str
 
 from .CudaStreamWrapper import CudaStreamWrapper, StreamHolder
-from .utils import inject_methods, parse_aflags
+from .utils import parse_aflags
+
+# Apply pybind11 injections (extends Dtype with flexible Python constructor)
+from . import pybind11_injections
+
 from . import tests

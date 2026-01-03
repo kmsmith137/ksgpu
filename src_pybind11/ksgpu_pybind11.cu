@@ -425,6 +425,41 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
           "Convert allocation flags to human-readable string (e.g. 'af_gpu | af_zero')",
           py::arg("flags"));
     
+    // -----------------------------------  Dtype class  -------------------------------------------
+    
+    // Note: The C++ constructor Dtype(flags, nbits) is overridden from Python (see ksgpu/pybind11_injections.py).
+    // The Python constructor accepts:
+    //   - Dtype()                    -> empty/invalid dtype
+    //   - Dtype("float32")           -> parse string (tries from_str, falls back to numpy conversion)
+    //   - Dtype(np.float32)          -> convert numpy dtype
+    //   - Dtype(cp.int64)            -> convert cupy dtype
+    //   - Dtype(Dtype.FLOAT, 32)     -> low-level flags + nbits (calls C++ constructor directly)
+    
+    py::class_<Dtype>(m, "Dtype", "Data type descriptor for ksgpu arrays")
+        .def(py::init<>(), "Create empty/invalid Dtype")
+        .def(py::init<unsigned short, unsigned short>(), 
+             "Create Dtype with specified flags and nbits (internal, typically called via Python wrapper)",
+             py::arg("flags"), py::arg("nbits"))
+        .def_readwrite("flags", &Dtype::flags, "Type flags (Dtype.INT, Dtype.UINT, Dtype.FLOAT, Dtype.COMPLEX)")
+        .def_readwrite("nbits", &Dtype::nbits, "Number of bits (for complex types, includes factor of 2)")
+        .def_property_readonly("is_valid", &Dtype::is_valid, "Check if dtype is valid")
+        .def_property_readonly("is_empty", &Dtype::is_empty, "Check if dtype is empty")
+        .def_property_readonly("precision", &Dtype::precision, "Get precision (0 for ints, epsilon for floats)")
+        .def_property_readonly("real", &Dtype::real, "Get real dtype (removes complex flag)")
+        .def_property_readonly("complex", &Dtype::complex, "Get complex dtype (adds complex flag)")
+        .def_static("from_str", &Dtype::from_str, 
+                    "Parse dtype from string (e.g. 'float32', 'int64', 'uint16')",
+                    py::arg("s"), py::arg("throw_exception_on_failure") = true)
+        .def("__eq__", &Dtype::operator==)
+        .def("__ne__", &Dtype::operator!=)
+        .def("__repr__", [](const Dtype &d) { return d.str(); })
+        // Dtype flag constants as class attributes
+        .def_readonly_static("INT", &df_int, "Signed integer type flag")
+        .def_readonly_static("UINT", &df_uint, "Unsigned integer type flag")
+        .def_readonly_static("FLOAT", &df_float, "Floating point type flag")
+        .def_readonly_static("COMPLEX", &df_complex, "Complex type flag (combine with INT/UINT/FLOAT)")
+    ;
+    
     // ------------------------------  ksgpu.tests submodule  --------------------------------------
 
     // ArrayInfo: struct for returning array metadata to Python
