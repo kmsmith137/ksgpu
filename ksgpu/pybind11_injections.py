@@ -88,6 +88,17 @@ class DtypeExtensions:
     # Save original C++ constructor
     _cpp_init = ksgpu_pybind11.Dtype.__init__
     
+    # Save original C++ __repr__
+    _cpp_repr = ksgpu_pybind11.Dtype.__repr__
+    
+    def __str__(self):
+        """Return the dtype string (e.g., 'int32')."""
+        return self._cpp_repr()
+    
+    def __repr__(self):
+        """Return a constructor-style representation (e.g., \"Dtype('int32')\")."""
+        return f"Dtype('{self._cpp_repr()}')"
+    
     def __init__(self, x=None, nbits=None):
         """
         Create a ksgpu Dtype object.
