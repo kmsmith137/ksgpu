@@ -43,8 +43,8 @@ struct KernelTimer {
 
     // "Internals"
 
-    int nstreams = 0;
     int niterations = 0;
+    int nstreams = 0;
     long curr_iteration = -1;
 
     std::vector<CudaStreamWrapper> streams;  // length (nstreams)
