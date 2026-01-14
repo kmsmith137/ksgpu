@@ -65,23 +65,31 @@ KSGPU_LIB := lib/libksgpu.so
 KSGPU_PYEXT = ksgpu/ksgpu_pybind11$(PYEXT_SUFFIX)
 
 # These get compiled into lib/libksgpu.so
-LIB_SRCFILES := \
-  src_lib/Array.cu \
-  src_lib/Barrier.cu \
-  src_lib/CpuThreadPool.cu \
-  src_lib/Dtype.cu \
-  src_lib/assert_arrays_equal.cu \
-  src_lib/cuda_utils.cu \
-  src_lib/mem_utils.cu \
+# Note: some files are .cpp (compiled via nvcc forwarding to host compiler)
+# and some are .cu (require nvcc's CUDA frontend for device code).
+LIB_CU_SRCFILES := \
   src_lib/memcpy_kernels.cu \
-  src_lib/rand_utils.cu \
-  src_lib/string_utils.cu \
   src_lib/test_utils.cu
 
+LIB_CPP_SRCFILES := \
+  src_lib/Array.cpp \
+  src_lib/Barrier.cpp \
+  src_lib/CpuThreadPool.cpp \
+  src_lib/Dtype.cpp \
+  src_lib/assert_arrays_equal.cpp \
+  src_lib/cuda_utils.cpp \
+  src_lib/mem_utils.cpp \
+  src_lib/rand_utils.cpp \
+  src_lib/string_utils.cpp
+
+LIB_SRCFILES := $(LIB_CU_SRCFILES) $(LIB_CPP_SRCFILES)
+
 # These get compiled into ksgpu/ksgpu_pybind11....so
-PYEXT_SRCFILES := \
-  src_pybind11/ksgpu_pybind11.cu \
-  src_pybind11/pybind11_utils.cu
+PYEXT_CPP_SRCFILES := \
+  src_pybind11/ksgpu_pybind11.cpp \
+  src_pybind11/pybind11_utils.cpp
+
+PYEXT_SRCFILES := $(PYEXT_CPP_SRCFILES)
 
 # These are in 1-1 corresponding with executables in bin/
 # For example, 'src_bin/time-atomic-add.cu' gets compiled to 'bin/time-atomic-add'.
@@ -150,13 +158,14 @@ CLEAN_RMDIRS := bin lib ksgpu/__pycache__
 ####################################################################################################
 
 
-LIB_OFILES := $(LIB_SRCFILES:%.cu=%.o)
-PYEXT_OFILES := $(PYEXT_SRCFILES:%.cu=%.o)
+LIB_OFILES := $(LIB_CU_SRCFILES:%.cu=%.o) $(LIB_CPP_SRCFILES:%.cpp=%.o)
+PYEXT_OFILES := $(PYEXT_CPP_SRCFILES:%.cpp=%.o)
 BIN_XFILES := $(BIN_SRCFILES:src_bin/%.cu=bin/%)
 
 # Must include all .d files, or build will break!
 ALL_SRCFILES := $(LIB_SRCFILES) $(PYEXT_SRCFILES) $(BIN_SRCFILES)
-DEPFILES := $(ALL_SRCFILES:%.cu=%.d)
+DEPFILES := $(LIB_CU_SRCFILES:%.cu=%.d) $(LIB_CPP_SRCFILES:%.cpp=%.d)
+DEPFILES += $(PYEXT_CPP_SRCFILES:%.cpp=%.d) $(BIN_SRCFILES:%.cu=%.d)
 
 SDIST_FILES := pyproject.toml Makefile makefile_helper.py
 SDIST_FILES += $(PYFILES) $(ALL_SRCFILES) $(HFILES)
@@ -180,12 +189,17 @@ ksgpu/include:
 ksgpu/lib:
 	ln -s ../lib $@
 
-# Build object files in src_lib/ or src_bin/
+# Build object files in src_lib/ or src_bin/ from .cu files
 %.o: %.cu %.d
 	$(NVCC) $(NVCC_ARCH) $(NVCC_DEPFLAGS) -c -o $@ $<
 
-# Build object files in src_pybind11/ with special flags.
-src_pybind11/%.o: src_pybind11/%.cu src_pybind11/%.d
+# Build object files in src_lib/ from .cpp files
+# Note: nvcc forwards .cpp files to the host compiler (no CUDA frontend processing).
+%.o: %.cpp %.d
+	$(NVCC) $(NVCC_ARCH) $(NVCC_DEPFLAGS) -c -o $@ $<
+
+# Build object files in src_pybind11/ from .cpp files, with special flags.
+src_pybind11/%.o: src_pybind11/%.cpp src_pybind11/%.d
 	$(NVCC) $(NVCC_ARCH) $(NVCC_DEPFLAGS) -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -I$(PYBIND11_INCDIR) -c -o $@ $<
 
 # Build the C++ library (lib/libksgpu.so)

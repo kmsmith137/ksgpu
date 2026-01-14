@@ -6,6 +6,7 @@
 #include <sstream>
 #include <typeinfo>
 #include <stdexcept>
+#include <vector_types.h>  // dim3
 
 #ifdef __GNUG__
 #include <cxxabi.h>
