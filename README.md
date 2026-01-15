@@ -17,8 +17,14 @@ of these conda packages. In particular, on the CHIME/CHORD machines you can do:
 ```
     # Case 2: installing on a CHIME/CHORD machine.
     # Note: I've also included some packages that you need for 'pirate'.
+    # Note: currently falls back to python 3.11 due to messy cupy/grpc tension!
+    # Note: last two lines are optional (scipy, sphinx, etc)
+
     conda create -c conda-forge -n ENVNAME \
-         cupy scipy matplotlib pybind11 yaml-cpp argcomplete
+       grpc-cpp grpcio grpcio-tools \
+       cupy pybind11 yaml-cpp \
+       scipy matplotlib ipykernel argcomplete \
+       sphinx sphinx-argparse furo myst-parser emacs
 ```
 Note: I recommend the `miniforge` fork of conda, not the original conda.
 
