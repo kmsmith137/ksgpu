@@ -21,7 +21,7 @@ of these conda packages. In particular, on the CHIME/CHORD machines you can do:
     # Note: last two lines are optional (scipy, sphinx, etc)
 
     conda create -c conda-forge -n ENVNAME \
-       grpc-cpp grpcio grpcio-tools \
+       grpc-cpp grpcio grpcio-tools protoletariat \
        cupy pybind11 yaml-cpp \
        scipy matplotlib ipykernel argcomplete \
        sphinx sphinx-argparse furo myst-parser emacs
