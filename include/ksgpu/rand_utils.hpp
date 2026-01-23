@@ -1,9 +1,10 @@
 #ifndef _KSGPU_RAND_UTILS_HPP
 #define _KSGPU_RAND_UTILS_HPP
 
-#include <vector>
 #include <random>
+#include <string>
 #include <type_traits>
+#include <vector>
 
 #include "Dtype.hpp"
 #include "xassert.hpp"
@@ -125,6 +126,9 @@ extern std::vector<double> random_doubles_with_fixed_sum(int nelts, double sum);
 
 // Useful in unit tests, when generating randomly-sized arrays.
 extern std::vector<long> random_integers_with_bounded_product(int nelts, long bound);
+
+// Generate a random hex string of the specified length.
+extern std::string make_random_hex_string(int len);
 
     
 } // namespace ksgpu

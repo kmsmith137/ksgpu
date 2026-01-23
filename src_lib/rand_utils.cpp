@@ -141,4 +141,23 @@ vector<long> random_integers_with_bounded_product(int n, long bound)
 }
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+string make_random_hex_string(int len)
+{
+    static const char hex_chars[] = "0123456789abcdef";
+    
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<int> dist(0, 15);
+    
+    string s;
+    for (int i = 0; i < len; i++)
+        s += hex_chars[dist(gen)];
+    
+    return s;
+}
+
+
 } // namespace ksgpu
