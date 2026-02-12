@@ -10,9 +10,6 @@
 // Array class
 #include "ksgpu/Array.hpp"
 
-// Barrier: synchronization point between N threads
-#include "ksgpu/Barrier.hpp"
-
 // CpuThreadPool: run multiple CPU threads with dynamic load-balancing, intended for timing.
 #include "ksgpu/CpuThreadPool.hpp"
 

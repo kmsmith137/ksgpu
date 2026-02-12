@@ -73,7 +73,6 @@ LIB_CU_SRCFILES := \
 
 LIB_CPP_SRCFILES := \
   src_lib/Array.cpp \
-  src_lib/Barrier.cpp \
   src_lib/CpuThreadPool.cpp \
   src_lib/Dtype.cpp \
   src_lib/assert_arrays_equal.cpp \
@@ -124,7 +123,6 @@ PYFILES := \
 # (Otherwise they won't show up in 'pip install' or pypi.)
 HFILES := \
   include/ksgpu/Array.hpp \
-  include/ksgpu/Barrier.hpp \
   include/ksgpu/CpuThreadPool.hpp \
   include/ksgpu/Dtype.hpp \
   include/ksgpu/KernelTimer.hpp \
