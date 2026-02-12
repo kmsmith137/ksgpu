@@ -112,7 +112,7 @@ struct alloc_helper {
         ss << "mmap(" << nbytes_to_str(nbytes)
            << (hugepage_flag ? ", MAP_HUGETLB" : "")
            << ") failed: " << strerror(errno)
-           << (hugepage_flag ? ". Try this: echo [NNN] > /proc/sys/vm/nr_hugepages" : "");
+           << (hugepage_flag ? ". Try this: sudo sysctl -w vm.nr_hugepages=NN  # where NN = size / (2MB)" : "");
 
         return ss.str();
     }
