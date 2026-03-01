@@ -51,6 +51,6 @@ extern void make_random_reshape_compatible_shapes(
 extern void launch_busy_wait_kernel(Array<uint> &arr, double a40_seconds, cudaStream_t s);
 
 
-}  // namespace test_utils
+}  // namespace ksgpu
 
 #endif // _KSGPU_TEST_UTILS_HPP

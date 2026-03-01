@@ -95,7 +95,7 @@ void assign_kernel_dims(dim3 &nblocks, dim3 &nthreads, long nx, long ny, long nz
 
     if (nbest == 0) {
         stringstream ss;
-        ss << "assign_kernel_dims() failed: (ny,nz,nz)=(" << nx << "," << ny << "," << nz << ") is too large";
+        ss << "assign_kernel_dims() failed: (nx,ny,nz)=(" << nx << "," << ny << "," << nz << ") is too large";
         throw runtime_error(ss.str());
     }
 

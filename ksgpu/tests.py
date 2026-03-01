@@ -40,4 +40,4 @@ def launch_busy_wait_kernel(arr, a40_seconds):
     
     import cupy
     
-    ksgpu_pybind11._launch_busy_wait_kernel(arr, a40_seconds, cupy.cuda.get_current_stream().ptr)
+    _launch_busy_wait_kernel(arr, a40_seconds, cupy.cuda.get_current_stream().ptr)

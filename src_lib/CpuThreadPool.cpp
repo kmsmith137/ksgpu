@@ -68,8 +68,7 @@ void CpuThreadPool::worker_thread_body(CpuThreadPool *pool, int ithread)
 {
     int nthreads = pool->nthreads;
     int max_callbacks = nthreads * pool->max_callbacks_per_thread;
-    auto callback = pool->callback;
-    
+
     unique_lock<mutex> ul(pool->main_lock);
     auto start_time = pool->start_time;
     ul.unlock();
@@ -128,11 +127,13 @@ void CpuThreadPool::_show_timings(int ncb, double ttot)
     double trec = (ttot > 0.0) ? (ncb/ttot) : 0.0;
     
     int ntm = timing_monitors.size();
-    const TimingMonitor *tm = &timing_monitors[0];
+    const TimingMonitor *tm = &tm_default;
 
     if (ntm == 0) {
         ntm = 1;
-        tm = &tm_default;
+    }
+    else {
+        tm = &timing_monitors[0];
     }
 
     if ((max_callbacks == 0) || (ncb < max_callbacks))

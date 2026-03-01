@@ -5,7 +5,7 @@
 //
 // #include "ksgpu/dlpack.h"                // from https://github.com/dmlc/dlpack
 // #include "ksgpu/pybind11.hpp"            // externally visible Array<> converters
-// #include "ksgpu/pybind11_utils.gpp"      // utility functions, unlikely to be useful from outside ksgpu
+// #include "ksgpu/pybind11_utils.hpp"      // utility functions, unlikely to be useful from outside ksgpu
 
 // Array class
 #include "ksgpu/Array.hpp"

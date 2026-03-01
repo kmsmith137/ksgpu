@@ -44,7 +44,7 @@ public:
 
     // If max_callbacks_per_thread=0, then CpuThreadPool.run() will run forever.
     CpuThreadPool(const callback_t &callback, int nthreads,
-                  int max_callbacks_per_thread_per_thread=0,
+                  int max_callbacks_per_thread=0,
                   const std::string &name="CpuThreadPool");
 
     // Runs stream pool to completion.

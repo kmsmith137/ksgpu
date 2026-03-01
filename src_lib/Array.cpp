@@ -1185,7 +1185,7 @@ void print_array(const Array<void> &arr_, const vector<string> &axis_names, std:
 {
     xassert((axis_names.size() == 0) || (axis_names.size() == uint(arr_.ndim)));
     
-    Array<void> arr = arr_.to_host(false);  // page_locked=true
+    Array<void> arr = arr_.to_host(false);  // registered=false (not page-locked)
     Dtype dt = arr.dtype.real();
 
     if (dt == Dtype::native<float>())

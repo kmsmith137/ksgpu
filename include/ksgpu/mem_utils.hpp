@@ -128,11 +128,12 @@ inline void af_copy(T *dst, int dst_flags, const T *src, int src_flags, long nel
 
 
 template<typename T>
-inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, long nelts)
+inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, int src_flags, long nelts)
 {
     dst_flags &= ~af_initialization_flags;
     std::shared_ptr<T> ret = af_alloc<T> (nelts, dst_flags);
-    af_copy(ret.get(), src, nelts);
+    af_copy(ret.get(), dst_flags, src, src_flags, nelts);
+    return ret;
 }
 
 

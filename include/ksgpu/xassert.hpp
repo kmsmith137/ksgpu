@@ -33,7 +33,7 @@
     } while (0)
 
 // xassert_where(): prepend 'where' string to error message.
-// The 'where' argument can either be a (const char *) or a (const sd::string *)
+// The 'where' argument can either be a (const char *) or a (const std::string &)
 #define xassert_where(cond, where) _xassert_where(cond, where, __LINE__)
 #define _xassert_where(cond, where, line) \
     do { \
