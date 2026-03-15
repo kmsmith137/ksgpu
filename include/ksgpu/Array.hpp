@@ -105,6 +105,9 @@ struct Array {
     inline bool on_gpu() const { return !data || af_on_gpu(aflags); }
     inline bool on_host() const { return !data || af_on_host(aflags); }
 
+    // Total number of bytes used by the array (size * dtype.nbits / 8).
+    inline long nbytes() const { return (size * long(dtype.nbits) + 7) >> 3; }
+
     // Copies data from 'src' to 'this'.
     // Arrays must have the same shape, but need not have the same strides.
     // FIXME currently require dtypes to match exactly (e.g. can't fill signed int from unsigned int).
