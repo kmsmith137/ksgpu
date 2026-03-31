@@ -9,7 +9,7 @@ If you're starting from scratch on a minimal system, this conda environment work
 ```
     # Case 1: starting from scratch on a minimal system.
     conda create -c conda-forge -n ENVNAME \
-         cupy scipy matplotlib pybind11 \
+         cupy mathdx scipy matplotlib pybind11 \
          cuda-nvcc libcublas-dev libcufft-dev libcurand-dev
 ```
 If you have the cuda toolkit installed outside conda, then you can omit some
