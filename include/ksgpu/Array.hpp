@@ -302,6 +302,7 @@ extern void _check_array_invariants_except_dtype(const Array<void> &arr, const c
 extern long _array_init_dchecked(Array<void> &arr, Dtype dtype, int ndim, const long *shape, const long *strides, int aflags, bool allocate);
 
 // Misc helpers.
+extern int array_get_ncontig(int ndim, const long *shape, const long *strides);
 extern bool _tuples_equal(int ndim1, const long *shape1, int ndim2, const long *shape2);
 extern std::string _tuple_str(int ndim, const long *shape);
 

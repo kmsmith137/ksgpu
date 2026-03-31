@@ -40,10 +40,18 @@ string _tuple_str(int ndim, const long *shape)
 
 int array_get_ncontig(const Array<void> &arr)
 {
-    int ndim = arr.ndim;
-    const long *shape = arr.shape;
-    const long *strides = arr.strides;
-    
+    return array_get_ncontig(arr.ndim, arr.shape, arr.strides);
+}
+
+
+int array_get_ncontig(int ndim, const long *shape, const long *strides)
+{
+    xassert(ndim >= 0);
+    xassert((ndim == 0) || (shape != nullptr));
+
+    if (!strides)
+        return ndim;
+
     for (int d = 0; d < ndim; d++)
         if (shape[d] == 0)
             return ndim;
@@ -55,7 +63,7 @@ int array_get_ncontig(const Array<void> &arr)
         s *= shape[d];
     }
 
-    return ndim;
+    return ndim;    
 }
 
 
