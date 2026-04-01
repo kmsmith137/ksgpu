@@ -13,18 +13,20 @@ If you're starting from scratch on a minimal system, this conda environment work
          cuda-nvcc libcublas-dev libcufft-dev libcurand-dev
 ```
 If you have the cuda toolkit installed outside conda, then you can omit some
-of these conda packages. In particular, on the CHIME/CHORD machines you can do:
+of these conda packages. In particular, on the CHIME/CHORD machines you can do
+(or, use `environment.yml` in the pirate github repo):
 ```
     # Case 2: installing on a CHIME/CHORD machine.
     # Note: I've also included some packages that you need for 'pirate'.
-    # Note: currently falls back to python 3.11 due to messy cupy/grpc tension!
-    # Note: last two lines are optional (scipy, sphinx, etc)
+    # Note: due to messy cupy/grpc tension, falls back to python 3.11
+    # and grpc 1.51. Must specify an old setuptools (=80) to make this work.
+    # Last two lines are optional (scipy, sphinx, etc). 
 
     conda create -c conda-forge -n ENVNAME \
-       grpc-cpp grpcio grpcio-tools protoletariat \
-       cupy pybind11 yaml-cpp asdf \
-       scipy matplotlib ipykernel argcomplete \
-       sphinx sphinx-argparse furo myst-parser emacs
+      grpc-cpp grpcio grpcio-tools protoletariat \
+      cupy mathdx pybind11 yaml-cpp asdf \
+      scipy matplotlib ipykernel argcomplete setuptools=80 \
+      sphinx sphinx-argparse furo myst-parser emacs
 ```
 Note: I recommend the `miniforge` fork of conda, not the original conda.
 
