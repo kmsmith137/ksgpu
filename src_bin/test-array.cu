@@ -200,8 +200,9 @@ struct RandomlyStridedArray {
 
     void test_thin_slice() const
     {
-        int axis = rand_int(0, ndim);
-        int pos = rand_int(0, arr.shape[axis]);
+        std::mt19937 &rng = ksgpu::default_rng();
+        int axis = rand_int(0, ndim, rng);
+        int pos = rand_int(0, arr.shape[axis], rng);
         test_thin_slice(axis, pos);
     }
 
@@ -238,9 +239,10 @@ struct RandomlyStridedArray {
 
     void test_thick_slice() const
     {
-        int axis = rand_int(0, ndim);
-        int slen = rand_int(0, arr.shape[axis] + 1);
-        int start = rand_int(0, arr.shape[axis] - slen + 1);
+        std::mt19937 &rng = ksgpu::default_rng();
+        int axis = rand_int(0, ndim, rng);
+        int slen = rand_int(0, arr.shape[axis] + 1, rng);
+        int start = rand_int(0, arr.shape[axis] - slen + 1, rng);
         int stop = start + slen;
         test_thick_slice(axis, start, stop);
     }
@@ -445,27 +447,29 @@ struct DstSrcPair
     
     static DstSrcPair make_random(bool noisy)
     {
+        std::mt19937 &rng = ksgpu::default_rng();
+
         vector<long> shape = make_random_shape();
         vector<long> dst_strides = make_random_strides(shape);
         vector<long> src_strides = make_random_strides(shape);
         int aflags = af_uhost;  // for now
-    
+
         Dtype dst_dtype;
         Dtype src_dtype;
-        
-        if (rand_uniform() < 0.2) {
-            ushort flags = (rand_uniform() < 0.5) ? df_int : df_uint;   
-            ushort nbits = 1 << rand_int(3,7);
+
+        if (rand_uniform(0.0, 1.0, rng) < 0.2) {
+            ushort flags = (rand_uniform(0.0, 1.0, rng) < 0.5) ? df_int : df_uint;
+            ushort nbits = 1 << rand_int(3, 7, rng);
             dst_dtype = src_dtype = Dtype(flags, nbits);
         }
         else {
-            ushort nbits1 = 1 << rand_int(4,7);
-            ushort nbits2 = 1 << rand_int(4,7);
+            ushort nbits1 = 1 << rand_int(4, 7, rng);
+            ushort nbits2 = 1 << rand_int(4, 7, rng);
             dst_dtype = Dtype(df_float, nbits1);
             src_dtype = Dtype(df_float, nbits2);
         }
-        
-        if (rand_uniform() < 0.5) {
+
+        if (rand_uniform(0.0, 1.0, rng) < 0.5) {
             dst_dtype = dst_dtype.complex();
             src_dtype = src_dtype.complex();
         }
@@ -525,9 +529,11 @@ static void run_all_tests(bool noisy)
 
 int main(int argc, char **argv)
 {
+    ksgpu::seed_default_rng(137);   // reproducible run; remove for full randomness
+
     bool noisy = false;
     int niter = 1000;
-        
+
     for (int i = 0; i < niter; i++) {
         if (i % 100 == 0)
             cout << "test-array: iteration " << i << "/" << niter << endl;

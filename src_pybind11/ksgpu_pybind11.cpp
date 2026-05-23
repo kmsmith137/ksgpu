@@ -398,7 +398,13 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
     m.def("get_cuda_pcie_bus_id", &get_cuda_pcie_bus_id,
           "Returns PCIe bus ID of specified cuda device, as string e.g. '0000:E1:00.0'",
           py::arg("device"));
-    
+
+    m.def("seed_default_rng", &seed_default_rng,
+          "Reseed the calling thread's default RNG (used by ksgpu.rand_*, etc.).\n"
+          "Affects only the calling thread; other threads keep their own seeds.\n"
+          "Useful for forcing reproducible random sequences in tests.",
+          py::arg("seed"));
+
     // -----------------------------------  aflags and aflag_str  -----------------------------------
     
     // Location flags

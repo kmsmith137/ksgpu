@@ -35,6 +35,7 @@ from .ksgpu_pybind11 import \
     get_cuda_device, \
     set_cuda_device, \
     get_cuda_pcie_bus_id, \
+    seed_default_rng, \
     af_gpu, \
     af_uhost, \
     af_rhost, \

@@ -84,6 +84,8 @@ static void test_random_memcpy_kernel_2d(long nb_max)
 
 int main(int argc, char **argv)
 {
+    ksgpu::seed_default_rng(137);   // reproducible run; remove for full randomness
+
     for (long nb = 128; nb < 64*1024; nb += 128)
         test_memcpy_kernel(nb);
 

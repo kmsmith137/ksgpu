@@ -210,6 +210,8 @@ static void test_sparse_mma()
 
 int main(int argc, char **argv)
 {
+    ksgpu::seed_default_rng(137);   // reproducible run; remove for full randomness
+
     for (int i = 0; i < 100; i++)
         test_sparse_mma();
 

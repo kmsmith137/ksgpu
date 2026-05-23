@@ -74,6 +74,8 @@ static void test_warp_half2_kernels(int n, uint thread_stride)
 
 int main(int argc, char **argv)
 {
+    ksgpu::seed_default_rng(137);   // reproducible run; remove for full randomness
+
     for (int thread_stride = 1; thread_stride < 32; thread_stride *= 2)
         test_warp_half2_kernels(1024, thread_stride);
 
