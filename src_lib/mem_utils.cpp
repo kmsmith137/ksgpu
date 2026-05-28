@@ -89,6 +89,62 @@ string aflag_str(int flags)
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// _check_pinned_host_error(): shared error-translation helper for the
+// two CUDA APIs in alloc_helper that pin host memory --
+// cudaHostRegister() (for the af_mmap_* + af_rhost path) and
+// cudaHostAlloc() (for the plain af_rhost path). On success, no-op.
+// On cudaErrorMemoryAllocation with nbytes >= 511 GiB, throws a
+// verbose runtime_error explaining the undocumented driver cap.
+// Otherwise, throws via make_cuda_exception().
+//
+// The ~511 GiB cap was measured on the CHORD FRB nodes (see
+// pirate/src_lib/scratch.cu). It applies uniformly to
+// cudaHostRegister() and cudaHostAlloc(), and independently of OS page
+// size (4 KiB, 2 MiB, and 1 GiB pages all hit the same ceiling --
+// the driver uses 2 MiB IOMMU granularity internally). RLIMIT_MEMLOCK
+// is NOT enforced -- the driver bypasses it.
+
+
+static void _check_pinned_host_error(
+    cudaError_t err, const char *api_name, long nbytes,
+    const char *file, int line)
+{
+    if (err == cudaSuccess)
+        return;
+
+    if (err == cudaErrorMemoryAllocation && nbytes >= (511L << 30)) {
+        stringstream ss;
+        ss << api_name << "() returned cudaErrorMemoryAllocation on a "
+           << (nbytes >> 30) << " GiB pinned-host allocation.\n"
+           << "\n"
+           << "The CUDA driver enforces an undocumented per-call ceiling of\n"
+           << "~511 GiB ( = 256K x 2 MiB IOMMU entries) for pinned host\n"
+           << "memory. The ceiling applies uniformly to cudaHostAlloc() and\n"
+           << "cudaHostRegister(), and independently of OS page size (verified\n"
+           << "on the CHORD FRB nodes for 4 KiB, 2 MiB, and 1 GiB pages -- the\n"
+           << "driver uses 2 MiB IOMMU granularity internally regardless of OS\n"
+           << "page size). RLIMIT_MEMLOCK is NOT enforced -- the driver\n"
+           << "bypasses it.\n"
+           << "\n"
+           << "Splitting cudaHostRegister() into chunks works for the\n"
+           << "registration call itself, but cudaMemcpyAsync() (and\n"
+           << "cuMemcpyHtoDAsync()) return cudaErrorInvalidValue whenever the\n"
+           << "host range straddles two separate registrations.\n"
+           << "cudaHostAlloc() cannot be chunked; use\n"
+           << "(af_rhost | af_mmap_huge) with a chunked register loop instead.\n"
+           << "\n"
+           << "Workarounds: keep each individual pinned allocation <= 511 GiB,\n"
+           << "or split into multiple allocators with the discipline that no\n"
+           << "cudaMemcpyAsync() ever crosses an allocator boundary.";
+        throw runtime_error(ss.str());
+    }
+
+    throw make_cuda_exception(err, api_name, file, line);
+}
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 struct alloc_helper {
@@ -194,44 +250,8 @@ struct alloc_helper {
             this->_mmap(nbytes_allocated);
             if (flags & af_rhost) {
                 cudaError_t err = cudaHostRegister(base, nbytes_allocated, cudaHostRegisterDefault);
-
-                // Verbose diagnostic for the undocumented ~512 GiB hugepage
-                // ceiling. Measured on the CHORD FRB nodes (see scratch.cu
-                // experiments): cudaHostRegister() returns
-                // cudaErrorMemoryAllocation when a hugepage-backed allocation
-                // exceeds 256K x 2 MiB = 512 GiB, regardless of whether the
-                // OS pages are 2 MiB or 1 GiB. The driver appears to use 2 MiB
-                // IOMMU granularity for host pinning regardless of the
-                // underlying OS page size.
-                if (err == cudaErrorMemoryAllocation
-                    && (flags & (af_mmap_huge | af_mmap_try_huge))
-                    && nbytes_allocated >= (511L << 30))
-                {
-                    stringstream ss;
-                    ss << "cudaHostRegister() returned cudaErrorMemoryAllocation on a "
-                       << (nbytes_allocated >> 30) << " GiB hugepage-backed allocation.\n"
-                       << "\n"
-                       << "The CUDA driver enforces an undocumented per-call ceiling of\n"
-                       << "~511 GiB ( = 256K x 2 MiB IOMMU entries) for hugepage-backed\n"
-                       << "host registrations. This limit was measured on the CHORD FRB\n"
-                       << "nodes and applies independently of OS page size: both 2 MiB and\n"
-                       << "1 GiB hugepages hit the same 256K-entry ceiling, because the\n"
-                       << "driver uses 2 MiB granularity for host pinning regardless of\n"
-                       << "the underlying OS page size.\n"
-                       << "\n"
-                       << "Splitting into smaller cudaHostRegister() chunks does NOT solve\n"
-                       << "the problem: cudaMemcpyAsync() returns cudaErrorInvalidValue\n"
-                       << "whenever the host range straddles two registrations (both the\n"
-                       << "runtime API and the cuMemcpyHtoDAsync() driver API).\n"
-                       << "\n"
-                       << "Workarounds: keep each individual pinned hugepage allocation\n"
-                       << "<= 511 GiB, or split into multiple allocators with the discipline\n"
-                       << "that no cudaMemcpyAsync() ever crosses an allocator boundary.";
-                    throw runtime_error(ss.str());
-                }
-
-                if (err != cudaSuccess)
-                    throw make_cuda_exception(err, "cudaHostRegister", __FILE__, __LINE__);
+                _check_pinned_host_error(err, "cudaHostRegister",
+                                          nbytes_allocated, __FILE__, __LINE__);
             }
         }
         else if (flags & af_gpu) {
@@ -243,8 +263,11 @@ struct alloc_helper {
         }
         else if (flags & af_unified)
             CUDA_CALL(cudaMallocManaged((void **) &this->base, this->nbytes_allocated, cudaMemAttachGlobal));
-        else if (flags & af_rhost)
-            CUDA_CALL(cudaHostAlloc((void **) &this->base, this->nbytes_allocated, 0));
+        else if (flags & af_rhost) {
+            cudaError_t err = cudaHostAlloc((void **) &this->base, this->nbytes_allocated, 0);
+            _check_pinned_host_error(err, "cudaHostAlloc",
+                                      this->nbytes_allocated, __FILE__, __LINE__);
+        }
         else if (posix_memalign((void **) &this->base, 128, this->nbytes_allocated))
             throw std::runtime_error("ksgpu::alloc(): couldn't allocate " + to_string(nbytes_allocated) + " bytes");
         
