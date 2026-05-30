@@ -51,10 +51,11 @@ def inject_methods(target_class):
     def decorator(extension_class):
         # Dunder methods that can be safely injected/overridden
         ALLOWED_DUNDERS = {
-            '__init__', '__repr__', '__str__', '__hash__', 
+            '__init__', '__repr__', '__str__', '__hash__',
             '__eq__', '__ne__', '__lt__', '__le__', '__gt__', '__ge__',
             '__len__', '__bool__', '__iter__', '__contains__',
-            '__call__', '__getitem__', '__setitem__', '__delitem__'
+            '__call__', '__getitem__', '__setitem__', '__delitem__',
+            '__enter__', '__exit__'
         }
         
         # Iterate over all attributes in the extension definition
