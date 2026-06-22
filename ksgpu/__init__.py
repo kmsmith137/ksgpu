@@ -47,7 +47,8 @@ from .ksgpu_pybind11 import \
     af_mmap_try_huge, \
     af_guard, \
     af_verbose, \
-    aflag_str
+    aflag_str, \
+    assert_arrays_equal
 
 from .CudaStreamWrapper import CudaStreamWrapper, StreamHolder
 from .utils import parse_aflags

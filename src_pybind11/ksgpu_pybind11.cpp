@@ -533,6 +533,18 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
           " This is intended as a mechanism for tracing/debugging array conversion.",
           py::arg("arr"));
 
+    m.def("assert_arrays_equal", &assert_arrays_equal,
+          "Assert that two arrays are equal within roundoff error; raise on mismatch.\n"
+          "The arrays may be numpy or cupy (CPU or GPU) and of (almost) any dtype pair.\n"
+          "On failure, prints a verbose per-element diff and throws; returns the max\n"
+          "absolute elementwise difference on success. 'axis_names' must have one entry\n"
+          "per array axis (used to label the diff output). A negative epsabs/epsrel\n"
+          "defaults to 10 * max(arr1, arr2 dtype precision).",
+          py::arg("arr1"), py::arg("arr2"),
+          py::arg("name1"), py::arg("name2"), py::arg("axis_names"),
+          py::arg("epsabs") = -1.0, py::arg("epsrel") = -1.0,
+          py::arg("max_display") = 15, py::arg("verbose") = false);
+
     m.def("_launch_busy_wait_kernel", &_launch_busy_wait_kernel,
           py::arg("arr"), py::arg("a40_sec"), py::arg("stream_ptr"));
     
