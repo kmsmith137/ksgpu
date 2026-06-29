@@ -28,6 +28,19 @@ C++ class. This can be done with the class decorator `inject_methods`:
             self.label = label
 ```
 
+If the injector class has a docstring, `inject_methods` copies it onto the target
+class -- overriding the docstring set in the pybind11 binding; if the injector has no
+docstring, the pybind11 one stands. So a class's docstring may live on either side.
+Keep it on exactly ONE side and leave a `#` comment on the other pointing to it:
+
+- Option 1: docstring in the pybind11 `py::class_<...>(m, "Name", "docstring...")`;
+  the injector class then has no docstring (just a comment saying so).
+- Option 2: docstring on the injector class; the pybind11 `py::class_<...>(m, "Name")`
+  then sets none (a comment there points to the injector).
+
+Use option 2 when the class's primary Python interface is the injection itself (e.g. a
+context-manager usage pattern); otherwise prefer option 1.
+
 ## Source file organization
 
 Pybind11 code is in the following source files:
@@ -52,6 +65,8 @@ and documented (with `autoclass`) in the sphinx docs.
 - If it's technically challenging (or awkward) to python-bind a C++ class member/method, or if the member/method seems unlikely to be useful from python, then skip it. Please list in the chat all "skipped" members/methods.
 
 - If a class has method injections, then add a C++ comment to the pybind11 code with a concise description of the injections.
+
+- A class's docstring may live either in the pybind11 binding or on the `inject_methods` injector class (an injector docstring overrides the pybind11 one). Keep it on exactly one side and put a pointer comment on the other (see "Method injections" above).
 
 - Don't use lambda-functions in cases where a named function (or constructor) would be equivalent.
 

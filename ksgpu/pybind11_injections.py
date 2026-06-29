@@ -11,9 +11,14 @@ def inject_methods(target_class):
     A class decorator that injects methods from the decorated class into the 
     target class. 
     
-    This is useful for adding Python logic (like nice __repr__ methods or 
-    helper functions) to C++ classes wrapped with Pybind11, without creating 
+    This is useful for adding Python logic (like nice __repr__ methods or
+    helper functions) to C++ classes wrapped with Pybind11, without creating
     subclasses or shadow classes.
+
+    If the decorated class has a docstring, it overrides the target class's
+    docstring (e.g. the one set in the pybind11 binding); if it has none, the
+    target's docstring is left unchanged. So each class with injections should
+    carry its docstring on exactly one side -- see notes/pybind11.md.
 
     Args:
         target_class: The class to be modified (e.g., the Pybind11 class).
@@ -60,11 +65,23 @@ def inject_methods(target_class):
         
         # Iterate over all attributes in the extension definition
         for name, value in extension_class.__dict__.items():
-            # Skip internal Python attributes (like __module__, __doc__, __weakref__)
+            # The class docstring: a Python class always carries __doc__ in its
+            # __dict__ (None when it has no docstring). Copy a non-None docstring
+            # onto the target, so an injector can supply the class docstring and
+            # have it OVERRIDE the pybind11 one; when the injector omits a
+            # docstring, leave the pybind11 docstring intact. (Each injected class
+            # should put its docstring on exactly one side -- see the policy in
+            # notes/docstrings.md / notes/pybind11.md.)
+            if name == "__doc__":
+                if value is not None:
+                    setattr(target_class, "__doc__", value)
+                continue
+
+            # Skip internal Python attributes (like __module__, __weakref__).
             # Allow specific dunders that users commonly want to override
             if name.startswith("__") and name.endswith("__") and name not in ALLOWED_DUNDERS:
                 continue
-            
+
             # Inject the method, property, or attribute into the target class
             setattr(target_class, name, value)
             
@@ -81,11 +98,11 @@ from . import ksgpu_pybind11
 
 @inject_methods(ksgpu_pybind11.Dtype)
 class DtypeExtensions:
-    """
-    Extensions to the C++ Dtype class, including a flexible constructor
-    that accepts strings, numpy dtypes, or cupy dtypes.
-    """
-    
+    # No class docstring here on purpose: Dtype's class docstring lives in the
+    # pybind11 binding (src_pybind11/ksgpu_pybind11.cpp). inject_methods would
+    # copy a docstring written here onto Dtype, overriding the pybind11 one.
+    # (Per-class policy: notes/pybind11.md.)
+
     # Save original C++ constructor
     _cpp_init = ksgpu_pybind11.Dtype.__init__
     
