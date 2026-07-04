@@ -1,0 +1,33 @@
+# Minimal conda environment for building & running ksgpu.
+#
+#   - This is probably not the environment you want! It's a barebones
+#     ksgpu-only env. If you're building ksgpu as part of a larger project,
+#     then you'll want a larger conda env.
+#
+#     For example, if you're building the 'pirate' library for CHIME/CHORD, then
+#     use pirate/environment_minimal.yml or pirate/environment_dev.yml instead.
+#
+#   - We rely on the SYSTEM cuda toolkit (`nvcc`, cuda headers) and the
+#     SYSTEM host compiler (gcc/g++). Everything else is conda-installed.
+#
+# Usage (run from the ksgpu/ checkout, or adjust paths):
+#
+#   conda env create -n ENV_NAME -f environment.yml
+#   conda activate ENV_NAME
+#   pip install -v -e .
+
+name: ksgpu
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - pip
+  - setuptools
+  - editables    # required by pipmake for editable installs
+
+  # Build-time headers
+  - pybind11
+  - numpy
+
+  # Runtime
+  - cupy         # ksgpu Python code imports cupy.cuda
