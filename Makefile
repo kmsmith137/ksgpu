@@ -43,16 +43,9 @@ PYTHON ?= python3
 # separate means you can point NVCC at a different toolkit (NVCC=/path/to/nvcc)
 # without retyping the flags, and tweak the optimization level via NVCC_OPT
 # (a debug build is just NVCC_OPT='-O0 -g') without retyping the whole command.
-#
-# -DNDEBUG is UNCONDITIONAL (not in NVCC_OPT). It's defensive here: ksgpu
-# itself does not include abseil/grpc/protobuf headers, but keeping this flag
-# aligned with pirate's Makefile means downstream users that link ksgpu into a
-# project that DOES pull in abseil don't hit the absl::Mutex::Dtor
-# undefined-reference trap (conda-forge builds libabseil with NDEBUG, and its
-# headers inline certain member functions only under NDEBUG).
 NVCC      ?= nvcc
 NVCC_OPT  ?= -O3
-NVCCFLAGS ?= -std=c++17 -m64 $(NVCC_OPT) -DNDEBUG --compiler-options -Wall,-fPIC
+NVCCFLAGS ?= -std=c++17 -m64 $(NVCC_OPT) --compiler-options -Wall,-fPIC
 
 # Extra nvcc flags needed to build Makefile dependencies
 #   -MMD create dep file, omitting "system" headers
