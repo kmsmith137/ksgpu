@@ -4,30 +4,19 @@
 not the `main` branch. (The chord branch is ~100 commits ahead of the main branch -- I
 hope to merge soon!)
 
-1. Make sure you have cuda, cupy, cufft, cublas, curand, pybind11 installed.
-If you're starting from scratch on a minimal system, this conda environment works for me:
+1. Set up a conda environment. `ksgpu` relies on the **system** CUDA toolkit
+(`nvcc`, CUDA headers) and the **system** host compiler (`gcc`/`g++`); everything
+else is conda-installed. The repo ships a minimal `environment.yml`:
 ```
-    # Case 1: starting from scratch on a minimal system.
-    conda create -c conda-forge -n ENVNAME \
-         cupy mathdx scipy matplotlib pybind11 \
-         cuda-nvcc libcublas-dev libcufft-dev libcurand-dev
+    # WARNING: this is probably not the conda env you want -- see below!
+    conda env create -n ENVNAME -f environment.yml
+    conda activate ENVNAME
 ```
-If you have the cuda toolkit installed outside conda, then you can omit some
-of these conda packages. In particular, on the CHIME/CHORD machines you can do
-(or, use `environment.yml` in the pirate github repo):
-```
-    # Case 2: installing on a CHIME/CHORD machine.
-    # Note: I've also included some packages that you need for 'pirate'.
-    # Note: due to messy cupy/grpc tension, falls back to python 3.11
-    # and grpc 1.51. Must specify an old setuptools (=80) to make this work.
-    # Last two lines are optional (scipy, sphinx, etc). 
+This is a barebones, `ksgpu`-only environment. If you're building `ksgpu` as
+part of a larger project -- for example `pirate` for CHIME/CHORD -- then use
+that project's environment file instead (e.g. `pirate/environment_minimal.yml`
+or `pirate/environment_dev.yml`), which is a superset of this one.
 
-    conda create -c conda-forge -n ENVNAME \
-      grpc-cpp grpcio grpcio-tools protoletariat \
-      cupy mathdx pybind11 yaml-cpp asdf \
-      scipy matplotlib ipykernel argcomplete setuptools=80 \
-      sphinx sphinx-argparse furo myst-parser emacs
-```
 Note: I recommend the `miniforge` fork of conda, not the original conda.
 
 2. The build system supports either python builds with `pip`, or C++ builds
@@ -51,8 +40,14 @@ with `make`. Here's what I recommend:
     # This only needs to be done once per conda env (or virtualenv).
     # The pip install is necessary for downstream dependencies (pirate
     # or gpu_mm) that import the 'ksgpu' python module.
+    #
+    # We install the 'pipmake' build backend from PyPI, then build with
+    # --no-build-isolation. The flag isn't strictly necessary here (ksgpu's
+    # build deps are all on PyPI) -- it's cautious: it forces the build to use
+    # the conda pybind11/numpy instead of pip-fetched copies.
     
-    pip install -v -e .    # -e for "editable" install
+    pip install pipmake
+    pip install --no-build-isolation -v -e .    # -e for "editable" install
 
     # Step 4: In the future, if you want to rebuild ksgpu (e.g. after a
     # git pull), you can ignore pip and build with 'make'. (This is only
@@ -62,9 +57,5 @@ with `make`. Here's what I recommend:
     git pull
     make -j 32   # no pip install needed, if existing install is editable
 ```
-
-3. For an overview for developers, `.cursor/rules.md` is not a bad place
-   to start (originally written for LLMs, but not a bad reference for
-   humans). For now, this file is on the chord branch only.
 
 Contact: Kendrick Smith <kmsmith@perimeterinstitute.ca>

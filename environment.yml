@@ -10,11 +10,19 @@
 #   - We rely on the SYSTEM cuda toolkit (`nvcc`, cuda headers) and the
 #     SYSTEM host compiler (gcc/g++). Everything else is conda-installed.
 #
+#   - `pipmake` (the pip build backend) is not on conda-forge, so it's NOT
+#     listed here; instead, `pip install pipmake` from PyPI in the build steps
+#     below, then build with --no-build-isolation. For ksgpu that flag is not
+#     strictly necessary (all its build deps are on PyPI) -- it's cautious: it
+#     forces the build to use the conda pybind11/numpy (ABI-consistent with the
+#     runtime env) instead of pip-fetched copies.
+#
 # Usage (run from the ksgpu/ checkout, or adjust paths):
 #
 #   conda env create -n ENV_NAME -f environment.yml
 #   conda activate ENV_NAME
-#   pip install -v -e .
+#   pip install pipmake
+#   pip install --no-build-isolation -v -e .
 
 name: ksgpu
 channels:
