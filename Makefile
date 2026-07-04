@@ -1,8 +1,18 @@
 # This Makefile will be invoked by the python build system (e.g. via 'pip install'),
 # but you can also build individual targets by invoking 'make' directly.
+#
+# Overrideable variables (either as env variables, or in a gitignored-file 'config.mk')
+# NOTE: Conda users normally need none of these (found via $CONDA_PREFIX)
+#
+#   NVCC_OPT       e.g. '-O0 -g' (default is '-O3')
+#   NVCC           e.g. '/usr/local/bin/nvcc' (the nvcc program; its flags are NVCCFLAGS)
+#   NVCCFLAGS      e.g. '-std=c++20 ...' (all of nvcc's flags; usually tweak NVCC_OPT instead)
+#   NVCC_ARCH      e.g. '-gencode arch=compute_90,code=sm_90' (default targets sm_80/86/89)
+#   NVCC_DEPFLAGS  e.g. '-MMD -MP' (the default)
+#   PYTHON         e.g. 'python3.11' (default is 'python3')
 
 # Disable built-in rules and variables (must be first).
-MAKEFLAGS += --no-builtin-rules 
+MAKEFLAGS += --no-builtin-rules
 MAKEFLAGS += --no-builtin-variables
 
 # Default target 'all' must be first target in Makefile.
@@ -16,19 +26,33 @@ all: bin lib build_wheel build_sdist
 
 ####################################################################################################
 #
-# Variables encoding configuration: PYTHON, NVCC, NVCC_ARCH, NVCC_DEPFLAGS.
+# Variables encoding configuration: PYTHON, NVCC, NVCCFLAGS, NVCC_OPT, NVCC_ARCH,
+# NVCC_DEPFLAGS. These can be overridden from the environment or a gitignored
+# 'config.mk' (see the overridable-variables list at the top of this file), so
+# you normally don't need to edit the defaults below.
 #
-# FIXME some day I'll define a configure-script mechanism for setting these variables.
-# For now, if you want to change the defaults, just edit the Makfile.
+# FIXME some day I'll replace the env/config.mk mechanism with a proper configure script.
 
+# Optional per-machine overrides (gitignored). Included before the '?=' defaults
+# below so its assignments take effect.
+-include config.mk
 
 PYTHON ?= python3
-# -DNDEBUG matches how conda-forge builds C++ libs (grpc/abseil/protobuf/mkl...).
-# ksgpu itself does not link against any of those today, so this is defensive:
-# it keeps ksgpu's flag conventions aligned with pirate's, so downstream users
-# that link ksgpu into a project that also pulls in grpc/abseil don't hit the
-# absl::Mutex::Dtor undefined-reference trap.
-NVCC ?= nvcc -std=c++17 -m64 -O3 -DNDEBUG --compiler-options -Wall,-fPIC
+
+# NVCC is the nvcc program alone; its flags live in NVCCFLAGS. Keeping them
+# separate means you can point NVCC at a different toolkit (NVCC=/path/to/nvcc)
+# without retyping the flags, and tweak the optimization level via NVCC_OPT
+# (a debug build is just NVCC_OPT='-O0 -g') without retyping the whole command.
+#
+# -DNDEBUG is UNCONDITIONAL (not in NVCC_OPT). It's defensive here: ksgpu
+# itself does not include abseil/grpc/protobuf headers, but keeping this flag
+# aligned with pirate's Makefile means downstream users that link ksgpu into a
+# project that DOES pull in abseil don't hit the absl::Mutex::Dtor
+# undefined-reference trap (conda-forge builds libabseil with NDEBUG, and its
+# headers inline certain member functions only under NDEBUG).
+NVCC      ?= nvcc
+NVCC_OPT  ?= -O3
+NVCCFLAGS ?= -std=c++17 -m64 $(NVCC_OPT) -DNDEBUG --compiler-options -Wall,-fPIC
 
 # Extra nvcc flags needed to build Makefile dependencies
 #   -MMD create dep file, omitting "system" headers
@@ -203,26 +227,26 @@ ksgpu/lib:
 
 # Build object files in src_lib/ or src_bin/ from .cu files
 %.o: %.cu %.d
-	$(NVCC) $(NVCC_ARCH) $(NVCC_DEPFLAGS) -c -o $@ $<
+	$(NVCC) $(NVCCFLAGS) $(NVCC_ARCH) $(NVCC_DEPFLAGS) -c -o $@ $<
 
 # Build object files in src_lib/ from .cpp files
 # Note: nvcc forwards .cpp files to the host compiler (no CUDA frontend processing).
 %.o: %.cpp %.d
-	$(NVCC) $(NVCC_ARCH) $(NVCC_DEPFLAGS) -c -o $@ $<
+	$(NVCC) $(NVCCFLAGS) $(NVCC_ARCH) $(NVCC_DEPFLAGS) -c -o $@ $<
 
 # Build object files in src_pybind11/ from .cpp files, with special flags.
 src_pybind11/%.o: src_pybind11/%.cpp src_pybind11/%.d
-	$(NVCC) $(NVCC_ARCH) $(NVCC_DEPFLAGS) -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -I$(PYBIND11_INCDIR) -c -o $@ $<
+	$(NVCC) $(NVCCFLAGS) $(NVCC_ARCH) $(NVCC_DEPFLAGS) -I$(PYTHON_INCDIR) -I$(NUMPY_INCDIR) -I$(PYBIND11_INCDIR) -c -o $@ $<
 
 # Build the C++ library (lib/libksgpu.so)
 $(KSGPU_LIB): $(LIB_OFILES)
 	@mkdir -p lib
-	$(NVCC) $(NVCC_ARCH) -shared -o $@ $^ $(CONDA_LIBFLAGS) $(CONDA_RPATHFLAGS)
+	$(NVCC) $(NVCCFLAGS) $(NVCC_ARCH) -shared -o $@ $^ $(CONDA_LIBFLAGS) $(CONDA_RPATHFLAGS)
 
 # Build binaries (bin/*)
 bin/%: src_bin/%.o $(KSGPU_LIB)
 	@mkdir -p bin/
-	$(NVCC) $(NVCC_ARCH) -o $@ $^
+	$(NVCC) $(NVCCFLAGS) $(NVCC_ARCH) -o $@ $^
 
 # Build the python extension (ksgpu/ksgpu_pybind11...so)
 # We want it to automatically pull in the C++ library ksgpu/lib/libksgpu.so.
@@ -237,7 +261,7 @@ bin/%: src_bin/%.o $(KSGPU_LIB)
 #  - Makefile line should look like:      nvcc -Xcompiler '"-Wl,-rpath=\\$$ORIGIN/lib"'
 
 $(KSGPU_PYEXT): $(PYEXT_OFILES) $(KSGPU_LIB) ksgpu/lib
-	$(NVCC) $(NVCC_ARCH) -shared -o $@ $(PYEXT_OFILES) -lksgpu -Lksgpu/lib $(CONDA_LIBFLAGS) -Xcompiler '"-Wl,-rpath=\\$$ORIGIN/lib"' $(CONDA_RPATHFLAGS)
+	$(NVCC) $(NVCCFLAGS) $(NVCC_ARCH) -shared -o $@ $(PYEXT_OFILES) -lksgpu -Lksgpu/lib $(CONDA_LIBFLAGS) -Xcompiler '"-Wl,-rpath=\\$$ORIGIN/lib"' $(CONDA_RPATHFLAGS)
 
 # Needed by pip/pipmake: list of all files that go into the (non-editable) wheel.
 wheel_files.txt: Makefile ksgpu/include ksgpu/lib
