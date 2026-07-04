@@ -23,7 +23,12 @@ all: bin lib build_wheel build_sdist
 
 
 PYTHON ?= python3
-NVCC ?= nvcc -std=c++17 -m64 -O3 --compiler-options -Wall,-fPIC
+# -DNDEBUG matches how conda-forge builds C++ libs (grpc/abseil/protobuf/mkl...).
+# ksgpu itself does not link against any of those today, so this is defensive:
+# it keeps ksgpu's flag conventions aligned with pirate's, so downstream users
+# that link ksgpu into a project that also pulls in grpc/abseil don't hit the
+# absl::Mutex::Dtor undefined-reference trap.
+NVCC ?= nvcc -std=c++17 -m64 -O3 -DNDEBUG --compiler-options -Wall,-fPIC
 
 # Extra nvcc flags needed to build Makefile dependencies
 #   -MMD create dep file, omitting "system" headers
@@ -38,6 +43,15 @@ DEFAULT_NVCC_ARCH += -gencode arch=compute_86,code=sm_86
 DEFAULT_NVCC_ARCH += -gencode arch=compute_89,code=sm_89
 # DEFAULT_ARCH += -gencode arch=compute_90,code=sm_90
 NVCC_ARCH ?= $(DEFAULT_NVCC_ARCH)
+
+# If building inside a conda env, add -L and an RPATH to $CONDA_PREFIX/lib on
+# every link line. ksgpu currently has no conda-lib link deps, but keeping this
+# scaffolding here matches pirate's Makefile and makes the shared libs
+# self-locating if a future ksgpu source file grows a conda dep.
+ifneq ($(CONDA_PREFIX),)
+CONDA_LIBFLAGS = -L$(CONDA_PREFIX)/lib
+CONDA_RPATHFLAGS = -Xcompiler '"-Wl,-rpath=$(CONDA_PREFIX)/lib"'
+endif
 
 
 ####################################################################################################
@@ -203,7 +217,7 @@ src_pybind11/%.o: src_pybind11/%.cpp src_pybind11/%.d
 # Build the C++ library (lib/libksgpu.so)
 $(KSGPU_LIB): $(LIB_OFILES)
 	@mkdir -p lib
-	$(NVCC) $(NVCC_ARCH) -shared -o $@ $^
+	$(NVCC) $(NVCC_ARCH) -shared -o $@ $^ $(CONDA_LIBFLAGS) $(CONDA_RPATHFLAGS)
 
 # Build binaries (bin/*)
 bin/%: src_bin/%.o $(KSGPU_LIB)
@@ -223,7 +237,7 @@ bin/%: src_bin/%.o $(KSGPU_LIB)
 #  - Makefile line should look like:      nvcc -Xcompiler '"-Wl,-rpath=\\$$ORIGIN/lib"'
 
 $(KSGPU_PYEXT): $(PYEXT_OFILES) $(KSGPU_LIB) ksgpu/lib
-	$(NVCC) $(NVCC_ARCH) -shared -o $@ $(PYEXT_OFILES) -lksgpu -Lksgpu/lib -Xcompiler '"-Wl,-rpath=\\$$ORIGIN/lib"'
+	$(NVCC) $(NVCC_ARCH) -shared -o $@ $(PYEXT_OFILES) -lksgpu -Lksgpu/lib $(CONDA_LIBFLAGS) -Xcompiler '"-Wl,-rpath=\\$$ORIGIN/lib"' $(CONDA_RPATHFLAGS)
 
 # Needed by pip/pipmake: list of all files that go into the (non-editable) wheel.
 wheel_files.txt: Makefile ksgpu/include ksgpu/lib
