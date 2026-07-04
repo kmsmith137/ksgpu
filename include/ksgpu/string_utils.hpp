@@ -146,9 +146,12 @@ static inline std::string dim3_str(const dim3 &d, const char *space="")
 
 
 // Converts integer byte count to a string such as "1.5 MB" or "320 bytes".
-extern std::string nbytes_to_str(long nbytes);
+// Note that the units are always powers of 1024 (never 1000). If 'iflag' is
+// true, then IEC unit names ("MiB" etc.) are used instead of ("MB" etc.).
+extern std::string nbytes_to_str(long nbytes, bool iflag=false);
 
 // Converts a string such as "1.5 MB" or "320 bytes" to a byte count.
+// Both "MB" and "MiB" style units are accepted (and both are powers of 1024).
 extern long nbytes_from_str(const std::string &s);
 
 

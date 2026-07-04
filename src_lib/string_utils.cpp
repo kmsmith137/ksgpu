@@ -25,7 +25,7 @@ static string _nbytes_to_str(double nbytes, double nunits, const char *units)
 }
 
 
-string nbytes_to_str(long nbytes)
+string nbytes_to_str(long nbytes, bool iflag)
 {
     constexpr long kilo = 1024L;
     constexpr long mega = 1024L * 1024L;
@@ -33,16 +33,16 @@ string nbytes_to_str(long nbytes)
     constexpr long tera = 1024L * 1024L * 1024L * 1024L;
 
     xassert(nbytes >= 0);
-        
+
     if (nbytes >= tera)
-        return _nbytes_to_str(nbytes, tera, "TB");
+        return _nbytes_to_str(nbytes, tera, iflag ? "TiB" : "TB");
     else if (nbytes >= giga)
-        return _nbytes_to_str(nbytes, giga, "GB");
+        return _nbytes_to_str(nbytes, giga, iflag ? "GiB" : "GB");
     else if (nbytes >= mega)
-        return _nbytes_to_str(nbytes, mega, "MB");
+        return _nbytes_to_str(nbytes, mega, iflag ? "MiB" : "MB");
     else if (nbytes >= kilo)
-        return _nbytes_to_str(nbytes, kilo, "KB");
-    else 
+        return _nbytes_to_str(nbytes, kilo, iflag ? "KiB" : "KB");
+    else
         return _nbytes_to_str(nbytes, 1, "bytes");
 }
 
@@ -87,13 +87,13 @@ long nbytes_from_str(const string &s)
     
     if (!strcasecmp(cs_units, "bytes") || !strcasecmp(cs_units, "B"))
         units = 1;
-    else if (!strcasecmp(cs_units, "KB"))
+    else if (!strcasecmp(cs_units, "KB") || !strcasecmp(cs_units, "KiB"))
         units = 1024L;
-    else if (!strcasecmp(cs_units, "MB"))
+    else if (!strcasecmp(cs_units, "MB") || !strcasecmp(cs_units, "MiB"))
         units = 1024L * 1024L;
-    else if (!strcasecmp(cs_units, "GB"))
+    else if (!strcasecmp(cs_units, "GB") || !strcasecmp(cs_units, "GiB"))
         units = 1024L * 1024L * 1024L;
-    else if (!strcasecmp(cs_units, "TB"))
+    else if (!strcasecmp(cs_units, "TB") || !strcasecmp(cs_units, "TiB"))
         units = 1024L * 1024L * 1024L * 1024L;
     else
         throw runtime_error(_nbytes_from_str_err(s));
