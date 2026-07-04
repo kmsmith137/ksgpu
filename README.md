@@ -1,9 +1,5 @@
 ### GPU C++/CUDA core utils
 
-**Warning.** If you're building `pirate`, then you need the `chord` branch of `ksgpu`,
-not the `main` branch. (The chord branch is ~100 commits ahead of the main branch -- I
-hope to merge soon!)
-
 1. Set up a conda environment. `ksgpu` relies on the **system** CUDA toolkit
 (`nvcc`, CUDA headers) and the **system** host compiler (`gcc`/`g++`); everything
 else is conda-installed. The repo ships a minimal `environment.yml`:
@@ -28,8 +24,6 @@ with `make`. Here's what I recommend:
 
     git clone https://github.com/kmsmith137/ksgpu
     cd ksgpu
-    # You may need to switch to the chord branch here -- see above!
-    # git checkout chord
     make -j 32
 
     # Step 2: Run a test program, just to verify that it worked.
