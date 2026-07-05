@@ -6,6 +6,7 @@
 #include <sstream>
 #include <typeinfo>
 #include <stdexcept>
+#include <vector_types.h>  // dim3
 
 #ifdef __GNUG__
 #include <cxxabi.h>
@@ -60,7 +61,7 @@ static bool _from_str(const std::string &s, T &val)
 
     ss >> val;  // shouldn't fail, if 's' is valid.
     if (ss.fail())
-	return false;
+        return false;
 
     std::string t;
     ss >> t;    // should fail, if 's' is valid.
@@ -74,7 +75,7 @@ static T from_str(const std::string &s)
 {
     T ret = 0;
     if (_from_str(s, ret))
-	return ret;
+        return ret;
     
     std::stringstream err;
     err << "couldn't convert string \"" << s << "\" to type " << type_name<T>();
@@ -88,23 +89,26 @@ static T from_str(const std::string &s)
 // Returns a formatted tuple, e.g. "(1,2,3)"
 // To insert spaces (e.g. "(1, 2, 3)"), call with space=" ".
 template<typename T>
-static std::string tuple_str(int nelts, const T *tuple, const char *space="")
+static std::string tuple_str(int nelts, const T *tuple, const char *space="", char ldelim='{', char rdelim='}')
 {
-    if (nelts == 0)
-	return "()";
-	
     std::stringstream ss;
-    ss << "(" << tuple[0];
+    
+    if (nelts == 0) {
+        ss << ldelim << " " << rdelim;
+        return ss.str();
+    }
+        
+    ss << ldelim << tuple[0];
 
     if (nelts == 1) {
-	ss << ",)";
-	return ss.str();
+        ss << rdelim;
+        return ss.str();
     }
 
     for (int d = 1; d < nelts; d++)
-	ss << "," << space << tuple[d];
+        ss << "," << space << tuple[d];
 
-    ss << ")";
+    ss << rdelim;
     return ss.str();
 }
 
@@ -122,6 +126,14 @@ static inline std::string tuple_str(std::initializer_list<T> ini, const char *sp
     return tuple_str(ini.size(), ini.begin());
 }
 
+// brace_str(): a variant of tuple_str() which uses curly brackets, and spaces between elements by default.
+template<typename T> 
+static inline std::string brace_str(const std::vector<T> &tuple, const char *space=" ")
+{
+    return tuple_str(tuple.size(), &tuple[0], space, '{', '}');
+}
+
+
 static inline std::string dim3_str(const dim3 &d, const char *space="")
 {
     std::stringstream ss;
@@ -134,9 +146,12 @@ static inline std::string dim3_str(const dim3 &d, const char *space="")
 
 
 // Converts integer byte count to a string such as "1.5 MB" or "320 bytes".
-extern std::string nbytes_to_str(long nbytes);
+// Note that the units are always powers of 1024 (never 1000). If 'iflag' is
+// true, then IEC unit names ("MiB" etc.) are used instead of ("MB" etc.).
+extern std::string nbytes_to_str(long nbytes, bool iflag=false);
 
 // Converts a string such as "1.5 MB" or "320 bytes" to a byte count.
+// Both "MB" and "MiB" style units are accepted (and both are powers of 1024).
 extern long nbytes_from_str(const std::string &s);
 
 

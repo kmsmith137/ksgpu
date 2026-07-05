@@ -3,7 +3,7 @@
 #include <curand_kernel.h>
 
 #include "../include/ksgpu/Array.hpp"
-#include "../include/ksgpu/CudaStreamPool.hpp"
+#include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
 #include "../include/ksgpu/mem_utils.hpp"
 
@@ -22,7 +22,7 @@ using curand_state_t = curandStateXORWOW_t;
 
 struct CurandStateArray
 {
-    long nelts = 0;               // usually total number of threads in a kernel
+    long nelts = 0;              // usually total number of threads in a kernel
     curand_state_t *data = 0;    // 1-d array of length nelts, on GPU
 
     // Launches kernel to init state, blocks until kernel is complete.
@@ -39,7 +39,7 @@ __global__ void curand_init_kernel(curand_state_t *sp, ulong seed, long nelts)
     ulong t = ulong(blockIdx.x) * ulong(blockDim.x) + threadIdx.x;
     
     if (t < nelts)
-	curand_init(seed, t, 0, sp+t);
+        curand_init(seed, t, 0, sp+t);
 }
 
 
@@ -50,7 +50,7 @@ CurandStateArray::CurandStateArray(long nelts_, ulong seed)
     xassert((nelts % 32) == 0);
     xassert(nelts <= 1024L * 1024L * 1024L);
 
-    this->ref = _af_alloc(nelts * sizeof(curand_state_t), af_gpu);
+    this->ref = _af_alloc(Dtype::native<char>(), nelts * sizeof(curand_state_t), af_gpu);
     this->data = reinterpret_cast<curand_state_t *> (ref.get());
 
     long nblocks = (nelts + 127) >> 7;    
@@ -70,7 +70,7 @@ __global__ void time_curand_kernel(uint *out, curand_state_t *state, int iterati
     
     uint x = 0;
     for (int i = 0; i < iterations_per_thread; i++)
-	x ^= curand(&st);   // curand() produces a random uint32
+        x ^= curand(&st);   // curand() produces a random uint32
 
     out[t] = x;
     state[t] = st;
@@ -84,7 +84,7 @@ static void time_curand()
     int threads_per_block = 128;
     int nblocks = 16*1024;
     int nstreams = 2;
-    int ncallbacks = 20;
+    int niter = 20;
 
     int threads_per_stream = nblocks * threads_per_block;
     int total_threads = nstreams * threads_per_stream;
@@ -92,19 +92,21 @@ static void time_curand()
     Array<uint> out({total_threads}, af_gpu);
     CurandStateArray state(total_threads, seed);
 
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-    {
-	time_curand_kernel<<< nblocks, threads_per_block, 0, stream >>>
-	    (out.data + istream * threads_per_stream,
-	     state.data + istream * threads_per_stream,
-	     iterations_per_thread);
-	
-	CUDA_PEEK("time_curand_kernel launch");
-    };
+    KernelTimer kt(niter, nstreams);
 
-    CudaStreamPool sp(callback, ncallbacks, nstreams, "time_curand");
-    sp.monitor_throughput("RNG throughput (Gsamples/s)", 1.0e-9 * iterations_per_thread * threads_per_stream);
-    sp.run();
+    while (kt.next()) {
+        time_curand_kernel<<< nblocks, threads_per_block, 0, kt.stream >>>
+            (out.data + kt.istream * threads_per_stream,
+             state.data + kt.istream * threads_per_stream,
+             iterations_per_thread);
+        
+        CUDA_PEEK("time_curand_kernel launch");
+
+        if (kt.warmed_up) {
+            double gsamp_per_sec = 1.0e-9 * iterations_per_thread * threads_per_stream / kt.dt;
+            cout << "RNG throughput (Gsamples/s): " << gsamp_per_sec << ((kt.curr_iteration==(niter-1)) ? "\n" : "") << endl;
+        }
+    }
 }
 
 
@@ -127,22 +129,22 @@ __global__ void global_atomic_add_kernel(T *p, curand_state_t *state, int iterat
     curand_state_t st = state[t];
 
     if (sep_flag)
-	p += blockIdx.x * long(nelts);
+        p += blockIdx.x * long(nelts);
     
     uint r = 0;
-	
+        
     for (int i = 0; i < iterations_per_thread; i++) {
-	int il = (i & 31);
-	
-	if (il == 0) {
-	    // Set r to a random number between 0 and nelts, divisible by 32.
-	    r = curand(&st);   // curand() produces a random uint32
-	    r = (r % nelts) & ~31;
-	}
+        int il = (i & 31);
+        
+        if (il == 0) {
+            // Set r to a random number between 0 and nelts, divisible by 32.
+            r = curand(&st);   // curand() produces a random uint32
+            r = (r % nelts) & ~31;
+        }
 
-	// Index in 'p' array.
-	int k = __shfl_sync(ALL_LANES,r,il) + (threadIdx.x & 31);
-	atomicAdd(p+k, one);
+        // Index in 'p' array.
+        int k = __shfl_sync(ALL_LANES,r,il) + (threadIdx.x & 31);
+        atomicAdd(p+k, one);
     }
 
     state[t] = st;
@@ -156,7 +158,7 @@ static void time_global_atomic_add(const string &name, int iterations_per_thread
     int threads_per_block = 128;
     int nblocks = 16*1024;
     int nstreams = 2;
-    int ncallbacks = 20;
+    int niter = 20;
 
     int threads_per_stream = nblocks * threads_per_block;
     int total_threads = nstreams * threads_per_stream;
@@ -165,25 +167,27 @@ static void time_global_atomic_add(const string &name, int iterations_per_thread
     long nelts_per_stream = nb * nelts;
     long nelts_tot = nstreams * nelts_per_stream;
     xassert(nelts_tot <= 1024L * 1024L * 1024L);
-	
+        
     Array<T> p({nelts_tot}, af_gpu | af_zero);
     CurandStateArray state(total_threads, seed);
 
-    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
-    {
-	global_atomic_add_kernel<<< nblocks, threads_per_block, 0, stream >>>
-	    (p.data + istream * nelts_per_stream,
-	     state.data + istream * threads_per_stream,
-	     iterations_per_thread,
-	     nelts,
-	     sep_flag);
-	
-	CUDA_PEEK("time_curand_kernel launch");
-    };
+    KernelTimer kt(niter, nstreams);
 
-    CudaStreamPool sp(callback, ncallbacks, nstreams, name);
-    sp.monitor_throughput("Bandwidth (GB/s)", 2.0e-9 * iterations_per_thread * threads_per_stream * sizeof(T));
-    sp.run();
+    while (kt.next()) {
+        global_atomic_add_kernel<<< nblocks, threads_per_block, 0, kt.stream >>>
+            (p.data + kt.istream * nelts_per_stream,
+             state.data + kt.istream * threads_per_stream,
+             iterations_per_thread,
+             nelts,
+             sep_flag);
+        
+        CUDA_PEEK("global_atomic_add_kernel launch");
+
+        if (kt.warmed_up) {
+            double gb_per_sec = 2.0e-9 * iterations_per_thread * threads_per_stream * sizeof(T) / kt.dt;
+            cout << name << " Bandwidth (GB/s): " << gb_per_sec << ((kt.curr_iteration==(niter-1)) ? "\n" : "") << endl;
+        }
+    }
 }
 
 

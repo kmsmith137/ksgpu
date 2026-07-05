@@ -1,0 +1,43 @@
+### Building
+
+- Most important Makefile targets: `make clean`, `make -j 32 [all]`, `make src_lib/FILE.o`, and `make src_pybind11/FILE.o`.
+- CRITICAL: Always build multiple targets with 32 threads: `make -j 32`.
+- If you add a new source file, see comments near the top of `Makefile` for instructions on how to modify the makefile.
+
+### Links to more rules
+
+- If a task involves `.hpp`, `.cpp`, or `.cu' files, then read `notes/cpp.md` into context.
+- If a prompt mentions the Makefile, then read `notes/build.md` into context.
+- If a prompt mentions python bindings or pybind11, then read `notes/pybind11.md` into context.
+
+### Style/coding Guidelines
+
+- Use spaces, not tabs.
+- All functions should error-check function arguments thoroughly and throw an exception if anything is wrong, unless the function is in a "hot loop". 
+- If similar code is repeated in multiple places, please consider whether a helper function would be a cleaner design.
+- Don't git commit unless explicitly requested.
+- Please write comments to explain big-picture functionality or non-obvious issues, but avoid superficial comments. 
+- Please ask me questions in the chat if my instructions are incomplete or unclear.
+
+### Markdown style
+
+- Use ASCII characters only in markdown files (plans, docs). No Unicode
+  arrows (->), math symbols (<=, perpendicular, x, *, ~=), em dashes (--),
+  or superscripts (^2). Use ASCII equivalents: `->` for arrows, `<=`/`>=`
+  for inequalities, `x` or `*` for multiplication, `^2` for superscripts,
+  `--` for em dashes, words like "orthogonal to" instead of symbols.
+  Reason: some Chrome markdown viewers use fonts without glyphs for these
+  characters and render them as boxes.
+  
+- Exception: when a plan or doc contains equations, MathJax / LaTeX-style
+  math is fine (e.g. `$x^2 + y^2 < 1$` or `$$ ... $$`). The MathJax
+  renderer handles its own glyph coverage. Please use MathJax freely,
+  in markdown plans that contain equations.
+
+### Misc
+
+  - Put all plans in plans/*.md, and don't add them to git.
+    Assume plans are ephemereal -- don't reference them in documentation (including docstrings).
+
+  - Don't add memories to MEMORY.md. Instead, if there is something non-obvious about the code that we should
+    remember in the future, add comments to the code (or edit documentation / docstrings) as appropriate.

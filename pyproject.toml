@@ -1,7 +1,7 @@
 [project]
 name = 'ksgpu'
-version = '1.0.3'
-dependencies = [ 'pybind11', 'numpy' ]
+version = '1.2.0'
+dependencies = [ 'pybind11', 'numpy', 'editables' ]
 description = 'A library of low-level utilities for cuda/cupy'
 requires-python = '>=3.8'
 # readme = 'README.md'
@@ -10,8 +10,8 @@ requires-python = '>=3.8'
 
 [build-system]
 build-backend = 'pipmake'
-requires = [ 'pipmake >= 0.0.2', 'pybind11', 'numpy' ]
+requires = [ 'pipmake >= 0.0.3', 'pybind11', 'numpy' ]
 
 # NOTE: I decided not to specify 'cupy' as a dependency, in order to avoid triggering
 # a pip install of cupy (since cupy is difficult to install with pip but straightforward
-# with other tools, e.g. conda). See related comment in src_python/ksgpu/__init__.py.
+# with other tools, e.g. conda).
