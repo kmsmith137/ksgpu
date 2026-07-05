@@ -153,6 +153,7 @@ PYFILES := \
 # Must list all header files here.
 # (Otherwise they won't show up in 'pip install' or pypi.)
 HFILES := \
+  include/ksgpu.hpp \
   include/ksgpu/Array.hpp \
   include/ksgpu/CpuThreadPool.hpp \
   include/ksgpu/Dtype.hpp \
