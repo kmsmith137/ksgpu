@@ -498,6 +498,37 @@ void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expecte
     for (int i = ndim; i < ArrayMaxDim; i++)
         dst.shape[i] = dst.strides[i] = 0;
 
+    if (dst.size == 0) {
+        // Size-zero arrays (e.g. numpy shape (0,5)) are legitimate inputs, but the
+        // python-side representation differs from ksgpu's in two ways:
+        //
+        //   - numpy/cupy report a non-NULL data pointer for size-zero arrays,
+        //     whereas ksgpu requires (data == nullptr) iff (size == 0);
+        //
+        //   - a size-zero numpy slice can carry arbitrary (even negative) strides,
+        //     whereas ksgpu requires strides >= 0.
+        //
+        // So we canonicalize: null data pointer, contiguous strides, and no base
+        // reference (there is no memory to keep alive, so the C++ array need not
+        // hold a reference to the python object at all).
+
+        dst.data = nullptr;
+        dst.base.reset();
+
+        long s = 1;
+        for (int i = ndim-1; i >= 0; i--) {
+            dst.strides[i] = s;
+            s *= dst.shape[i];
+        }
+
+        dst.check_invariants();
+
+        if (debug_prefix != nullptr)
+            cout << debug_prefix << ": size-zero array converted (canonical empty ksgpu array, no base reference)" << endl;
+
+        return;
+    }
+
     // C++ array holds reference to python object!
     // The reference is dropped when the last copy of the Array is destroyed, which
     // can happen on any thread and without the GIL; py_decref_with_gil() (defined
@@ -577,12 +608,35 @@ static PyObject *create_dlpack_capsule(const Array<void> &src)
         return NULL;
     }
     
-    // Get current CUDA device
+    // Determine which GPU the memory actually lives on. We can't just call
+    // cudaGetDevice() here: the Array may live on a different device than the
+    // caller's current one, and stamping the wrong device_id into the DLPack
+    // tensor makes the consumer (cupy) misattribute the memory, leading to
+    // cudaErrorIllegalAddress when the returned array is used.
+    //
+    // FIXME: in the future, we plan to record the device_id in ksgpu::Array,
+    // and then the cudaPointerGetAttributes() call below won't be necessary.
+
     int device_id = 0;
-    cudaError_t err = cudaGetDevice(&device_id);
-    if (err != cudaSuccess) {
-        PyErr_SetString(PyExc_RuntimeError, "cudaGetDevice() failed");
-        return NULL;
+
+    if (src.data == nullptr) {
+        // Size-zero array: no allocation to query, so use the current device.
+        // (An empty array's memory location is moot, but the DLPack tensor
+        // still needs a valid device_id.)
+        cudaError_t err = cudaGetDevice(&device_id);
+        if (err != cudaSuccess) {
+            PyErr_SetString(PyExc_RuntimeError, "ksgpu::convert_array_to_python: cudaGetDevice() failed");
+            return NULL;
+        }
+    }
+    else {
+        cudaPointerAttributes attr;
+        cudaError_t err = cudaPointerGetAttributes(&attr, src.data);
+        if ((err != cudaSuccess) || (attr.type != cudaMemoryTypeDevice)) {
+            PyErr_SetString(PyExc_RuntimeError, "ksgpu::convert_array_to_python: cudaPointerGetAttributes() failed on GPU array");
+            return NULL;
+        }
+        device_id = attr.device;
     }
     
     // Create context to hold array lifetime and metadata
@@ -692,7 +746,32 @@ PyObject *convert_array_to_python(const Array<void> &src, pybind11::return_value
     npy_intp npy_shape[ksgpu::ArrayMaxDim];
     for (int i = 0; i < ndim; i++)
         npy_shape[i] = src.shape[i];
-        
+
+    if (src.size == 0) {
+        // Size-zero array: src.data == nullptr (ksgpu invariant; see the size-zero
+        // comment in convert_array_from_python() for the reverse direction).
+        // Passing a NULL 'data' pointer makes PyArray_New() allocate its own
+        // (empty) buffer and set NPY_ARRAY_OWNDATA -- which is what we want here,
+        // since there is no C++ memory to share or keep alive (so no
+        // PyArray_SetBaseObject below, either). We also pass NULL strides,
+        // letting numpy pick contiguous strides.
+        //
+        // Note: without this early return, the NULL data pointer would trip the
+        // "paranoid" OWNDATA xassert after the main PyArray_New() call below.
+
+        return PyArray_New(
+            &PyArray_Type,   // PyTypeObject *subtype
+            ndim,            // int nd
+            npy_shape,       // npy_intp const *dims
+            type_num,        // int type_num
+            NULL,            // npy_intp const *strides (NULL -> contiguous)
+            NULL,            // void *data (NULL -> numpy allocates, sets OWNDATA)
+            itemsize,        // int itemsize
+            NPY_ARRAY_WRITEABLE,   // int flags
+            NULL             // PyObject *obj
+        );   // ok if NULL (numpy will have set PyErr)
+    }
+
     npy_intp npy_strides[ksgpu::ArrayMaxDim];
     for (int i = 0; i < ndim; i++)
         npy_strides[i] = src.strides[i] * itemsize;

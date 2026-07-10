@@ -170,7 +170,12 @@ class DtypeExtensions:
         
         # Case 3: Copy constructor (x is already a ksgpu.Dtype)
         if isinstance(x, ksgpu_pybind11.Dtype):
-            self._cpp_init(x.flags, x.nbits)
+            if x.is_empty:
+                # The two-arg C++ constructor validates its args and would throw
+                # on (flags=0, nbits=0); copy an empty Dtype via the no-arg form.
+                self._cpp_init()
+            else:
+                self._cpp_init(x.flags, x.nbits)
             return
         
         # Case 4: String → try from_str()
