@@ -506,7 +506,8 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
           "Create a C++ array with specified shape/strides, filled with sequential values 0,1,2,...\n"
           "Returns the array converted to Python (numpy or cupy depending on on_gpu).\n"
           "Useful for testing C++ -> Python conversion with non-contiguous arrays.",
-          py::arg("shape"), py::arg("strides"), py::arg("dtype"), py::arg("on_gpu"));
+          py::arg("shape"), py::arg("strides"), py::arg("dtype"), py::arg("on_gpu"),
+          py::call_guard<py::gil_scoped_release>());   // cudaHostAlloc + fill loop + optional H2D
      
     const char *stash_doc =
         "Helper class intended for testing C++ <-> python array conversion.\n"
@@ -534,7 +535,7 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
     m.def("arange", &_arange,
           "Equivalent to numpy.arange(n), but uses the C++ -> python converter."
           " (FIXME CPU-only for now.)",
-          py::arg("n"));
+          py::arg("n"), py::call_guard<py::gil_scoped_release>());
 
     m.def("convert_array_from_python", &_convert_array_from_python,
           "Converts array from python to C++, but with a lot of debug output."
@@ -551,10 +552,14 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
           py::arg("arr1"), py::arg("arr2"),
           py::arg("name1"), py::arg("name2"), py::arg("axis_names"),
           py::arg("epsabs") = -1.0, py::arg("epsrel") = -1.0,
-          py::arg("max_display") = 15, py::arg("verbose") = false);
+          py::arg("max_display") = 15, py::arg("verbose") = false,
+          // GPU->host clones (blocking cudaMemcpy) + full CPU compare loop;
+          // body is pure C++ (temporaries never drop the last python base ref).
+          py::call_guard<py::gil_scoped_release>());
 
     m.def("_launch_busy_wait_kernel", &_launch_busy_wait_kernel,
-          py::arg("arr"), py::arg("a40_sec"), py::arg("stream_ptr"));
+          py::arg("arr"), py::arg("a40_sec"), py::arg("stream_ptr"),
+          py::call_guard<py::gil_scoped_release>());   // async launch; can block if launch queue full
     
     // --------------------------  CudaStreamWrapper bindings  ---------------------------------
     //
