@@ -37,13 +37,34 @@ static string py_str(PyObject *x)
 static string py_type_str(PyObject *x)
 {
     PyObject *t = (PyObject *) Py_TYPE(x);
-    
+
     if (!t) {
         PyErr_Clear();
         return "unknown";
     }
 
     return py_str(t);
+}
+
+
+// If a python exception is pending, clear it and return a short description
+// (e.g. "BufferError: cannot export readonly array ..."); else return "".
+// Used to include the "real" underlying error in our own exception messages,
+// instead of silently discarding it with PyErr_Clear().
+
+static string fetch_and_clear_pyerr()
+{
+    if (!PyErr_Occurred())
+        return "";
+
+    try {
+        pybind11::error_already_set e;   // fetches (and thereby clears) the pending error
+        return e.what();
+    }
+    catch (...) {
+        PyErr_Clear();
+        return "unknown python exception";
+    }
 }
 
 
@@ -351,8 +372,9 @@ static void release_imported_array_base(PyObject *src, DLManagedTensor *mt)
 __attribute__ ((visibility ("default")))
 void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expected, bool convert, const char *debug_prefix)
 {
-    DLManagedTensor *mt = nullptr;    
+    DLManagedTensor *mt = nullptr;
     pybind11::object capsule;   // must hold reference for entire function
+    string producer_error;      // nonempty if the argument's __dlpack__() raised
     
     if (debug_prefix != nullptr)
         cout << debug_prefix << ": testing for presence of __dlpack__ attr\n";
@@ -371,6 +393,12 @@ void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expecte
         PyObject *rp = PyObject_CallNoArgs(dlp);
         capsule = pybind11::reinterpret_steal<pybind11::object> (rp);
         Py_DECREF(dlp);
+
+        // If __dlpack__() itself raised (e.g. numpy raises BufferError for a
+        // read-only or broadcast array), capture the message: it diagnoses the
+        // problem far better than our generic advice below.
+        if (!rp)
+            producer_error = fetch_and_clear_pyerr();
     }
 
     if (capsule.ptr()) {
@@ -396,6 +424,10 @@ void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expecte
             ss << "ksgpu::convert_array_from_python() received 'dltensor_versioned' object."
                << " This is a planned dlpack feature which isn't implemented yet (in June 2024) in numpy/cupy."
                << " Unfortunately some (minor) code changes will be needed in ksgpu to support it!";
+        }
+        else if (!producer_error.empty()) {
+            ss << "Couldn't convert python argument(s) to a C++ array:"
+               << " the argument's __dlpack__() method raised \"" << producer_error << "\".";
         }
         else {
             ss << "Couldn't convert python argument(s) to a C++ array."
@@ -557,6 +589,27 @@ void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expecte
             cout << debug_prefix << ": size-zero array converted (canonical empty ksgpu array, no base reference)" << endl;
 
         return;
+    }
+
+    // Friendly check for negative strides (e.g. a reversed slice arr[::-1]).
+    // These are unsupported by ksgpu::Array by design; without this check, the
+    // user would see an opaque internal check_invariants() assertion below.
+    // (Size-zero arrays never reach this point: their strides were canonicalized
+    // above.)
+
+    for (int i = 0; i < ndim; i++) {
+        if (dst.strides[i] < 0) {
+            stringstream ss;
+            ss << "Couldn't convert python array to a C++ array: axis " << i
+               << " has negative stride " << dst.strides[i]
+               << " (e.g. a reversed slice arr[::-1]). Negative strides are not"
+               << " supported by ksgpu::Array; make a contiguous copy first, e.g."
+               << " numpy.ascontiguousarray(...)."
+               << " The offending argument is: " << py_str(src)
+               << " and its type is " << py_type_str(src) << ".";
+
+            throw pybind11::type_error(ss.str());
+        }
     }
 
     // Consume the DLPack capsule, per the DLPack protocol: renaming it to
@@ -736,13 +789,16 @@ PyObject *convert_array_to_python(const Array<void> &src, pybind11::return_value
         if (!capsule)
             return NULL;
         
-        // Import cupy
+        // Import cupy. On failure, include the real import error in our message:
+        // "cupy is not installed" would be misleading if cupy is installed but
+        // broken (bad CUDA env, version mismatch, ...).
         PyObject *cupy = PyImport_ImportModule("cupy");
         if (!cupy) {
             Py_DECREF(capsule);
-            PyErr_Clear();
-            PyErr_SetString(PyExc_ImportError,
-                "GPU array conversion requires cupy, but cupy is not installed");
+            string err = fetch_and_clear_pyerr();
+            string msg = "GPU array conversion requires cupy, but 'import cupy' failed";
+            msg += err.empty() ? "" : (" with: \"" + err + "\"");
+            PyErr_SetString(PyExc_ImportError, msg.c_str());
             return NULL;
         }
         
