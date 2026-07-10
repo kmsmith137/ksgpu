@@ -295,6 +295,30 @@ static DLDevice aflags_to_dl_device(int aflags, int device_id = 0)
 // then the conversion can be done more efficiently by calling functions in the numpy C-API.
 
 
+// Deleter for Array::base when the array references a python object (see below).
+// The last copy of such an Array can be destroyed on any thread (e.g. a pure C++
+// worker thread), or inside a py::gil_scoped_release region, so we must (re)acquire
+// the GIL before the DECREF. PyGILState_Ensure() is safe to call whether or not
+// the calling thread already holds the GIL.
+//
+// Two caveats for C++ code holding python-backed Arrays:
+//
+//   - A C++ thread must not drop the last reference after Py_Finalize()
+//     (PyGILState_Ensure() would crash or hang). Worker threads that hold
+//     python-backed Arrays should be drained/joined before interpreter shutdown.
+//
+//   - Don't drop the last reference while holding a C++ mutex that a GIL-holding
+//     thread might block on (classic lock-inversion deadlock: we wait for the GIL,
+//     the GIL holder waits for the mutex).
+
+static void py_decref_with_gil(void *p)
+{
+    PyGILState_STATE gstate = PyGILState_Ensure();
+    Py_DECREF(reinterpret_cast<PyObject *> (p));
+    PyGILState_Release(gstate);
+}
+
+
 __attribute__ ((visibility ("default")))
 void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expected, bool convert, const char *debug_prefix)
 {
@@ -475,9 +499,14 @@ void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expecte
         dst.shape[i] = dst.strides[i] = 0;
 
     // C++ array holds reference to python object!
+    // The reference is dropped when the last copy of the Array is destroyed, which
+    // can happen on any thread and without the GIL; py_decref_with_gil() (defined
+    // above) handles this. The Py_INCREF comes first so that, in the unlikely event
+    // that the shared_ptr constructor throws (control-block bad_alloc) and invokes
+    // the deleter, the DECREF balances the reference we just took.
     // FIXME could be improved by pointer-chasing to base object.
-    dst.base = shared_ptr<void> (src, Py_DecRef);
     Py_INCREF(src);
+    dst.base = shared_ptr<void> (src, py_decref_with_gil);
 
     dst.check_invariants();
     
