@@ -62,40 +62,48 @@ string get_cuda_pcie_bus_id(int cuda_device)
 // These are not particularly well thought out!
 
 
+// Both functions run GIL-free (py::call_guard on the bindings below), so they
+// work on a temporary host copy 'harr' rather than reassigning 'arr': the
+// caster's Array should keep its reference to the python base object for the
+// whole call. (Overwriting 'arr' would drop that reference mid-call -- safe,
+// since the base deleter acquires the GIL, but a needless python round-trip
+// inside the released region.)
+
 static double _sum(Array<double> &arr)
 {
+    Array<double> harr = arr;
+
     if (!arr.on_host()) {
         cout << "sum() copying array from GPU to host" << endl;
-        arr = arr.to_host();
+        harr = arr.to_host();
     }
-    
+
     double sum = 0;
-    for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix))
-        sum += arr.at(ix);
-    
+    for (auto ix = harr.ix_start(); harr.ix_valid(ix); harr.ix_next(ix))
+        sum += harr.at(ix);
+
     return sum;
 }
 
 
 static void _double(Array<double> &arr)
 {
-    Array<double> asave;
     bool copy = !arr.on_host();
+    Array<double> harr = arr;
 
     if (copy) {
         cout << "double() copying array from GPU to host" << endl;
-        asave = arr;
-        arr = arr.to_host();
+        harr = arr.to_host();
     }
-    
-    for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix))
-        arr.at({ix}) *= 2;
+
+    for (auto ix = harr.ix_start(); harr.ix_valid(ix); harr.ix_next(ix))
+        harr.at({ix}) *= 2;
 
     if (copy) {
         cout << "double() copying array from host to GPU" << endl;
-        asave.fill(arr);
+        arr.fill(harr);
     }
-}    
+}
 
 
 static Array<int> _arange(int n)
@@ -515,13 +523,13 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
         .def("is_empty", &Stash::is_empty)
     ;
     
-    m.def("sum", &_sum,   
+    m.def("sum", &_sum,
           "Equivalent to {numpy,cupy}.sum(arr), but uses the python -> C++ converter",
-          py::arg("arr"));
-          
+          py::arg("arr"), py::call_guard<py::gil_scoped_release>());
+
     m.def("double", &_double,
           "Equivalent to 'arr *= 2', but uses the python -> C++ converter",
-          py::arg("arr"));
+          py::arg("arr"), py::call_guard<py::gil_scoped_release>());
 
     m.def("arange", &_arange,
           "Equivalent to numpy.arange(n), but uses the C++ -> python converter."
