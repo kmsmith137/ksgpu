@@ -71,7 +71,7 @@ def inject_methods(target_class):
             # have it OVERRIDE the pybind11 one; when the injector omits a
             # docstring, leave the pybind11 docstring intact. (Each injected class
             # should put its docstring on exactly one side -- see the policy in
-            # notes/docstrings.md / notes/pybind11.md.)
+            # notes/pybind11.md.)
             if name == "__doc__":
                 if value is not None:
                     setattr(target_class, "__doc__", value)

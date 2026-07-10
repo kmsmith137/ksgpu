@@ -401,7 +401,7 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
     
     m.def("get_cuda_device", &get_cuda_device, "Returns current cuda device");
     
-    m.def("set_cuda_device", &set_cuda_device, "Sets current cuda device");
+    m.def("set_cuda_device", &set_cuda_device, py::arg("device"), "Sets current cuda device");
     
     m.def("get_cuda_pcie_bus_id", &get_cuda_pcie_bus_id,
           "Returns PCIe bus ID of specified cuda device, as string e.g. '0000:E1:00.0'",
@@ -515,8 +515,8 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
     const char *stash_doc =
         "Helper class intended for testing C++ <-> python array conversion.\n"
         "   s = Stash(numpy_or_cupy_array)     # converts array to C++ and saves it\n"
-        "   arr = Stash.get()                  # converts array to python and returns it\n"
-        "   info = Stash.info()                # returns ArrayInfo about the stashed array";
+        "   arr = s.get()                      # converts array to python and returns it\n"
+        "   info = s.info()                    # returns ArrayInfo about the stashed array";
 
 
     py::class_<Stash>(m, "Stash", stash_doc)

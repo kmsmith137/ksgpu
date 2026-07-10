@@ -779,14 +779,8 @@ PyObject *convert_array_to_python(const Array<void> &src, pybind11::return_value
         stringstream ss;
         ss << "Couldn't convert C++ array dtype " << src.dtype << " to python";
 
-        // FIXME memory leak here (exception text, unlikely to be an issue in practice)
-        string s = ss.str();
-        const char *msg = strdup(s.c_str());
-        
-        if (!msg)
-            msg = "internal error: strdup() returned NULL";
-        
-        PyErr_SetString(PyExc_TypeError, msg);
+        // Note: PyErr_SetString() copies its argument, so a temporary is fine here.
+        PyErr_SetString(PyExc_TypeError, ss.str().c_str());
         return NULL;
     }
 
