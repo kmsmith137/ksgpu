@@ -277,6 +277,30 @@ static DLDevice aflags_to_dl_device(int aflags, int device_id = 0)
 
 // -------------------------------------------------------------------------------------------------
 //
+// SYNCHRONIZATION WARNING (applies to both conversion directions, parts 1 and 2 below).
+//
+// Array conversion is zero-copy and performs NO cuda stream synchronization.
+// ksgpu has no notion of a "current stream", and does not associate streams (or
+// events) with arrays, so the converters cannot know which stream the producer
+// of a GPU array used, or which stream the consumer will use. Concretely:
+//
+//   - python -> C++: __dlpack__() is called with no 'stream' argument, so the
+//     producer (cupy) only guarantees that pending writes are visible on the
+//     legacy default stream.
+//
+//   - C++ -> python: cupy.from_dlpack() is called on a raw capsule, so no
+//     stream negotiation happens at all.
+//
+// Therefore, ordering between asynchronous GPU work and the other side of a
+// conversion must always be arranged MANUALLY by the caller or the binding:
+// either keep the producer and consumer on the same stream, or synchronize
+// explicitly before the array crosses the language boundary. (Downstream
+// bindings typically take an explicit 'stream' argument and keep all work for
+// an array on that one stream, which satisfies this automatically.)
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // Array conversion part 1: python -> C++
 //
 // On failure, convert_array_from_python() throws a C++ exception.

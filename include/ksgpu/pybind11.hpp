@@ -13,6 +13,10 @@
 
 // type_caster<> converters: these must be available at compile time,
 // to any pybind11 extension module which uses ksgpu::Array<T>.
+//
+// Note: conversion is zero-copy and does NO cuda stream synchronization; all
+// ordering with asynchronous GPU work is the caller's/binding's responsibility.
+// See the "SYNCHRONIZATION WARNING" comment in src_pybind11/pybind11_utils.cpp.
 
 namespace PYBIND11_NAMESPACE { namespace detail {
 #if 0
