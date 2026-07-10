@@ -319,11 +319,12 @@ static DLDevice aflags_to_dl_device(int aflags, int device_id = 0)
 // then the conversion can be done more efficiently by calling functions in the numpy C-API.
 
 
-// Deleter for Array::base when the array references a python object (see below).
-// The last copy of such an Array can be destroyed on any thread (e.g. a pure C++
-// worker thread), or inside a py::gil_scoped_release region, so we must (re)acquire
-// the GIL before the DECREF. PyGILState_Ensure() is safe to call whether or not
-// the calling thread already holds the GIL.
+// Cleanup for Array::base when the array references a python object (see below).
+// Called when the last copy of such an Array is destroyed, which can happen on any
+// thread (e.g. a pure C++ worker thread), or inside a py::gil_scoped_release region,
+// so we must (re)acquire the GIL first: both the DECREF and the DLPack deleter (which
+// typically DECREFs the producer's internal references) require it. PyGILState_Ensure()
+// is safe to call whether or not the calling thread already holds the GIL.
 //
 // Two caveats for C++ code holding python-backed Arrays:
 //
@@ -335,10 +336,14 @@ static DLDevice aflags_to_dl_device(int aflags, int device_id = 0)
 //     thread might block on (classic lock-inversion deadlock: we wait for the GIL,
 //     the GIL holder waits for the mutex).
 
-static void py_decref_with_gil(void *p)
+static void release_imported_array_base(PyObject *src, DLManagedTensor *mt)
 {
     PyGILState_STATE gstate = PyGILState_Ensure();
-    Py_DECREF(reinterpret_cast<PyObject *> (p));
+
+    if (mt && mt->deleter)
+        mt->deleter(mt);
+
+    Py_DECREF(src);
     PyGILState_Release(gstate);
 }
 
@@ -534,7 +539,8 @@ void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expecte
         //
         // So we canonicalize: null data pointer, contiguous strides, and no base
         // reference (there is no memory to keep alive, so the C++ array need not
-        // hold a reference to the python object at all).
+        // hold a reference to the python object at all). The DLPack capsule is
+        // left unconsumed; the producer's capsule destructor frees the tensor.
 
         dst.data = nullptr;
         dst.base.reset();
@@ -553,15 +559,37 @@ void convert_array_from_python(Array<void> &dst, PyObject *src, Dtype dt_expecte
         return;
     }
 
-    // C++ array holds reference to python object!
-    // The reference is dropped when the last copy of the Array is destroyed, which
-    // can happen on any thread and without the GIL; py_decref_with_gil() (defined
-    // above) handles this. The Py_INCREF comes first so that, in the unlikely event
-    // that the shared_ptr constructor throws (control-block bad_alloc) and invokes
-    // the deleter, the DECREF balances the reference we just took.
-    // FIXME could be improved by pointer-chasing to base object.
+    // Consume the DLPack capsule, per the DLPack protocol: renaming it to
+    // "used_dltensor" transfers ownership of the DLManagedTensor from the capsule
+    // to us, and we call mt->deleter when the last copy of the Array is destroyed
+    // (see release_imported_array_base() above). Holding the managed tensor is
+    // what FORMALLY keeps dst.data valid: the DLPack contract only guarantees the
+    // data pointer while the managed tensor is alive, so a producer whose
+    // __dlpack__() materializes a temporary (rather than aliasing its own buffer,
+    // as numpy/cupy do) would otherwise leave dst.data dangling.
+    //
+    // We do the rename only here, on the success path: if conversion throws above,
+    // the capsule keeps its "dltensor" name and the producer's capsule destructor
+    // frees the tensor.
+
+    if (PyCapsule_SetName(capsule.ptr(), "used_dltensor") != 0) {
+        PyErr_Clear();
+        throw std::runtime_error("ksgpu::convert_array_from_python: PyCapsule_SetName() failed");
+    }
+
+    // C++ array also holds a reference to the source python object (strictly
+    // redundant for numpy/cupy given the managed tensor above, but cheap, and it
+    // keeps base.get() == src as documented in Array.hpp). The reference is
+    // dropped when the last copy of the Array is destroyed, which can happen on
+    // any thread and without the GIL; release_imported_array_base() handles this.
+    // The Py_INCREF comes after the capsule rename and before the shared_ptr
+    // construction, so that if the shared_ptr constructor throws (control-block
+    // bad_alloc) and invokes the deleter, everything we own is released exactly
+    // once.
     Py_INCREF(src);
-    dst.base = shared_ptr<void> (src, py_decref_with_gil);
+    dst.base = shared_ptr<void> (src, [mt](void *p) {
+        release_imported_array_base(reinterpret_cast<PyObject *> (p), mt);
+    });
 
     dst.check_invariants();
     

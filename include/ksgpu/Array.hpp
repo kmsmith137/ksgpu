@@ -54,11 +54,11 @@ struct Array {
     // Memory ownership is refcounted with a member 'shared_ptr<void> base'.
     // This usually points to the same memory as the 'data' pointer, but there are
     // exceptions. For example, when an array is converted from python, the base
-    // pointer is a (PyObject *), and the shared_ptr deleter calls Py_DECREF()
-    // (after acquiring the GIL, so the last copy of such an Array may be safely
-    // destroyed on any thread -- see py_decref_with_gil() in pybind11_utils.cpp
-    // for details and caveats). This allows refcounts to be shared between
-    // python and C++.
+    // pointer is a (PyObject *), and the shared_ptr deleter calls the DLPack
+    // managed-tensor deleter plus Py_DECREF() (after acquiring the GIL, so the
+    // last copy of such an Array may be safely destroyed on any thread -- see
+    // release_imported_array_base() in pybind11_utils.cpp for details and
+    // caveats). This allows refcounts to be shared between python and C++.
     
     std::shared_ptr<void> base;
 

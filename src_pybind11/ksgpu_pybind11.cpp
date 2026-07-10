@@ -464,8 +464,11 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
         .def_static("from_str", &Dtype::from_str, 
                     "Parse dtype from string (e.g. 'float32', 'int64', 'uint16')",
                     py::arg("s"), py::arg("throw_exception_on_failure") = true)
-        .def("__eq__", &Dtype::operator==)
-        .def("__ne__", &Dtype::operator!=)
+        // py::is_operator(): return NotImplemented (instead of raising TypeError)
+        // when the other operand isn't convertible to Dtype, so comparisons like
+        // 'dt == None' or 'dt in mixed_list' behave pythonically.
+        .def("__eq__", &Dtype::operator==, py::is_operator())
+        .def("__ne__", &Dtype::operator!=, py::is_operator())
         .def("__repr__", [](const Dtype &d) { return d.str(); })
         // Dtype flag constants as class attributes
         .def_readonly_static("INT", &df_int, "Signed integer type flag")

@@ -188,6 +188,13 @@ class DtypeExtensions:
                 # If from_str() fails, try numpy dtype conversion below
                 pass
         
+        # Bare int (flags) without nbits: catch it here with a clear error, rather
+        # than letting np.dtype(<int>) below produce a misleading one (its behavior
+        # for ints is a numpy implementation detail).
+        if isinstance(x, int):
+            raise TypeError("ksgpu.Dtype: when the first argument is an int (flags), "
+                            "the 'nbits' argument is required, e.g. Dtype(Dtype.FLOAT, 32)")
+
         # Case 5: Try numpy/cupy dtype conversion
         try:
             import numpy as np
