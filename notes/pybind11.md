@@ -50,8 +50,8 @@ Pybind11 code is in the following source files:
 ```
 These get compiled into a single extension module `ksgpu_pybind11.so`.
 
-Note that each pybind11 class will appear with two names -- for example `ksgpu.ksgpu_pybind11.Dtype`
-is the same as `ksgpu.Dtype`. In python code, always use the latter "non-pybind11" name if possible.
+Note that each pybind11 class will appear with two names -- for example `ksgpu.ksgpu_pybind11.Stash`
+is the same as `ksgpu.tests.Stash`. In python code, always use the latter "non-pybind11" name if possible.
 
 If you are asked to python-bind a new class, please make sure that it is also imported into a python subpackage,
 and documented (with `autoclass`) in the sphinx docs.
@@ -156,13 +156,34 @@ The rules:
   pybind11's two-pass 'convert' flag -- soft-fail in the first pass, throw
   the detailed error in the second -- not to blanket soft-fail.)
 
+## Dtype conversion
+
+- There is no python-visible Dtype class: `ksgpu::Dtype` arguments, members,
+  and return values convert automatically at the language boundary, via
+  `type_caster<ksgpu::Dtype>` in `include/ksgpu/pybind11.hpp`. Python code
+  only ever sees `numpy.dtype` objects. No wrapper/injection is needed on
+  either side.
+
+- Python -> C++ accepts None (-> empty Dtype), numpy dtypes, numpy scalar
+  types (e.g. `np.float32`), cupy dtypes, and strings. Strings are parsed
+  with `Dtype::from_str()` first (which accepts some names numpy doesn't
+  have, e.g. `"complex16+16"`, `"int7"`), then fall back to numpy parsing
+  (e.g. `"complex64"`). Python ints are rejected: numpy would interpret them
+  as "type numbers" (`np.dtype(1)` is int8).
+
+- C++ -> python: an empty Dtype converts to None; anything else converts to
+  the corresponding `numpy.dtype`. A valid `ksgpu::Dtype` with no numpy
+  equivalent (e.g. `"int7"`) raises an exception on conversion -- if a
+  python-visible member/return value can hold such a dtype, bind it as a
+  string (`Dtype::str()`) instead.
+
 ## Specific argument types
 
 - The rules below usually require method injections to implement. They apply to both constructors and non-constructor methods.
 
 - If a C++ function takes an `aflags` argument (from `ksgpu/mem_utils.hpp`), then call `ksgpu.parse_aflags(aflags)` before passing it to the C++ function.
 
-- If a C++ function takes a `ksgpu::Dtype` argument, then call the `ksgpu.Dtype` constructor on `x` before passing it to the C++ function.
+- `ksgpu::Dtype` arguments and return values need no wrapping -- see "Dtype conversion" above.
 
 - If a C++ function returns a bare pointer or `shared_ptr<void>`, then don't python-wrap it unless specifically requested.
 

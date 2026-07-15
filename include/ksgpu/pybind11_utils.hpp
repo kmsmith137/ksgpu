@@ -33,6 +33,21 @@ extern PyObject *convert_array_to_python(
     pybind11::handle parent);
 
 
+// Convert python -> C++ (used by type_caster<ksgpu::Dtype>, see pybind11.hpp).
+// Accepts None (-> empty Dtype), strings (ksgpu names first, then numpy names),
+// and anything numpy.dtype() accepts (numpy/cupy dtypes, numpy scalar types, ...).
+// Python ints are rejected. On failure, throws a C++ exception.
+
+extern void convert_dtype_from_python(Dtype &dst, PyObject *src);
+
+
+// Convert C++ -> python: returns a numpy.dtype (new reference), or None if 'src'
+// is empty. On failure (a Dtype with no numpy equivalent, e.g. "int7"), throws
+// a C++ exception.
+
+extern PyObject *convert_dtype_to_python(Dtype src);
+
+
 // PybindBasePtr: hack for array C++ -> python conversion.
 // See comments in ksgpu/src_pybind11/ksgpu_pybind11_utils.cu.
 // Must be visible at compile time in ksgpu/src_pybind11/ksgpu_pybind11.cu.

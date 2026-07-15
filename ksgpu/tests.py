@@ -3,6 +3,7 @@ from .ksgpu_pybind11 import \
     ArrayInfo, \
     get_array_info, \
     make_strided_array, \
+    dtype_roundtrip, \
     sum, \
     double, \
     arange, \

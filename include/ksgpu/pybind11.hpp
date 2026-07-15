@@ -61,8 +61,55 @@ struct type_caster<ksgpu::Array<T>>
         // On failure, ksgpu::convert_array_to_python() calls PyErr_SetString()
         // and returns NULL. (I tried a few ways of reporting failure, and I liked
         // this way best.)
-        
+
         return ksgpu::convert_array_to_python(src, policy, parent);
+    }
+};
+
+
+// type_caster<ksgpu::Dtype>: python code sees numpy.dtype objects, C++ code sees
+// ksgpu::Dtype, with conversion at the language boundary in both directions.
+//
+//   - python -> C++: accepts None (-> empty Dtype), numpy dtypes, numpy scalar
+//     types (e.g. np.float32), cupy dtypes, and strings. Strings are parsed with
+//     Dtype::from_str() first, which accepts some names that numpy doesn't have
+//     (e.g. "complex16+16", "int7"); numpy-only names (e.g. "complex64") fall
+//     back to numpy parsing. Python ints are rejected: numpy would interpret
+//     them as "type numbers" (np.dtype(1) is int8), which seems like a footgun.
+//
+//   - C++ -> python: an empty Dtype converts to None; anything else converts to
+//     the corresponding numpy.dtype. A valid ksgpu::Dtype with no numpy
+//     equivalent (e.g. "int7") raises an exception -- if a python-visible
+//     member/return value can hold such a dtype, expose it as a string instead.
+
+template<>
+struct type_caster<ksgpu::Dtype>
+{
+    // This macro establishes the name 'numpy.dtype' in function signatures,
+    // and declares a local variable 'value' of type ksgpu::Dtype.
+
+    PYBIND11_TYPE_CASTER(ksgpu::Dtype, const_name("numpy.dtype"));
+
+    // load(): convert python -> C++.
+    // FIXME for now, we ignore the 'convert' argument (same as Array<T> above).
+
+    bool load(handle src, bool convert)
+    {
+        // Throws a C++ exception on failure (same error-reporting convention
+        // as Array<T> above).
+        ksgpu::convert_dtype_from_python(this->value, src.ptr());
+        return true;
+    }
+
+    // cast(): convert C++ -> python
+    // FIXME for now, we ignore the 'policy' and 'parent' args.
+
+    static handle cast(ksgpu::Dtype src, return_value_policy policy, handle parent)
+    {
+        // Throws a C++ exception on failure (unlike Array<T> above: if cast()
+        // returns NULL, pybind11 raises a generic "Unable to convert function
+        // return value" TypeError that would clobber the error message).
+        return ksgpu::convert_dtype_to_python(src);
     }
 };
 

@@ -204,6 +204,108 @@ static int ksgpu_dtype_to_npy_type_code(const ksgpu::Dtype &dtype)
 
 // -------------------------------------------------------------------------------------------------
 //
+// Dtype <-> numpy.dtype conversion, used by type_caster<ksgpu::Dtype> (see pybind11.hpp
+// for the python-facing semantics).
+
+
+void convert_dtype_from_python(Dtype &dst, PyObject *src)
+{
+    // None <-> empty Dtype (see also convert_dtype_to_python()).
+    // Intercepting None here matters: numpy would silently map it to float64.
+
+    if (src == Py_None) {
+        dst = Dtype();
+        return;
+    }
+
+    if (PyUnicode_Check(src)) {
+        // Try Dtype::from_str() first: it accepts some names that numpy doesn't
+        // have (e.g. "complex16+16", "int7"). Numpy-only names (e.g. "complex64")
+        // fall through to the numpy path below.
+
+        Dtype dt = Dtype::from_str(py_str(src), false);   // false = no exception on failure
+
+        if (dt.is_valid()) {
+            dst = dt;
+            return;
+        }
+    }
+    else if (PyLong_Check(src)) {
+        // Reject python ints: numpy would interpret them as "type numbers"
+        // (e.g. np.dtype(1) is int8), which seems like a footgun.
+        throw runtime_error("ksgpu: couldn't convert python int to a dtype"
+                            " (maybe you want a string such as 'int32'?)");
+    }
+
+    // General case: delegate to numpy. This accepts numpy dtypes, numpy scalar
+    // types (e.g. np.float32), cupy dtypes, python builtins (e.g. 'float'), and
+    // numpy dtype strings.
+
+    PyArray_Descr *descr = nullptr;
+
+    if (!PyArray_DescrConverter2(src, &descr)) {
+        string pyerr = fetch_and_clear_pyerr();
+        string msg = "ksgpu: couldn't convert python object of type "
+            + py_type_str(src) + " to a dtype";
+        if (pyerr.size() > 0)
+            msg += " (" + pyerr + ")";
+        throw runtime_error(msg);
+    }
+
+    // PyArray_DescrConverter2() maps None to a NULL descr; unreachable since
+    // None is handled above.
+    xassert(descr != nullptr);
+
+    char kind = descr->kind;
+    unsigned short nbits = (unsigned short) (8 * PyDataType_ELSIZE(descr));
+    string descr_str = py_str((PyObject *) descr);
+    Py_DECREF(descr);
+
+    if (kind == 'i')
+        dst = Dtype(df_int, nbits);
+    else if (kind == 'u')
+        dst = Dtype(df_uint, nbits);
+    else if (kind == 'f')
+        dst = Dtype(df_float, nbits);
+    else if (kind == 'c')
+        dst = Dtype(df_complex | df_float, nbits);
+    else {
+        throw runtime_error("ksgpu: numpy dtype '" + descr_str + "' (kind '"
+                            + string(1,kind) + "') is not supported by ksgpu"
+                            " (supported kinds: 'i', 'u', 'f', 'c')");
+    }
+}
+
+
+PyObject *convert_dtype_to_python(Dtype src)
+{
+    // None <-> empty Dtype (see also convert_dtype_from_python()).
+
+    if (src.is_empty())
+        Py_RETURN_NONE;
+
+    int typenum = ksgpu_dtype_to_npy_type_code(src);
+
+    if (typenum < 0) {
+        // A valid ksgpu::Dtype with no numpy equivalent (e.g. "int7" or
+        // "complex16+16"). If a python-visible member/return value can hold
+        // such a dtype, expose it as a string instead.
+        //
+        // Note: we throw a C++ exception here (rather than PyErr_SetString() +
+        // NULL, as in convert_array_to_python()): when a return-value caster
+        // returns NULL, pybind11 raises a generic "Unable to convert function
+        // return value" TypeError that would clobber our message.
+        throw runtime_error("ksgpu: Dtype '" + src.str()
+                            + "' has no numpy equivalent, can't convert to python");
+    }
+
+    // Returns a new reference (a numpy.dtype is a PyArray_Descr).
+    return (PyObject *) PyArray_DescrFromType(typenum);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
 // Helper functions for DLDevice and DLDeviceType.
 //
 // enum DLDeviceType { kDLCUP, kDLCUDA, kDLCUDAHost, kDLCUDAManaged, ... };

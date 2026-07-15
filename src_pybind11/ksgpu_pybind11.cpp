@@ -182,6 +182,16 @@ static ArrayInfo get_array_info(const Array<void> &arr)
 }
 
 
+// dtype_roundtrip(): trivially returns its argument. Used in unit tests to
+// exercise the numpy.dtype <-> ksgpu::Dtype conversions in both directions
+// (see type_caster<ksgpu::Dtype> in include/ksgpu/pybind11.hpp).
+
+static Dtype dtype_roundtrip(Dtype dtype)
+{
+    return dtype;
+}
+
+
 // make_strided_array(): Create a C++ array with specified shape/strides, then return to Python.
 // This is useful for testing C++ -> Python conversion with non-contiguous arrays.
 // The array is filled with sequential values 0, 1, 2, ... for easy verification.
@@ -189,10 +199,9 @@ static ArrayInfo get_array_info(const Array<void> &arr)
 static Array<void> make_strided_array(
     const vector<long> &shape,
     const vector<long> &strides,
-    const string &dtype_str,
+    Dtype dtype,
     bool on_gpu)
 {
-    Dtype dtype = Dtype::from_str(dtype_str);
     int ndim = shape.size();
     
     if ((int)strides.size() != ndim)
@@ -251,7 +260,7 @@ static Array<void> make_strided_array(
             p[i] = complex<double>(static_cast<double>(i), 0.0);
     }
     else {
-        throw runtime_error("make_strided_array: unsupported dtype " + dtype_str);
+        throw runtime_error("make_strided_array: unsupported dtype " + dtype.str());
     }
     
     // Copy to GPU if needed
@@ -439,44 +448,10 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
           "Convert allocation flags to human-readable string (e.g. 'af_gpu | af_zero')",
           py::arg("flags"));
     
-    // -----------------------------------  Dtype class  -------------------------------------------
-    
-    // Note: The C++ constructor Dtype(flags, nbits) is overridden from Python (see ksgpu/pybind11_injections.py).
-    // The Python constructor accepts:
-    //   - Dtype()                    -> empty/invalid dtype
-    //   - Dtype("float32")           -> parse string (tries from_str, falls back to numpy conversion)
-    //   - Dtype(np.float32)          -> convert numpy dtype
-    //   - Dtype(cp.int64)            -> convert cupy dtype
-    //   - Dtype(Dtype.FLOAT, 32)     -> low-level flags + nbits (calls C++ constructor directly)
-    
-    py::class_<Dtype>(m, "Dtype", "Data type descriptor for ksgpu arrays")
-        .def(py::init<>(), "Create empty/invalid Dtype")
-        .def(py::init<unsigned short, unsigned short>(), 
-             "Create Dtype with specified flags and nbits (internal, typically called via Python wrapper)",
-             py::arg("flags"), py::arg("nbits"))
-        .def_readwrite("flags", &Dtype::flags, "Type flags (Dtype.INT, Dtype.UINT, Dtype.FLOAT, Dtype.COMPLEX)")
-        .def_readwrite("nbits", &Dtype::nbits, "Number of bits (for complex types, includes factor of 2)")
-        .def_property_readonly("is_valid", &Dtype::is_valid, "Check if dtype is valid")
-        .def_property_readonly("is_empty", &Dtype::is_empty, "Check if dtype is empty")
-        .def_property_readonly("precision", &Dtype::precision, "Get precision (0 for ints, epsilon for floats)")
-        .def_property_readonly("real", &Dtype::real, "Get real dtype (removes complex flag)")
-        .def_property_readonly("complex", &Dtype::complex, "Get complex dtype (adds complex flag)")
-        .def_static("from_str", &Dtype::from_str, 
-                    "Parse dtype from string (e.g. 'float32', 'int64', 'uint16')",
-                    py::arg("s"), py::arg("throw_exception_on_failure") = true)
-        // py::is_operator(): return NotImplemented (instead of raising TypeError)
-        // when the other operand isn't convertible to Dtype, so comparisons like
-        // 'dt == None' or 'dt in mixed_list' behave pythonically.
-        .def("__eq__", &Dtype::operator==, py::is_operator())
-        .def("__ne__", &Dtype::operator!=, py::is_operator())
-        .def("__repr__", [](const Dtype &d) { return d.str(); })
-        // Dtype flag constants as class attributes
-        .def_readonly_static("INT", &df_int, "Signed integer type flag")
-        .def_readonly_static("UINT", &df_uint, "Unsigned integer type flag")
-        .def_readonly_static("FLOAT", &df_float, "Floating point type flag")
-        .def_readonly_static("COMPLEX", &df_complex, "Complex type flag (combine with INT/UINT/FLOAT)")
-    ;
-    
+    // Note: there is deliberately no python-visible Dtype class. ksgpu::Dtype
+    // converts to/from numpy.dtype at the language boundary, via the
+    // type_caster<ksgpu::Dtype> in include/ksgpu/pybind11.hpp.
+
     // ------------------------------  ksgpu.tests submodule  --------------------------------------
 
     // ArrayInfo: struct for returning array metadata to Python
@@ -511,6 +486,12 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
           "Useful for testing C++ -> Python conversion with non-contiguous arrays.",
           py::arg("shape"), py::arg("strides"), py::arg("dtype"), py::arg("on_gpu"),
           py::call_guard<py::gil_scoped_release>());   // cudaHostAlloc + fill loop + optional H2D
+
+    m.def("dtype_roundtrip", &dtype_roundtrip,
+          "Converts python -> ksgpu::Dtype -> python, and returns the result.\n"
+          "Used in unit tests to exercise the numpy.dtype <-> ksgpu::Dtype conversions\n"
+          "in both directions.",
+          py::arg("dtype"));
      
     const char *stash_doc =
         "Helper class intended for testing C++ <-> python array conversion.\n"
