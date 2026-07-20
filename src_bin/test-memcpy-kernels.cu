@@ -40,9 +40,21 @@ static void test_memcpy_kernel_2d(long dpitch, long spitch, long width, long hei
     cout << "test_memcpy_kernel_2d(dpitch=" << dpitch << ", spitch=" << spitch
          << ", width=" << width << ", height=" << height << ")" << endl;
         
-    long nguard = 4*(dpitch+spitch) + 128;
-    Array<int> hsrc({height*spitch}, af_rhost | af_random);
-    Array<int> hdst({height*dpitch + 2*nguard}, af_rhost | af_random);
+    // dpitch/spitch/width are in bytes (matching launch_memcpy_2d_kernel),
+    // but Array<int> lengths and pointer offsets are in ints -- careful with
+    // units below.
+    xassert_divisible(dpitch, 128);
+    xassert_divisible(spitch, 128);
+    xassert_divisible(width, 128);
+    xassert_le(width, dpitch);
+    xassert_le(width, spitch);
+
+    // Guard regions (in ints) before and after the 2-d destination region,
+    // checked by assert_arrays_equal() to catch out-of-bounds writes:
+    // 4 rows' worth of each pitch, plus 128 bytes.
+    long nguard = dpitch + spitch + 32;
+    Array<int> hsrc({height * (spitch >> 2)}, af_rhost | af_random);
+    Array<int> hdst({height * (dpitch >> 2) + 2*nguard}, af_rhost | af_random);
 
     Array<int> gsrc = hsrc.to_gpu();
     Array<int> gdst = hdst.to_gpu();
