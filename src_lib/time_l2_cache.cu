@@ -1,5 +1,9 @@
+// ksgpu::time_l2_cache(): invoked from the command line as 'ksgpu time --l2'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include <iostream>
 #include "../include/ksgpu.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 using namespace std;
 using namespace ksgpu;
@@ -18,7 +22,7 @@ constexpr int ndst = nblocks * 32;
 // -------------------------------------------------------------------------------------------------
 
 
-__global__ void
+static __global__ void
 l2_bandwidth_kernel(int *dst, const int *src)
 {
     int subtotal = 0;
@@ -42,7 +46,7 @@ l2_bandwidth_kernel(int *dst, const int *src)
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::time_l2_cache()
 {
     double gb = nblocks * num_inner_iterations * (l2_footprint_nbytes / double(1<<30));
 
@@ -66,6 +70,4 @@ int main(int argc, char **argv)
             cout << "    Bandwidth (GB/s) = " << gb_per_sec << endl;
         }
     }
-
-    return 0;
 }

@@ -1,6 +1,10 @@
+// ksgpu::time_warp_shuffle(): invoked from the command line as 'ksgpu time --wshuf'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include <iostream>
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/KernelTimer.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 using namespace std;
 using namespace ksgpu;
@@ -9,7 +13,7 @@ using namespace ksgpu;
 // -------------------------------------------------------------------------------------------------
 
 
-__global__ void shfl_int_kernel(int4 *buf, const uint4 *lane, int niter)
+static __global__ void shfl_int_kernel(int4 *buf, const uint4 *lane, int niter)
 {
     int s = blockIdx.x * blockDim.x + threadIdx.x;
     int4 a = buf[s];
@@ -37,7 +41,7 @@ __global__ void shfl_int_kernel(int4 *buf, const uint4 *lane, int niter)
 }
 
 
-__global__ void shfl_long_kernel(long2 *buf, const uint2 *lane, int niter)
+static __global__ void shfl_long_kernel(long2 *buf, const uint2 *lane, int niter)
 {
     int s = blockIdx.x * blockDim.x + threadIdx.x;
     long2 a = buf[s];
@@ -118,7 +122,7 @@ static void time_shfl_long(int nblocks, int nthreads, int nstreams, int nouter, 
 // -------------------------------------------------------------------------------------------------
 
 
-__global__ void reduce_add_kernel(int *dst, const int *src, int niter)
+static __global__ void reduce_add_kernel(int *dst, const int *src, int niter)
 {
     int s = blockIdx.x * blockDim.x + threadIdx.x;
     int x = src[s];
@@ -162,11 +166,10 @@ static void time_reduce_add(int nblocks, int nthreads, int nstreams, int nouter,
 // -------------------------------------------------------------------------------------------------
 
 
-int main(int argc, char **argv)
+void ksgpu::time_warp_shuffle()
 {
     // (nblocks, nthreads, nstreams, ncallbacks, niter)
-    time_shfl_int(1000, 128, 2, 10, 1000000); 
-    time_shfl_long(1000, 128, 2, 10, 1000000); 
+    time_shfl_int(1000, 128, 2, 10, 1000000);
+    time_shfl_long(1000, 128, 2, 10, 1000000);
     time_reduce_add(1000, 128, 2, 10, 3000000);
-    return 0;
 }

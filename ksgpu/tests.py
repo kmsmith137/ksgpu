@@ -8,7 +8,11 @@ from .ksgpu_pybind11 import \
     double, \
     arange, \
     convert_array_from_python, \
-    _launch_busy_wait_kernel
+    _launch_busy_wait_kernel, \
+    test_array, \
+    test_device_transpose_kernels, \
+    test_memcpy_kernels, \
+    test_sparse_mma
 
     
 def launch_busy_wait_kernel(arr, a40_seconds):

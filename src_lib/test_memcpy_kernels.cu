@@ -1,7 +1,11 @@
+// ksgpu::test_memcpy_kernels(): invoked from the command line as 'ksgpu test --mcpy'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include "../include/ksgpu/memcpy_kernels.hpp"
 
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 #include "../include/ksgpu/test_utils.hpp"
 #include "../include/ksgpu/string_utils.hpp"
 
@@ -94,20 +98,16 @@ static void test_random_memcpy_kernel_2d(long nb_max)
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::test_memcpy_kernels()
 {
-    ksgpu::seed_default_rng(137);   // reproducible run; remove for full randomness
-
     for (long nb = 128; nb < 64*1024; nb += 128)
         test_memcpy_kernel(nb);
 
     for (long nb_max = 128*1024; nb_max <= 4L * 1024L * 1024L * 1024L; nb_max *= 2) {
         cout << "\nnb_max = " << nb_max << " (" << nbytes_to_str(nb_max) << ")" << endl;
-        
+
         test_random_memcpy_kernel(nb_max);
         for (int i = 0; i < 4; i++)
             test_random_memcpy_kernel_2d(nb_max);
     }
-    
-    return 0;
 }

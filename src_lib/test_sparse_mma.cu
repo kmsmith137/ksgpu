@@ -1,3 +1,6 @@
+// ksgpu::test_sparse_mma(): invoked from the command line as 'ksgpu test --smma'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+//
 // This test verifies that the mma.sp.* instruction does what I think it does,
 // since the PTX documentation is hard to understand!
 //
@@ -11,6 +14,7 @@
 
 #include <iostream>
 #include "../include/ksgpu.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 using namespace std;
 using namespace ksgpu;
@@ -20,7 +24,7 @@ using namespace ksgpu;
 
 
 // The 'p' argument points to 128 floats, in ordering (r,t,b)
-__device__ void read_fragment(__half2 dst[2], const float *p)
+static __device__ void read_fragment(__half2 dst[2], const float *p)
 {
     int i = threadIdx.x & 0x1f;
     dst[0] = __floats2half2_rn(p[2*i], p[2*i+1]);
@@ -28,7 +32,7 @@ __device__ void read_fragment(__half2 dst[2], const float *p)
 }
 
 
-__device__ void write_fragment(float *p, const __half2 src[2])
+static __device__ void write_fragment(float *p, const __half2 src[2])
 {
     int i = threadIdx.x & 0x1f;
 
@@ -43,7 +47,7 @@ __device__ void write_fragment(float *p, const __half2 src[2])
 
 
 template<uint F>
-__global__ void mma_sp_kernel(float *dp, const float *ap, const float *bp, const float *cp, uint *ep)
+static __global__ void mma_sp_kernel(float *dp, const float *ap, const float *bp, const float *cp, uint *ep)
 {
     __half2 a[2], b[2], c[2];
     read_fragment(a, ap);
@@ -173,7 +177,7 @@ static Array<uint> make_random_e_array()
 }
 
 
-static void test_sparse_mma()
+static void test_sparse_mma_once()
 {
     Array<float> a_arr({2,32,2}, af_rhost | af_random);
     Array<float> b_arr({2,32,2}, af_rhost | af_random);
@@ -208,13 +212,10 @@ static void test_sparse_mma()
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::test_sparse_mma(long niter)
 {
-    ksgpu::seed_default_rng(137);   // reproducible run; remove for full randomness
+    for (long i = 0; i < niter; i++)
+        test_sparse_mma_once();
 
-    for (int i = 0; i < 100; i++)
-        test_sparse_mma();
-
-    cout << "test-sparse-mma: pass\n";
-    return 0;
+    cout << "test_sparse_mma: pass\n";
 }

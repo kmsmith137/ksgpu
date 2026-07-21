@@ -1,6 +1,10 @@
+// ksgpu::time_global_memory(): invoked from the command line as 'ksgpu time --gmem'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 #include <iostream>
 
@@ -91,11 +95,9 @@ static void time_gmem(long dtype_bits)
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::time_global_memory()
 {
     time_gmem(32);
     time_gmem(64);
     time_gmem(128);
-
-    return 0;
 }

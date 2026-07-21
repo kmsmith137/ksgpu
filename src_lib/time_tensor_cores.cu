@@ -1,3 +1,6 @@
+// ksgpu::time_tensor_cores(): invoked from the command line as 'ksgpu time --tc'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include <sstream>
 #include <iostream>
 
@@ -5,6 +8,7 @@
 #include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
 #include "../include/ksgpu/device_mma.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 // C++ WMMAs
 #include <mma.h>
@@ -19,14 +23,14 @@ using namespace ksgpu;
 // float16 MMA
 
 
-__device__ __half2 load_half2(const float *p)
+static __device__ __half2 load_half2(const float *p)
 {
     float2 a = *((float2 *) p);
     return __float22half2_rn(a);
 }
 
 
-__device__ void store_half2(float *p, __half2 x)
+static __device__ void store_half2(float *p, __half2 x)
 {
     float2 a = __half22float2(x);
     *((float2 *) p) = a;
@@ -334,7 +338,7 @@ static void time_sparse_f16_mma(int ninner, int num_active_warps=32)
 //
 // Here, nwarps = (nblocks * nwarps_per_block) is the total number of warps in the kernel.
 
-__global__ void cpp_int4_kernel(int *cdst, const int *asrc, const int *bsrc, int niter, int num_active_warps)
+static __global__ void cpp_int4_kernel(int *cdst, const int *asrc, const int *bsrc, int niter, int num_active_warps)
 {
     int warpId = threadIdx.x >> 5;
     int iwarp = (blockIdx.x * blockDim.x + threadIdx.x) >> 5;
@@ -445,11 +449,9 @@ static void time_mmas(int num_active_warps=32)
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::time_tensor_cores()
 {
     time_mmas(32);  // full occupancy (32 warps/SM)
     time_mmas(8);   // low occupancy (8 warps/SM)
     time_mmas(4);   // even lower occupancy (4 warps/SM)
-    
-    return 0;
 }

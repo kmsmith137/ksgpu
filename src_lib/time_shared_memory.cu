@@ -1,6 +1,10 @@
+// ksgpu::time_shared_memory(): invoked from the command line as 'ksgpu time --shmem'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 #include <iostream>
 
@@ -79,19 +83,17 @@ static void time_kernel(const char *name)
 }
 
     
-int main(int argc, char **argv)
+void ksgpu::time_shared_memory()
 {
     time_kernel<int,true,false> ("Read shared memory (int)");
     time_kernel<int,false,true> ("Write shared memory (int)");
     time_kernel<int,true,true> ("Read/write shared memory (int)");
-    
+
     time_kernel<int2,true,false> ("Read shared memory (int2)");
     time_kernel<int2,false,true> ("Write shared memory (int2)");
     time_kernel<int2,true,true> ("Read/write shared memory (int2)");
-    
+
     time_kernel<int4,true,false> ("Read shared memory (int4)");
     time_kernel<int4,false,true> ("Write shared memory (int4)");
     time_kernel<int4,true,true> ("Read/write shared memory (int4)");
-    
-    return 0;
 }

@@ -1,9 +1,13 @@
+// ksgpu::time_local_transpose(): invoked from the command line as 'ksgpu time --ltra'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include <iostream>
 #include <cuda_fp16.h>
 
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 using namespace std;
 using namespace ksgpu;
@@ -130,10 +134,9 @@ void time_local_transpose_kernel(const char *name)
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::time_local_transpose()
 {
     cout << "** FIXME: local_transpose_f16() timings are misleadingly optimistic! **" << endl;
     time_local_transpose_kernel<local_transpose_f16> ("local_transpose_f16");
     time_local_transpose_kernel<local_transpose_i16> ("local_transpose_i16");
-    return 0;
 }

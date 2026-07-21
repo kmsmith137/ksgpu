@@ -1,3 +1,6 @@
+// ksgpu::time_fma(): invoked from the command line as 'ksgpu time --fma'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include <sstream>
 #include <iostream>
 #include <cuda_fp16.h>
@@ -5,6 +8,7 @@
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 using namespace std;
 using namespace ksgpu;
@@ -46,7 +50,7 @@ __global__ void fma_kernel(T *dst, const T *src, int niter)
 }
 
 
-__global__ void hcmadd_kernel(__half2 *dst, const __half2 *src, int niter)
+static __global__ void hcmadd_kernel(__half2 *dst, const __half2 *src, int niter)
 {
     int ith = blockIdx.x * blockDim.x + threadIdx.x;
     int nth = gridDim.x * blockDim.x;
@@ -111,12 +115,10 @@ static void time_kernel(const char *name, int flops_per_iteration)
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::time_fma()
 {
     time_kernel<float, fma_kernel<float>> ("fp32_fma", 4*2);
     time_kernel<__half2, fma_kernel<__half2>> ("fp16_fma", 4*4);
     time_kernel<__half2, hcmadd_kernel> ("hcmadd", 4*8);
-    
-    return 0;
 }
              

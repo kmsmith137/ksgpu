@@ -1,9 +1,13 @@
+// ksgpu::time_memcpy_kernels(): invoked from the command line as 'ksgpu time --mcpy'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include <sstream>
 #include <iostream>
 
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 #include "../include/ksgpu/memcpy_kernels.hpp"
 
 using namespace std;
@@ -73,10 +77,10 @@ static void time_memcpy_2d(long dpitch, long spitch, long width, long height, in
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::time_memcpy_kernels()
 {
     long gb4 = 4L * 1024L * 1024L * 1024L;
-    
+
     time_memcpy(gb4, 20, 10);
 
     // (dpitch, spitch, width, height)
@@ -84,6 +88,4 @@ int main(int argc, char **argv)
     time_memcpy_2d(128, 128, 128, 32L * 1024L * 1024L, 20, 10);
     time_memcpy_2d(256, 256, 128, 32L * 1024L * 1024L, 20, 10);
     time_memcpy_2d(gb4, gb4, gb4, 1, 20, 10);
-    
-    return 0;
 }

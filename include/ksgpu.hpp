@@ -25,6 +25,9 @@
 // CUDA_CALL(), CUDA_PEEK(), CudaStreamWrapper
 #include "ksgpu/cuda_utils.hpp"
 
+// Entry points for the 'ksgpu' command-line driver ('python -m ksgpu <command>').
+#include "ksgpu/command_line_interface.hpp"
+
 // __device__ inline functions.
 #include "ksgpu/device_fp16.hpp"
 #include "ksgpu/device_mma.hpp"          // C++ wrappers for mma.* PTX instructions

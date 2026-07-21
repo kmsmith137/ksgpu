@@ -27,8 +27,10 @@ with `make`. Here's what I recommend:
     make -j 32
 
     # Step 2: Run a test program, just to verify that it worked.
-    
-    ./bin/test-array
+    # (Runs from the repo toplevel, before 'pip install', as long as
+    # numpy and argcomplete are in the environment.)
+
+    python -m ksgpu test --arr
 
     # Step 3: If everything looks good, build an editable pip install.
     # This only needs to be done once per conda env (or virtualenv).

@@ -1,7 +1,11 @@
+// ksgpu::show_devices(): invoked from the command line as 'ksgpu show_devices'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include <cmath>
 #include <iostream>
 
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 using namespace std;
 
@@ -35,7 +39,7 @@ static void show_device(int device)
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::show_devices()
 {
     int ndevices = -1;
     CUDA_CALL(cudaGetDeviceCount(&ndevices));
@@ -44,6 +48,4 @@ int main(int argc, char **argv)
 
     for (int device = 0; device < ndevices; device++)
         show_device(device);
-    
-    return 0;
 }

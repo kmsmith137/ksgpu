@@ -1,3 +1,6 @@
+// ksgpu::reverse_engineer_mma(): invoked from the command line as 'ksgpu reverse_engineer_mma'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include <cassert>
 #include <sstream>
 #include <iostream>
@@ -6,6 +9,7 @@
 #include "../include/ksgpu/constexpr_functions.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
 #include "../include/ksgpu/device_mma.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 #include "../include/ksgpu/test_utils.hpp"
 #include "../include/ksgpu/xassert.hpp"
 
@@ -70,14 +74,14 @@ __global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc)
 // and 32 threads/block.
 
 
-__device__ __half2 load_half2(const float *p)
+static __device__ __half2 load_half2(const float *p)
 {
     float2 a = *((float2 *) p);
     return __float22half2_rn(a);
 }
 
 
-__device__ void store_half2(float *p, __half2 x)
+static __device__ void store_half2(float *p, __half2 x)
 {
     float2 a = __half22float2(x);
     *((float2 *) p) = a;
@@ -121,7 +125,7 @@ __global__ void mma_float16_kernel(float *cdst, const float *asrc, const float *
 // -------------------------------------------------------------------------------------------------
 
 
-__host__ int slow_ilog2(int n)
+static __host__ int slow_ilog2(int n)
 {
     xassert(n > 0);
     int i = log2(1.5 * n);
@@ -787,18 +791,16 @@ static void reverse_engineer_float16_mma()
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::reverse_engineer_mma()
 {
     reverse_engineer_float16_mma <mma_f16_m16_n8_k8, 16, 8, 8> ();
     reverse_engineer_float16_mma <mma_f16_m16_n8_k16, 16, 8, 16> ();
-        
+
     reverse_engineer_int_mma <mma_s4_m8_n8_k32, 4, 8, 8, 32> ();
     reverse_engineer_int_mma <mma_s4_m16_n8_k32, 4, 16, 8, 32> ();
     reverse_engineer_int_mma <mma_s4_m16_n8_k64, 4, 16, 8, 64> ();
-    
+
     reverse_engineer_int_mma <mma_s8_m8_n8_k16, 8, 8, 8, 16> ();
     reverse_engineer_int_mma <mma_s8_m16_n8_k16, 8, 16, 8, 16> ();
     reverse_engineer_int_mma <mma_s8_m16_n8_k32, 8, 16, 8, 32> ();
-    
-    return 0;
 }

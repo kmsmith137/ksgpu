@@ -57,3 +57,4 @@ from .utils import parse_aflags
 from .pybind11_injections import inject_methods
 
 from . import tests
+from . import timing

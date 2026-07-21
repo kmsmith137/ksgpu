@@ -1,3 +1,6 @@
+// ksgpu::test_device_transpose_kernels(): invoked from the command line as 'ksgpu test --dtk'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include "../include/ksgpu/device_fp16.hpp"
 #include "../include/ksgpu/device_transposes.hpp"
 
@@ -5,13 +8,14 @@
 #include <iostream>
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 using namespace std;
 using namespace ksgpu;
 
 
 // Operates on an array of shape __half[n][32][2];
-__global__ void single_warp_half2_kernel(__half *p, int n, uint thread_stride)
+static __global__ void single_warp_half2_kernel(__half *p, int n, uint thread_stride)
 {
     int i = (blockIdx.x * blockDim.x) + threadIdx.x;
     __half2 *p2 = reinterpret_cast<__half2 *> (p);
@@ -22,7 +26,7 @@ __global__ void single_warp_half2_kernel(__half *p, int n, uint thread_stride)
 
 
 // Operates on an array of shape __half[n][32][2];
-__global__ void double_warp_half2_kernel(__half *p, int n, uint thread_stride)
+static __global__ void double_warp_half2_kernel(__half *p, int n, uint thread_stride)
 {
     int i = (blockIdx.x * blockDim.x) + threadIdx.x;
     i = ((i >> 5) << 6) + (i & 0x1f);
@@ -72,13 +76,10 @@ static void test_warp_half2_kernels(int n, uint thread_stride)
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::test_device_transpose_kernels()
 {
-    ksgpu::seed_default_rng(137);   // reproducible run; remove for full randomness
-
     for (int thread_stride = 1; thread_stride < 32; thread_stride *= 2)
         test_warp_half2_kernels(1024, thread_stride);
 
     cout << "TODO: test kernels other than warp_half2" << endl;
-    return 0;
 }

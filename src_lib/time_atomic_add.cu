@@ -1,3 +1,6 @@
+// ksgpu::time_atomic_add(): invoked from the command line as 'ksgpu time --atom'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include <iostream>
 #include <curand.h>
 #include <curand_kernel.h>
@@ -5,6 +8,7 @@
 #include "../include/ksgpu/Array.hpp"
 #include "../include/ksgpu/KernelTimer.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 #include "../include/ksgpu/mem_utils.hpp"
 
 using namespace std;
@@ -34,7 +38,7 @@ struct CurandStateArray
 };
 
 
-__global__ void curand_init_kernel(curand_state_t *sp, ulong seed, long nelts)
+static __global__ void curand_init_kernel(curand_state_t *sp, ulong seed, long nelts)
 {
     ulong t = ulong(blockIdx.x) * ulong(blockDim.x) + threadIdx.x;
     
@@ -63,7 +67,7 @@ CurandStateArray::CurandStateArray(long nelts_, ulong seed)
 // -------------------------------------------------------------------------------------------------
 
 
-__global__ void time_curand_kernel(uint *out, curand_state_t *state, int iterations_per_thread)
+static __global__ void time_curand_kernel(uint *out, curand_state_t *state, int iterations_per_thread)
 {
     int t = blockIdx.x * blockDim.x + threadIdx.x;
     curand_state_t st = state[t];
@@ -120,7 +124,7 @@ static void time_curand()
 
 
 template<typename T>
-__global__ void global_atomic_add_kernel(T *p, curand_state_t *state, int iterations_per_thread, uint nelts, bool sep_flag)
+static __global__ void global_atomic_add_kernel(T *p, curand_state_t *state, int iterations_per_thread, uint nelts, bool sep_flag)
 {
     static constexpr uint ALL_LANES = 0xffffffffU;
     static constexpr T one = 1;
@@ -210,9 +214,8 @@ static void time_global_atomic_add()
 // -------------------------------------------------------------------------------------------------
 
 
-int main(int argc, char **argv)
+void ksgpu::time_atomic_add()
 {
     time_curand();
     time_global_atomic_add();
-    return 0;
 }

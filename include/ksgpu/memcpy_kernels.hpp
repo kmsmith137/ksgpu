@@ -35,7 +35,7 @@ extern void launch_memcpy_2d_kernel(
 // Note: both memcpy kernels use 4-warp threadblocks with no shared memory and few registers.
 // This should ensure that the memcpy kernels can run in parallel with other kernels.
 //
-// Timings (bin/time-memcpy-kernels.cu) show that both memcpy kernels have good performance
+// Timings ('python -m ksgpu time --mcpy') show that both memcpy kernels have good performance
 // (500-600 GB/s on an A40) in a variety of situations, including very "lopsided" 2-d memcopies.
 // This could probably be improved further using 128-bit load/store instructions.
 

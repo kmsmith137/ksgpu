@@ -12,8 +12,12 @@ include/ksgpu/*.hpp                 - Public C++ headers
 src_lib/*.cpp                       - Pure C++ implementations
 src_lib/*.cu                        - CUDA implementations (kernels)
 src_pybind11/*.cpp                  - Pybind11 bindings
-src_bin/*.cu                        - Standalone binaries (built into bin/)
 ksgpu/*.py                          - High-level python interface
-bin/                                - Compiled executables
+ksgpu/__main__.py                   - Command-line driver ('python -m ksgpu <command>')
 lib/libksgpu.so                     - Shared library
 ```
+
+There are no standalone binaries: tests, timings, and utilities are C++
+functions in src_lib/ (declared in include/ksgpu/command_line_interface.hpp), which
+are python-bound and dispatched by the command-line driver, e.g.
+`python -m ksgpu test --arr` or `python -m ksgpu time --mcpy`.

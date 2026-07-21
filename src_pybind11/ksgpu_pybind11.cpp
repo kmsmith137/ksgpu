@@ -5,6 +5,7 @@
 
 #include "../include/ksgpu/pybind11.hpp"
 #include "../include/ksgpu/cuda_utils.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 #include "../include/ksgpu/mem_utils.hpp"
 #include "../include/ksgpu/test_utils.hpp"
 #include <pybind11/stl.h>
@@ -544,7 +545,84 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
     m.def("_launch_busy_wait_kernel", &_launch_busy_wait_kernel,
           py::arg("arr"), py::arg("a40_sec"), py::arg("stream_ptr"),
           py::call_guard<py::gil_scoped_release>());   // async launch; can block if launch queue full
-    
+
+    // -------------------  Entry points for the 'ksgpu' command-line driver  --------------------
+    //
+    // Declared in include/ksgpu/command_line_interface.hpp; each is implemented in the correspondingly-
+    // named src_lib/*.cu file, and dispatched from ksgpu/__main__.py. All are long-running
+    // pure-C++ bodies, so they release the GIL (see notes/pybind11.md).
+    //
+    // The test_* functions are re-exported in ksgpu/tests.py, and the time_* functions in
+    // ksgpu/timing.py; the remaining functions are called via ksgpu.ksgpu_pybind11 (from
+    // ksgpu/__main__.py only).
+
+    m.def("test_array", &test_array,
+          "Unit test for the Array<T> class (strides, reshape, fill, convert); host arrays only",
+          py::arg("niter") = 1000, py::arg("noisy") = false,
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("test_device_transpose_kernels", &test_device_transpose_kernels,
+          "Unit test for the warp_and_half2_transpose() device function",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("test_memcpy_kernels", &test_memcpy_kernels,
+          "Unit test for launch_memcpy_kernel() and launch_memcpy_2d_kernel()",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("test_sparse_mma", &test_sparse_mma,
+          "Unit test for the mma.sp.* (sparse tensor core) PTX wrapper mma_sp_f16_m16_n8_k16()",
+          py::arg("niter") = 100,
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("time_atomic_add", &time_atomic_add,
+          "Times curand state generation and global-memory atomicAdd()",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("time_fma", &time_fma,
+          "Times fp32/fp16 fused multiply-adds",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("time_global_memory", &time_global_memory,
+          "Times global memory bandwidth (32/64/128 bits per thread)",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("time_l2_cache", &time_l2_cache,
+          "Times L2 cache bandwidth",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("time_local_transpose", &time_local_transpose,
+          "Times 16-bit local (register) transposes",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("time_memcpy_kernels", &time_memcpy_kernels,
+          "Times launch_memcpy_kernel() and launch_memcpy_2d_kernel()",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("time_shared_memory", &time_shared_memory,
+          "Times shared memory bandwidth (int/int2/int4, read/write)",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("time_tensor_cores", &time_tensor_cores,
+          "Times mma.* (tensor core) instructions at various occupancies",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("time_warp_shuffle", &time_warp_shuffle,
+          "Times warp shuffles and warp reductions",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("show_devices", &show_devices,
+          "Prints properties of all cuda devices (name, compute capability, clocks, memory, bandwidth)",
+          py::call_guard<py::gil_scoped_release>());
+
+    m.def("reverse_engineer_mma", &reverse_engineer_mma,
+          "Prints register <-> matrix-element mappings for mma.* PTX instructions (developer tool)",
+          py::call_guard<py::gil_scoped_release>());
+
+    // Called by 'python -m ksgpu scratch'. Defined in src_lib/scratch.cu.
+    m.def("scratch", &scratch,
+          py::call_guard<py::gil_scoped_release>());
+
+
     // --------------------------  CudaStreamWrapper bindings  ---------------------------------
     //
     // See comments above _StreamHolderBase for detailed explanation of the design.

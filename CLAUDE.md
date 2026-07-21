@@ -41,3 +41,8 @@
 
   - Don't add memories to MEMORY.md. Instead, if there is something non-obvious about the code that we should
     remember in the future, add comments to the code (or edit documentation / docstrings) as appropriate.
+
+  - I don't use unittest/pytest. All unit tests are dispatched from ksgpu/__main__.py and must be
+    runnable as python -m ksgpu test [--flag]. When adding a new test, wire it into the test
+    subcommand. Selector flags should generally cover a small group of related tests (one flag per
+    coarse area, not one per leaf function) -- match the existing pattern in parse_test().

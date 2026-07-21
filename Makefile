@@ -16,12 +16,11 @@ MAKEFLAGS += --no-builtin-rules
 MAKEFLAGS += --no-builtin-variables
 
 # Default target 'all' must be first target in Makefile.
-# The 'bin' target builds a bunch of binaries in bin/...
 # The 'lib' target builds the C++ library lib/libksgpu.so, and the python extension ksgpu/ksgpu_pybind11...so.
 # The 'build_wheel' and 'build_sdist' targets are invoked by 'pip' (or 'make all').
-all: bin lib build_wheel build_sdist
+all: lib build_wheel build_sdist
 
-.PHONY: all bin lib build_wheel build_sdist clean
+.PHONY: all lib build_wheel build_sdist clean
 
 
 ####################################################################################################
@@ -100,7 +99,23 @@ KSGPU_PYEXT = ksgpu/ksgpu_pybind11$(PYEXT_SUFFIX)
 # and some are .cu (require nvcc's CUDA frontend for device code).
 LIB_CU_SRCFILES := \
   src_lib/memcpy_kernels.cu \
-  src_lib/test_utils.cu
+  src_lib/reverse_engineer_mma.cu \
+  src_lib/scratch.cu \
+  src_lib/show_devices.cu \
+  src_lib/test_array.cu \
+  src_lib/test_device_transpose_kernels.cu \
+  src_lib/test_memcpy_kernels.cu \
+  src_lib/test_sparse_mma.cu \
+  src_lib/test_utils.cu \
+  src_lib/time_atomic_add.cu \
+  src_lib/time_fma.cu \
+  src_lib/time_global_memory.cu \
+  src_lib/time_l2_cache.cu \
+  src_lib/time_local_transpose.cu \
+  src_lib/time_memcpy_kernels.cu \
+  src_lib/time_shared_memory.cu \
+  src_lib/time_tensor_cores.cu \
+  src_lib/time_warp_shuffle.cu
 
 LIB_CPP_SRCFILES := \
   src_lib/Array.cpp \
@@ -121,33 +136,18 @@ PYEXT_CPP_SRCFILES := \
 
 PYEXT_SRCFILES := $(PYEXT_CPP_SRCFILES)
 
-# These are in 1-1 corresponding with executables in bin/
-# For example, 'src_bin/time-atomic-add.cu' gets compiled to 'bin/time-atomic-add'.
-BIN_SRCFILES := \
-  src_bin/time-atomic-add.cu \
-  src_bin/time-fma.cu \
-  src_bin/time-global-memory.cu \
-  src_bin/time-l2-cache.cu \
-  src_bin/time-local-transpose.cu \
-  src_bin/time-memcpy-kernels.cu \
-  src_bin/time-shared-memory.cu \
-  src_bin/time-tensor-cores.cu \
-  src_bin/time-warp-shuffle.cu \
-  src_bin/scratch.cu \
-  src_bin/reverse-engineer-mma.cu \
-  src_bin/test-array.cu \
-  src_bin/test-device-transpose-kernels.cu \
-  src_bin/test-memcpy-kernels.cu \
-  src_bin/test-sparse-mma.cu \
-  src_bin/show-devices.cu
-
 # Must list all python source files here.
 # (Otherwise they won't show up in 'pip install' or pypi.)
 PYFILES := \
   ksgpu/__init__.py \
+  ksgpu/__main__.py \
   ksgpu/CudaStreamWrapper.py \
   ksgpu/pybind11_injections.py \
+  ksgpu/test_array_conversion.py \
+  ksgpu/test_dtype.py \
+  ksgpu/test_stream_conversion.py \
   ksgpu/tests.py \
+  ksgpu/timing.py \
   ksgpu/utils.py
 
 # Must list all header files here.
@@ -163,6 +163,7 @@ HFILES := \
   include/ksgpu/device_fp16.hpp \
   include/ksgpu/device_mma.hpp \
   include/ksgpu/device_transposes.hpp \
+  include/ksgpu/command_line_interface.hpp \
   include/ksgpu/mem_utils.hpp \
   include/ksgpu/memcpy_kernels.hpp \
   include/ksgpu/rand_utils.hpp \
@@ -175,14 +176,14 @@ HFILES := \
   include/ksgpu/pybind11_utils.hpp
 
 # 'make clean' deletes {*~, *.o, *.d, *.so, *.pyc} from these dirs.
-CLEAN_DIRS := . include include/ksgpu lib src_bin src_lib src_pybind11 ksgpu ksgpu/__pycache__
+CLEAN_DIRS := . include include/ksgpu lib src_lib src_pybind11 ksgpu ksgpu/__pycache__
 
 # Extra files to be deleted by 'make clean'.
 # Note that 'ksgpu/include' and 'ksgpu/lib' are symlinks, so we put them in CLEAN_FILES, not CLEAN_RMDIRS
 CLEAN_FILES := sdist_files.txt wheel_files.txt makefile_helper.out ksgpu/include ksgpu/lib
 
 # Directories that should be empty at the end of 'make clean', and can be deleted.
-CLEAN_RMDIRS := bin lib ksgpu/__pycache__
+CLEAN_RMDIRS := lib ksgpu/__pycache__
 
 
 ####################################################################################################
@@ -190,12 +191,11 @@ CLEAN_RMDIRS := bin lib ksgpu/__pycache__
 
 LIB_OFILES := $(LIB_CU_SRCFILES:%.cu=%.o) $(LIB_CPP_SRCFILES:%.cpp=%.o)
 PYEXT_OFILES := $(PYEXT_CPP_SRCFILES:%.cpp=%.o)
-BIN_XFILES := $(BIN_SRCFILES:src_bin/%.cu=bin/%)
 
 # Must include all .d files, or build will break!
-ALL_SRCFILES := $(LIB_SRCFILES) $(PYEXT_SRCFILES) $(BIN_SRCFILES)
+ALL_SRCFILES := $(LIB_SRCFILES) $(PYEXT_SRCFILES)
 DEPFILES := $(LIB_CU_SRCFILES:%.cu=%.d) $(LIB_CPP_SRCFILES:%.cpp=%.d)
-DEPFILES += $(PYEXT_CPP_SRCFILES:%.cpp=%.d) $(BIN_SRCFILES:%.cu=%.d)
+DEPFILES += $(PYEXT_CPP_SRCFILES:%.cpp=%.d)
 
 SDIST_FILES := pyproject.toml Makefile makefile_helper.py
 SDIST_FILES += $(PYFILES) $(ALL_SRCFILES) $(HFILES)
@@ -209,7 +209,6 @@ WHEEL_FILES += $(HFILES:%=ksgpu/%)
 
 # Phony targets. The special targets 'build_wheel' and 'build_sdist' are needed by pip/pipmake.
 lib: $(KSGPU_LIB) $(KSGPU_PYEXT)
-bin: $(BIN_XFILES)
 build_wheel: wheel_files.txt $(KSGPU_LIB) $(KSGPU_PYEXT)
 build_sdist: sdist_files.txt
 
@@ -219,7 +218,7 @@ ksgpu/include:
 ksgpu/lib:
 	ln -s ../lib $@
 
-# Build object files in src_lib/ or src_bin/ from .cu files
+# Build object files in src_lib/ from .cu files
 %.o: %.cu %.d
 	$(NVCC) $(NVCCFLAGS) $(NVCC_ARCH) $(NVCC_DEPFLAGS) -c -o $@ $<
 
@@ -236,11 +235,6 @@ src_pybind11/%.o: src_pybind11/%.cpp src_pybind11/%.d
 $(KSGPU_LIB): $(LIB_OFILES)
 	@mkdir -p lib
 	$(NVCC) $(NVCCFLAGS) $(NVCC_ARCH) -shared -o $@ $^ $(CONDA_LIBFLAGS) $(CONDA_RPATHFLAGS)
-
-# Build binaries (bin/*)
-bin/%: src_bin/%.o $(KSGPU_LIB)
-	@mkdir -p bin/
-	$(NVCC) $(NVCCFLAGS) $(NVCC_ARCH) -o $@ $^
 
 # Build the python extension (ksgpu/ksgpu_pybind11...so)
 # We want it to automatically pull in the C++ library ksgpu/lib/libksgpu.so.
@@ -269,7 +263,7 @@ sdist_files.txt: Makefile
 
 clean:
 	@for f in $(foreach d,$(CLEAN_DIRS),$(wildcard $d/*~ $d/*.o $d/*.d $d/*.so $d/*.pyc)); do echo rm $$f; rm $$f; done
-	@for f in $(wildcard $(CLEAN_FILES) $(BIN_XFILES)); do echo rm $$f; rm $$f; done
+	@for f in $(wildcard $(CLEAN_FILES)); do echo rm $$f; rm $$f; done
 	@for d in $(wildcard $(CLEAN_RMDIRS)); do echo rmdir $$d; rmdir $$d; done
 
 # Specifying .SECONDARY with no prerequisites disables auto-deletion of intermediate files.

@@ -1,7 +1,11 @@
+// ksgpu::test_array(): invoked from the command line as 'ksgpu test --arr'.
+// This code was refactored from its previous home in src_bin/, and may need cleanup.
+
 #include <iostream>
 #include <algorithm>
 
 #include "../include/ksgpu.hpp"
+#include "../include/ksgpu/command_line_interface.hpp"
 
 using namespace std;
 using namespace ksgpu;
@@ -479,7 +483,7 @@ struct DstSrcPair
 };
 
 
-void test_convert(DstSrcPair &ds)
+static void test_convert(DstSrcPair &ds)
 {
     Array<void> &dst = ds.dst;
     Array<void> &src = ds.src;
@@ -499,7 +503,7 @@ void test_convert(DstSrcPair &ds)
 }
 
 
-void test_convert(bool noisy)
+static void test_convert(bool noisy)
 {
     DstSrcPair ds = DstSrcPair::make_random(noisy);
     test_convert(ds);
@@ -527,22 +531,16 @@ static void run_all_tests(bool noisy)
 }
 
 
-int main(int argc, char **argv)
+void ksgpu::test_array(long niter, bool noisy)
 {
-    ksgpu::seed_default_rng(137);   // reproducible run; remove for full randomness
-
-    bool noisy = false;
-    int niter = 1000;
-
-    for (int i = 0; i < niter; i++) {
+    for (long i = 0; i < niter; i++) {
         if (i % 100 == 0)
-            cout << "test-array: iteration " << i << "/" << niter << endl;
+            cout << "test_array: iteration " << i << "/" << niter << endl;
 
         run_all_tests<float> (noisy);
         run_all_tests<char> (noisy);
         test_convert(noisy);
     }
 
-    cout << "test-array passed!" << endl;
-    return 0;
+    cout << "test_array passed!" << endl;
 }
