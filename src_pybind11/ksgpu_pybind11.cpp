@@ -423,6 +423,20 @@ PYBIND11_MODULE(ksgpu_pybind11, m)  // extension module gets compiled to ksgpu_p
           "Useful for forcing reproducible random sequences in tests.",
           py::arg("seed"));
 
+    m.def("random_integers_with_bounded_product",
+          [](int n, long bound) { return random_integers_with_bounded_product(n, bound); },
+          py::arg("n"), py::arg("bound"),
+          "Returns a list of 'n' random integers, each >= 1, whose product is <= 'bound'.\n"
+          "Spread log-uniformly, so no one factor systematically dominates.\n\n"
+          "For randomly-sized arrays in a unit test: pick a 'bound' that is a proxy for what\n"
+          "one iteration may cost (total elements, say), and use the returned integers as the\n"
+          "shape. Every shape the test can draw is then within budget BY CONSTRUCTION, rather\n"
+          "than being clamped or redrawn after the fact.\n\n"
+          "DRAWS FROM THE CALLING THREAD'S ksgpu::default_rng(), which is what\n"
+          "seed_default_rng() sets -- NOT from a numpy Generator. So a test that mixes this\n"
+          "with numpy draws replays as a whole process (both streams being seeded together),\n"
+          "but not from its numpy Generator alone.");
+
     // -----------------------------------  aflags and aflag_str  -----------------------------------
     
     // Location flags

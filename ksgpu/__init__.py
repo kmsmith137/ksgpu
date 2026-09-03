@@ -35,6 +35,7 @@ from .ksgpu_pybind11 import \
     set_cuda_device, \
     get_cuda_pcie_bus_id, \
     seed_default_rng, \
+    random_integers_with_bounded_product, \
     af_gpu, \
     af_uhost, \
     af_rhost, \
