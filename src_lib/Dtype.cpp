@@ -1,5 +1,6 @@
 #include "../include/ksgpu/Dtype.hpp"
 #include <sstream>
+#include <limits>
 
 using namespace std;
 
@@ -101,6 +102,26 @@ double Dtype::precision() const
 
     stringstream ss;
     ss << "Dtype::precision(): invalid dtype: " << (*this);
+    throw runtime_error(ss.str());
+}
+
+
+double Dtype::epsilon() const
+{
+    ushort f = (flags & ~df_complex);
+    int c = (flags & df_complex) ? 2 : 1;
+
+    if (f == df_float) {
+        if (nbits == 64*c) return std::numeric_limits<double>::epsilon();
+        if (nbits == 32*c) return std::numeric_limits<float>::epsilon();
+        if (nbits == 16*c) return 0x1.0p-10;   // __half: 10 explicit mantissa bits
+    }
+
+    else if ((f == df_int) || (f == df_uint))
+        return 0;
+
+    stringstream ss;
+    ss << "Dtype::epsilon(): invalid dtype: " << (*this);
     throw runtime_error(ss.str());
 }
 

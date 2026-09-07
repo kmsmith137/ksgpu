@@ -68,9 +68,17 @@ struct Dtype
     
     std::string str() const;
 
-    // (float64, float32, float16) -> (1.0e-15, 1.0e-6, 1.0e-3).
-    // (all integer types) -> 0
+    // DEPRECATED: some ad hoc numerical tolerances that I introduced without much thought.
+    // FIXME: audit all callers of Dtype::precision(), and replace with Dtype::epsilon().
+    // (Nontrivial, each caller needs a little thought.)
+    //   (float64, float32, float16) -> (1.0e-15, 1.0e-6, 1.0e-3).
+    //   (all integer types) -> 0
     double precision() const;
+
+    // True machine precision, matching std::numeric_limits<T>::epsilon() and np.finfo(dtype).eps.
+    //    (float64, float32, float16) -> (2^-52, 2^-23, 2^-10).
+    //    (all integer types) -> 0
+    double epsilon() const;
 
     Dtype real() const;     // makes real type from complex type (no-ops if type is already real)
     Dtype complex() const;  // makes complex type from real type (no-ops if type is already complex)
